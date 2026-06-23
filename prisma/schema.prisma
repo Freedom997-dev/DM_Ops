@@ -1,0 +1,116 @@
+// Divya Motel - Room Condition Program
+// Local dev: SQLite. To deploy online, change provider to "postgresql"
+// and point DATABASE_URL at your hosted Postgres database.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Users & access control
+// ---------------------------------------------------------------------------
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         String   @default("INSPECTOR") // ADMIN | INSPECTOR
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  inspections Inspection[]
+  auditLogs   AuditLog[]
+}
+
+// ---------------------------------------------------------------------------
+// Rooms
+// ---------------------------------------------------------------------------
+model Room {
+  id        String   @id @default(cuid())
+  number    String   @unique
+  name      String? // e.g. "Queen Suite"
+  floor     String?
+  notes     String?
+  archived  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  inspections Inspection[]
+}
+
+// ---------------------------------------------------------------------------
+// Checklist definition (editable by admins)
+// ---------------------------------------------------------------------------
+model Section {
+  id       String  @id @default(cuid())
+  name     String
+  order    Int     @default(0)
+  archived Boolean @default(false)
+
+  questions Question[]
+}
+
+model Question {
+  id        String   @id @default(cuid())
+  sectionId String
+  section   Section  @relation(fields: [sectionId], references: [id])
+  text      String
+  order     Int      @default(0)
+  archived  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  responses InspectionItem[]
+}
+
+// ---------------------------------------------------------------------------
+// Inspections (immutable history) + per-question responses
+// ---------------------------------------------------------------------------
+model Inspection {
+  id          String    @id @default(cuid())
+  roomId      String
+  room        Room      @relation(fields: [roomId], references: [id])
+  inspectorId String
+  inspector   User      @relation(fields: [inspectorId], references: [id])
+  status      String    @default("IN_PROGRESS") // IN_PROGRESS | COMPLETED
+  summary     String    @default("OK") // OK | NEEDS_REPAIR (derived at completion)
+  notes       String?
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  items InspectionItem[]
+}
+
+model InspectionItem {
+  id           String     @id @default(cuid())
+  inspectionId String
+  inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  questionId   String
+  question     Question   @relation(fields: [questionId], references: [id])
+
+  // Snapshot of the question at inspection time so history stays accurate
+  // even if the question is later edited or archived.
+  questionText String
+  sectionName  String
+
+  status String  @default("NA") // OK | NEEDS_REPAIR | REPAIR_COMPLETED | NA
+  note   String?
+}
+
+// ---------------------------------------------------------------------------
+// Audit log - records every modification (rooms, questions, users, etc.)
+// ---------------------------------------------------------------------------
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  action    String // CREATE | UPDATE | ARCHIVE | RESTORE | LOGIN
+  entity    String // Room | Question | Section | User | Inspection
+  entityId  String?
+  details   String? // JSON string with context / before-after
+  createdAt DateTime @default(now())
+}
