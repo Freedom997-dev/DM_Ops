@@ -19,3 +19,6 @@ prisma/dev.db-journal
 .DS_Store
 .vscode
 next-env.d.ts
+
+# brainstorming companion (local mockups only)
+.superpowers/
