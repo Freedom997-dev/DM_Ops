@@ -19,10 +19,12 @@ Photos are the trigger for switching from Neon to Supabase. Both run identical P
 | Decision | Choice | Rationale |
 |---|---|---|
 | Where photos attach | Per checklist item | Tied to the specific issue, not the whole inspection |
-| Max photos per item | 25 | Generous cap, enforced client-side and server-side |
+| Max photos per item | No cap | Trust the inspector; remaining safety nets are per-file size cap (10 MB) and Supabase storage quota monitoring |
 | Bucket visibility | Private | Photos may capture guest belongings |
 | URL strategy | Signed URLs, 1 hour validity | Browser never sees the service-role key; URLs expire |
 | Photo requirement | Always optional | Lowest friction; no enforcement on any status |
+| Delete photo (before save) | Anyone (inspector) | Just remove from client state — never uploaded |
+| Delete photo (after save) | Admin only | Preserves audit integrity. Logged in AuditLog |
 | Upload timing | Upload-then-save (single server action) | Avoids orphan files; saves are infrequent enough that the wait is acceptable |
 | Image variants | None at upload; Supabase transforms for thumbnails on demand | Saves storage cost; offloads thumbnailing to Supabase |
 | EXIF stripping | Out of scope (initial release) | Low risk for fixture photos; revisit if guest faces ever appear |
@@ -34,7 +36,9 @@ Photos are the trigger for switching from Neon to Supabase. Both run identical P
 - Per-item camera/upload UI in `InspectForm`
 - Thumbnail + lightbox rendering in `InspectionHistory`
 - Server-side upload handler in the `saveInspection` server action
+- New `deletePhoto` server action — admin-only, deletes a single photo + storage object (used from the lightbox)
 - New `deleteInspection` server action that cleans Storage before DB delete
+- Extend `AuditLog` typed unions to include `DELETE` action and `InspectionItemImage` entity
 - Storage layer wrapper (`src/lib/storage.ts`)
 - Supabase migration: data move + env var changes + bucket creation
 - New Vercel env vars: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`
@@ -97,7 +101,7 @@ The path embeds both the inspection ID and item ID. This means:
 - A targeted prefix scan returns every photo for a single item (useful for diagnostic admin tools)
 - Orphan cleanup (if ever needed) can target a specific inspection or item
 
-Per-item cap enforcement does **not** rely on Storage scans. The 25-photo cap is enforced (a) client-side at file-select time and (b) server-side by counting the in-memory FormData entries for that question key. Since inspections are created in a single atomic save, no concurrency case exists where two clients race to exceed the cap on the same item.
+There is no per-item photo count cap. The protective limits are the per-file 10 MB ceiling (enforced client and server) and overall storage quota monitoring at the Supabase dashboard. If accidental bulk uploads become a problem in practice, a soft cap can be added later as a single conditional in `PhotoPicker` and `saveInspection` without schema changes.
 
 ## 6. Upload flow
 
@@ -116,9 +120,10 @@ Each checklist question row gains a photo affordance:
 - Inline thumbnails rendered from `URL.createObjectURL(file)`.
 - `×` button on each thumbnail removes before save.
 - Client-side validation per select:
-  - Max 25 per item (block further selects)
   - Max 10 MB per file (reject with toast)
   - MIME starts with `image/` (reject with toast)
+  - No per-item count limit
+  - Soft warning toast at 20 photos on a single item ("That's a lot — are you sure?") — non-blocking, just nudges against accidental bulk selects
 
 ### 6.2 Save action (server)
 
@@ -142,7 +147,7 @@ Server algorithm — **uploads happen before the DB transaction**, never inside 
 6. **Group FormData files by question ID.** Validate each:
    - MIME starts with `image/`
    - Size ≤ 10 MB
-   - Per-item count ≤ 25
+   - No per-item count check (intentionally unbounded)
 7. **Upload to Storage, sequentially within an inspection, parallel across items if simple:**
    - `storagePath` = `inspections/<inspId>/<itemId>/<crypto.randomUUID()>.<ext>`
    - Optionally read width/height (best-effort — skip if unavailable)
@@ -212,11 +217,32 @@ Thumbnails use Supabase's transform parameter for downscaling (e.g. `?width=120&
 - Single image at natural size, fit-to-viewport
 - Left/right arrows to navigate between images in the same inspection
 - ESC + outer click to close
-- No external library — ~50 lines of React + Tailwind
+- **If signed-in user is admin:** trash-can icon in the corner. Tap → confirm dialog ("Delete this photo? Cannot be undone.") → calls `deletePhoto(imageId)` server action → on success, the image is removed from the strip and the lightbox advances to the next photo (or closes if it was the last).
+- No external library — ~70 lines of React + Tailwind
 
-## 8. Deletion flow
+## 8. Deletion flows
 
-A new server action handles inspection deletion explicitly:
+Two server actions, two different access patterns.
+
+### 8.1 Delete a single photo
+
+```ts
+export async function deletePhoto(imageId: string)
+```
+
+Algorithm:
+1. `requireAdmin()` — only admins can delete photos after save.
+2. Load the image row (need `storagePath` and `inspectionItem.inspection.roomId` for revalidation).
+3. Call `supabase.storage.from('inspection-photos').remove([storagePath])`.
+4. If Storage call errors, log and continue. Storage orphan is recoverable; broken UI from a failed DB delete is worse.
+5. `prisma.inspectionItemImage.delete({ where: { id: imageId } })`.
+6. `logAudit({ action: "DELETE", entity: "InspectionItemImage", entityId: imageId, details: { storagePath, inspectionItemId } })`.
+7. `revalidatePath('/rooms/<roomId>')`.
+8. Return `{ ok: true }` or `{ ok: false, error }`.
+
+Wired to the lightbox trash icon (see §7.3).
+
+### 8.2 Delete a whole inspection
 
 ```ts
 export async function deleteInspection(inspectionId: string)
@@ -226,12 +252,21 @@ Algorithm:
 1. `requireAdmin()` — only admins can delete inspections.
 2. Load all `storagePath` values for the inspection (one query joining through items → images).
 3. Call `supabase.storage.from('inspection-photos').remove(paths)`.
-4. If Storage call errors, log and continue. Storage orphans are recoverable; broken UI from a failed DB delete is worse.
+4. If Storage call errors, log and continue.
 5. `prisma.inspection.delete({ where: { id: inspectionId } })` — DB cascade handles items + image rows.
-6. `logAudit({ action: "DELETE", entity: "Inspection", ... })`.
+6. `logAudit({ action: "DELETE", entity: "Inspection", entityId: inspectionId, details: { roomNumber, photosDeleted: paths.length } })`.
 7. `revalidatePath` for affected views.
 
-**Note:** Current code has no inspection delete UI. This action is added but not exposed in this iteration. It exists so storage cleanup is correct *if and when* a delete UI is added.
+**Note:** Current code has no inspection delete UI. This action is added but not exposed in this iteration. It exists so storage cleanup is correct *if and when* a delete UI is added later.
+
+### 8.3 AuditLog union extension
+
+`src/lib/audit.ts` currently types `action` as `"CREATE" | "UPDATE" | "ARCHIVE" | "RESTORE" | "LOGIN"` and `entity` as `"Room" | "Question" | "Section" | "User" | "Inspection"`. Both unions are extended:
+
+- Add `"DELETE"` to the action union
+- Add `"InspectionItemImage"` to the entity union
+
+No Prisma schema change required — the underlying columns are `String`. Only the TypeScript types tighten.
 
 ## 9. Migration (Neon → Supabase)
 
@@ -269,22 +304,23 @@ The service-role key is **server-only**. It must never be inlined into client bu
 
 ### New
 - `src/lib/storage.ts` — Supabase Storage wrapper. Exports `uploadImage`, `getSignedUrl`, `deleteImages`.
-- `src/components/PhotoPicker.tsx` — per-item client component (file input, thumbnails, remove, cap enforcement).
-- `src/components/PhotoLightbox.tsx` — modal viewer.
-- `src/lib/actions/deleteInspection.ts` — new server action (defined but not yet wired to UI).
+- `src/components/PhotoPicker.tsx` — per-item client component (file input, thumbnails, remove pending, soft warning toast).
+- `src/components/PhotoLightbox.tsx` — modal viewer with admin-only delete affordance.
+- `src/lib/actions/photos.ts` — new server actions: `deletePhoto(imageId)` and `deleteInspection(inspectionId)`.
 
 ### Modified
 - `prisma/schema.prisma` — `InspectionItemImage` model + relation.
 - `src/lib/actions/inspections.ts` — accept FormData, upload + transaction, rollback on failure.
+- `src/lib/audit.ts` — extend action union with `"DELETE"`; entity union with `"InspectionItemImage"`.
 - `src/components/InspectForm.tsx` — embed `<PhotoPicker>` per item.
-- `src/components/InspectionHistory.tsx` — render thumb strip + lightbox.
-- `src/app/(app)/rooms/[id]/page.tsx` — extend Prisma query with `images`, generate signed URLs server-side.
-- `package.json` — add `@supabase/supabase-js`.
+- `src/components/InspectionHistory.tsx` — render thumb strip + lightbox; pass `isAdmin` to lightbox.
+- `src/app/(app)/rooms/[id]/page.tsx` — extend Prisma query with `images`, generate signed URLs server-side, pass `isAdmin` to history component.
+- `package.json` — add `@supabase/supabase-js` and `cuid` (or `@paralleldrive/cuid2`).
 - `DEPLOYMENT.md` — document new env vars (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`) and the Supabase bucket setup step.
 
 ### Untouched
 - `middleware.ts`
-- `src/lib/auth.ts`, `session.ts`, `audit.ts`
+- `src/lib/auth.ts`, `session.ts`
 - All admin pages (`/admin/users`, `/admin/questions`, `/admin/audit`)
 - `RoomsManager`, `UsersManager`, `ChecklistManager`
 
@@ -297,24 +333,32 @@ Test checklist:
 2. **Storage upload (happy):** Inspect a room, attach 3 photos to one item, save. Verify (a) inspection row created, (b) 3 image rows created, (c) 3 objects in Supabase Storage at the expected paths.
 3. **Storage upload (rollback):** Force a DB error (e.g., temporarily set `roomId` to an invalid value). Confirm uploaded files are deleted from Storage on failure.
 4. **Display:** Open the room detail page, expand the inspection, confirm thumbnails appear and load (signed URLs work). Tap a thumb, confirm lightbox.
-5. **Cap enforcement:** Try to select a 26th photo — client should refuse with a clear message.
+5. **Bulk-select sanity:** Select 25 photos in one tap. Client should accept all of them. At 20+ photos on a single item, a non-blocking soft-warning toast appears.
 6. **Large file:** Try an 11 MB photo — client should refuse.
 7. **Wrong MIME:** Try a PDF — client should refuse.
 8. **Mobile camera:** On a phone, tap the camera button — should open the rear camera directly.
 9. **URL expiry:** Leave a history page open for >1 hour. Reload. New URLs are signed; old in-memory URLs are dead. (Acceptable behavior; documenting it.)
 10. **Existing inspections:** Old inspections (no photos) still render correctly.
+11. **Delete photo (admin):** Sign in as admin, open lightbox on a photo, hit trash. Confirm dialog appears. After confirm: (a) DB row gone, (b) Storage object gone, (c) AuditLog entry written with action DELETE and entity InspectionItemImage.
+12. **Delete photo (non-admin):** Sign in as inspector. Open lightbox. Trash icon should not appear. Calling `deletePhoto` server action directly should reject with auth error.
 
 ## 13. Risks & open questions
 
 | Risk | Mitigation |
 |---|---|
-| Save action times out on slow phone networks during a 5+ photo upload | Vercel function timeout is 10s on hobby; consider sequential vs. parallel upload, accept 10s ceiling for now |
-| Supabase free-tier storage cap (1 GB) hit | Typical photo ~500 KB; cap = ~2000 photos. Monitor at Supabase dashboard. Pro tier ($25/mo) is 100 GB if needed |
+| Save action times out on slow phone networks during a very large multi-photo upload | Vercel function timeout is now **300 seconds on all plans** (changed in 2026; older docs said 10s). Effectively this stops being a real risk unless inspectors upload hundreds of photos at once on a slow connection |
+| Inspector accidentally bulk-selects entire camera roll | Soft warning toast at 20+ photos on one item. If this becomes a real recurring problem, promote the soft warning to a hard cap |
+| Supabase free-tier storage cap (1 GB) hit faster than expected because no per-item cap | Typical photo ~500 KB; 1 GB ≈ 2000 photos. Monitor weekly at Supabase dashboard. Pro tier ($25/mo) is 100 GB if needed |
 | Service-role key leaked into client bundle | Code review checklist + tsconfig path mapping; key only imported in server files |
 | Migration `pg_dump`/`psql` not available on user's machine | Provide a fallback using Supabase's UI import or `prisma db pull` |
 
 ## 14. Future work (explicitly deferred)
 
+### Already committed (next two features after photos ships)
+- **Per-room status timeline** ("blockchain-like" tamper-evident audit log). Append-only with SHA-256 hash chaining: each entry hashes the previous, so tampering with any historical row breaks verification. Renders as a vertical timeline on the room detail page. Will reuse the existing `AuditLog` table or add a new `RoomStatusLog` table — to be decided in its own brainstorm.
+- **Downloadable inspection report.** Per-room or per-inspection PDF (or CSV/Excel) including item statuses, notes, photos, inspector, timestamps. Library and format TBD in its own brainstorm.
+
+### Nice-to-have, lower priority
 - Per-photo notes
 - Bulk download of all photos for an inspection
 - EXIF stripping before upload
