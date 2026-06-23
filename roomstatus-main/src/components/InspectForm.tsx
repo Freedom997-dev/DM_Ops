@@ -3,9 +3,10 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import clsx from "clsx";
-import { Check, Loader2, MessageSquarePlus, Save } from "lucide-react";
+import { Loader2, MessageSquarePlus, Save } from "lucide-react";
 import { saveInspection } from "@/lib/actions/inspections";
 import { ITEM_STATUS_META, type ItemStatus } from "@/lib/status";
+import { PhotoPicker } from "@/components/PhotoPicker";
 
 type Question = { id: string; text: string };
 type Section = { id: string; name: string; questions: Question[] };
@@ -30,19 +31,24 @@ export function InspectForm({
     [sections],
   );
 
-  // Default every item to OK; inspector flips the exceptions.
   const [statuses, setStatuses] = useState<Record<string, ItemStatus>>(() =>
     Object.fromEntries(allQuestions.map((q) => [q.id, "OK" as ItemStatus])),
   );
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [openNote, setOpenNote] = useState<Record<string, boolean>>({});
   const [generalNotes, setGeneralNotes] = useState("");
+  const [photos, setPhotos] = useState<Record<string, File[]>>({});
 
   const counts = useMemo(() => {
     const c = { OK: 0, NEEDS_REPAIR: 0, REPAIR_COMPLETED: 0, NA: 0 } as Record<ItemStatus, number>;
     for (const q of allQuestions) c[statuses[q.id]]++;
     return c;
   }, [statuses, allQuestions]);
+
+  const totalPhotos = useMemo(
+    () => Object.values(photos).reduce((n, arr) => n + arr.length, 0),
+    [photos],
+  );
 
   function setStatus(id: string, status: ItemStatus) {
     setStatuses((prev) => ({ ...prev, [id]: status }));
@@ -51,16 +57,26 @@ export function InspectForm({
 
   function submit() {
     setError(null);
-    startTransition(async () => {
-      const res = await saveInspection({
-        roomId,
-        notes: generalNotes || null,
-        responses: allQuestions.map((q) => ({
-          questionId: q.id,
-          status: statuses[q.id],
-          note: notes[q.id] || null,
-        })),
+    const payload = {
+      roomId,
+      notes: generalNotes || null,
+      responses: allQuestions.map((q) => ({
+        questionId: q.id,
+        status: statuses[q.id],
+        note: notes[q.id] || null,
+      })),
+    };
+
+    const form = new FormData();
+    form.set("payload", JSON.stringify(payload));
+    for (const [questionId, files] of Object.entries(photos)) {
+      files.forEach((file, i) => {
+        form.append(`image-${questionId}-${i}`, file, file.name);
       });
+    }
+
+    startTransition(async () => {
+      const res = await saveInspection(form);
       if (!res.ok) {
         setError(res.error ?? "Could not save inspection.");
         return;
@@ -131,6 +147,14 @@ export function InspectForm({
                       Note
                     </button>
                   )}
+
+                  <PhotoPicker
+                    questionId={q.id}
+                    files={photos[q.id] ?? []}
+                    onChange={(files) =>
+                      setPhotos((p) => ({ ...p, [q.id]: files }))
+                    }
+                  />
                 </li>
               );
             })}
@@ -152,7 +176,6 @@ export function InspectForm({
         <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
       )}
 
-      {/* Sticky save bar */}
       <div className="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-medium">
@@ -168,10 +191,15 @@ export function InspectForm({
             <span className="hidden items-center gap-1 text-slate-500 sm:inline-flex">
               <span className="h-2 w-2 rounded-full bg-slate-300" /> {counts.NA} N/A
             </span>
+            {totalPhotos > 0 && (
+              <span className="inline-flex items-center gap-1 text-slate-600">
+                📷 {totalPhotos}
+              </span>
+            )}
           </div>
           <button onClick={submit} disabled={pending} className="btn-primary">
             {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            Save inspection
+            {pending ? "Saving…" : "Save inspection"}
           </button>
         </div>
       </div>
