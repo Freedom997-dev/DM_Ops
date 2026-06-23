@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, ClipboardCheck, MapPin, Pencil } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/session";
+import { getSignedUrl } from "@/lib/storage";
 import { RoomStatusBadge } from "@/components/StatusBadge";
 import { InspectionHistory } from "@/components/InspectionHistory";
 import { roomStatusFromSummary, type RoomStatus } from "@/lib/status";
@@ -24,7 +25,9 @@ export default async function RoomDetailPage({
         orderBy: [{ completedAt: "desc" }, { startedAt: "desc" }],
         include: {
           inspector: { select: { name: true } },
-          items: true,
+          items: {
+            include: { images: true },
+          },
         },
       },
     },
@@ -34,20 +37,32 @@ export default async function RoomDetailPage({
   const latest = room.inspections[0];
   const status = roomStatusFromSummary(latest?.summary) as RoomStatus;
 
-  const history = room.inspections.map((i) => ({
-    id: i.id,
-    summary: (i.summary === "NEEDS_REPAIR" ? "NEEDS_REPAIR" : "OK") as "OK" | "NEEDS_REPAIR",
-    notes: i.notes,
-    completedAt: i.completedAt ? i.completedAt.toISOString() : null,
-    inspector: i.inspector.name,
-    items: i.items.map((it) => ({
-      id: it.id,
-      sectionName: it.sectionName,
-      questionText: it.questionText,
-      status: it.status as "OK" | "NEEDS_REPAIR" | "REPAIR_COMPLETED" | "NA",
-      note: it.note,
+  const history = await Promise.all(
+    room.inspections.map(async (i) => ({
+      id: i.id,
+      summary: (i.summary === "NEEDS_REPAIR" ? "NEEDS_REPAIR" : "OK") as "OK" | "NEEDS_REPAIR",
+      notes: i.notes,
+      completedAt: i.completedAt ? i.completedAt.toISOString() : null,
+      inspector: i.inspector.name,
+      items: await Promise.all(
+        i.items.map(async (it) => ({
+          id: it.id,
+          sectionName: it.sectionName,
+          questionText: it.questionText,
+          status: it.status as "OK" | "NEEDS_REPAIR" | "REPAIR_COMPLETED" | "NA",
+          note: it.note,
+          images: await Promise.all(
+            it.images.map(async (img) => ({
+              id: img.id,
+              url: await getSignedUrl(img.storagePath, 3600),
+              width: img.width,
+              height: img.height,
+            })),
+          ),
+        })),
+      ),
     })),
-  }));
+  );
 
   return (
     <div className="space-y-6">
@@ -111,7 +126,7 @@ export default async function RoomDetailPage({
         <h2 className="mb-3 text-lg font-bold text-slate-900">
           Inspection history
         </h2>
-        <InspectionHistory inspections={history} />
+        <InspectionHistory inspections={history} isAdmin={isAdmin} />
       </div>
     </div>
   );
