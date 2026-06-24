@@ -9,6 +9,9 @@ npm-debug.log*
 .env
 .env*.local
 
+# MCP server config (contains PAT — never commit)
+.mcp.json
+
 # prisma / sqlite
 prisma/dev.db
 prisma/dev.db-journal
