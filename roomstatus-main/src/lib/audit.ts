@@ -2,8 +2,8 @@ import { prisma } from "@/lib/db";
 
 type AuditInput = {
   userId?: string | null;
-  action: "CREATE" | "UPDATE" | "ARCHIVE" | "RESTORE" | "LOGIN";
-  entity: "Room" | "Question" | "Section" | "User" | "Inspection";
+  action: "CREATE" | "UPDATE" | "DELETE" | "ARCHIVE" | "RESTORE" | "LOGIN";
+  entity: "Room" | "Question" | "Section" | "User" | "Inspection" | "InspectionItemImage";
   entityId?: string | null;
   details?: Record<string, unknown> | string | null;
 };

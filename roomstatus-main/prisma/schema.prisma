@@ -98,6 +98,22 @@ model InspectionItem {
 
   status String  @default("NA") // OK | NEEDS_REPAIR | REPAIR_COMPLETED | NA
   note   String?
+
+  images InspectionItemImage[]
+}
+
+model InspectionItemImage {
+  id               String         @id @default(cuid())
+  inspectionItemId String
+  inspectionItem   InspectionItem @relation(fields: [inspectionItemId], references: [id], onDelete: Cascade)
+
+  storagePath      String
+  width            Int?
+  height           Int?
+  bytes            Int?
+  createdAt        DateTime       @default(now())
+
+  @@index([inspectionItemId])
 }
 
 // ---------------------------------------------------------------------------
