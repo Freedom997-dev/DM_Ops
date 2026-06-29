@@ -1,0 +1,93 @@
+# Architecture
+
+## Stack
+
+| Layer | Tech | Notes |
+|---|---|---|
+| Framework | Next.js 14 (App Router) | Server Components default; client components opt-in with `"use client"` |
+| Language | TypeScript 5.6 | `strict` config |
+| Styling | Tailwind CSS 3.4 | Utility-first, no custom CSS framework |
+| Icons | lucide-react | |
+| ORM | Prisma 5.22 | `provider = "postgresql"` |
+| DB | Supabase Postgres | Transaction pooler URL with `?pgbouncer=true&connection_limit=1` |
+| Storage | Supabase Storage | Private bucket `inspection-photos`; signed URLs (1h) for read |
+| Auth | NextAuth 4.24 | Credentials provider; JWT sessions; bcrypt(12) password hashes |
+| ID generation | `cuid` | App-side; passed to Prisma `create` so we know IDs before DB writes |
+| Hosting | Vercel (Hobby) | Auto-deploys on push to `main` |
+
+## Hosting & deployment
+
+- **Production URL:** `https://roomstatus-theta.vercel.app`
+- **GitHub repo:** `https://github.com/dharmik097/roomstatus`
+- **Vercel project ID:** `prj_h3MNoOJwghqTXNKOD5UrhD8x9qe8`
+- **Vercel team:** `team_VZu8aqJaiw5sQga7G23sc6H1` (dharmik097's projects)
+- **Root Directory:** `roomstatus-main` (package.json is one folder deep inside the repo)
+- **Build:** `prisma generate && next build`
+- **Auto-deploy:** every commit to `main` triggers a production build.
+- **Branches besides main:** preview deploys (separate URLs).
+
+## Environment variables
+
+| Variable | Purpose | Scope |
+|---|---|---|
+| `DATABASE_URL` | Postgres connection string (Supabase pooler URL) | Production + Preview |
+| `NEXTAUTH_SECRET` | JWT signing key | Production + Preview |
+| `NEXTAUTH_URL` | Public base URL for NextAuth cookies | Production + Preview |
+| `SUPABASE_URL` | `https://gufddccguumpbtzxsbpj.supabase.co` | Production + Preview |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server-only Supabase key for Storage writes | Production + Preview |
+
+`SUPABASE_SERVICE_ROLE_KEY` must never appear in client code. Imported only inside `src/lib/storage.ts` which is server-only.
+
+## Key architectural patterns
+
+### Three-layer auth defense
+1. `middleware.ts` blocks unauthenticated browser navigation to `/dashboard|/rooms|/inspect|/admin`.
+2. `requireUser()` in route group layouts re-checks server-side on every page render.
+3. `requireAdmin()` is called inside admin pages and server actions for role-gated logic.
+
+Middleware is the fast first filter; server-side checks are what actually enforce security since middleware can be bypassed by direct server-action invocation.
+
+### Snapshot-on-write for history
+When an inspection is saved, the `questionText` and `sectionName` are *copied* into each `InspectionItem` row. If an admin later edits or archives a question, historical inspections still show the wording the inspector saw. The `Question.id` FK stays for joining; the snapshot text is the source of truth for history.
+
+### Server actions over REST
+Mutations live in `src/lib/actions/*` as `"use server"` functions called directly from forms. No `/api` REST layer.
+
+### Upload-then-transact (storage + DB)
+For photo uploads: upload to Supabase Storage *before* the Prisma transaction, then write DB rows referencing the storage paths. If DB write fails, best-effort delete the uploaded objects. Holding a DB connection during Storage I/O is an anti-pattern.
+
+### PgBouncer-safe Prisma
+`src/lib/db.ts` appends `?pgbouncer=true&connection_limit=1` to `DATABASE_URL` at runtime if missing. Required because Supabase's Transaction pooler rotates Postgres connections per transaction, which breaks Prisma's default prepared-statement caching.
+
+## Project layout
+
+```
+roomstatus-main/
+├── prisma/
+│   ├── schema.prisma          # data models
+│   └── seed.ts                # admin + checklist + sample rooms (used for local dev only)
+├── src/
+│   ├── app/
+│   │   ├── (app)/             # auth-protected route group (shared layout)
+│   │   │   ├── dashboard/
+│   │   │   ├── rooms/
+│   │   │   ├── inspect/
+│   │   │   └── admin/
+│   │   ├── api/auth/[...nextauth]/
+│   │   └── login/
+│   ├── components/            # UI components (Nav, forms, badges, etc.)
+│   ├── lib/
+│   │   ├── actions/           # server actions (one file per domain)
+│   │   ├── auth.ts            # NextAuth options
+│   │   ├── session.ts         # requireUser / requireAdmin guards
+│   │   ├── audit.ts           # AuditLog writer
+│   │   ├── storage.ts         # Supabase Storage wrapper
+│   │   ├── db.ts              # Prisma singleton
+│   │   └── status.ts          # status color/label tables, summary derivation
+│   └── types/                 # TypeScript declaration extensions
+├── middleware.ts              # route-level auth gate
+├── next.config.mjs
+├── tailwind.config.ts
+├── tsconfig.json
+└── package.json
+```
