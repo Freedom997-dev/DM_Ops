@@ -3,7 +3,18 @@ import { prisma } from "@/lib/db";
 type AuditInput = {
   userId?: string | null;
   action: "CREATE" | "UPDATE" | "DELETE" | "ARCHIVE" | "RESTORE" | "LOGIN";
-  entity: "Room" | "Question" | "Section" | "User" | "Inspection" | "InspectionItemImage";
+  entity:
+    | "Room"
+    | "Question"
+    | "Section"
+    | "User"
+    | "Inspection"
+    | "InspectionItemImage"
+    | "WorkflowDefinition"
+    | "WorkflowItem"
+    | "WorkflowSubmission"
+    | "WorkflowRow"
+    | "WorkflowCell";
   entityId?: string | null;
   details?: Record<string, unknown> | string | null;
 };

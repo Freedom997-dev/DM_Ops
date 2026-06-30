@@ -18,12 +18,18 @@ model User {
   name         String
   email        String   @unique
   passwordHash String
-  role         String   @default("INSPECTOR") // ADMIN | INSPECTOR
+  role         String   @default("INSPECTOR") // ADMIN | MANAGER | INSPECTOR | HOUSEKEEPER
   active       Boolean  @default(true)
   createdAt    DateTime @default(now())
 
   inspections Inspection[]
   auditLogs   AuditLog[]
+
+  // Foundation: Workflow back-relations
+  workflowSubmissionsCreated WorkflowSubmission[] @relation("WorkflowSubmissionCreated")
+  workflowRowUpdates         WorkflowRow[]        @relation("WorkflowRowUpdated")
+  workflowCellUpdates        WorkflowCell[]       @relation("WorkflowCellUpdated")
+  workflowRowImagesUploaded  WorkflowRowImage[]   @relation("WorkflowRowImageUploaded")
 }
 
 // ---------------------------------------------------------------------------
@@ -40,6 +46,10 @@ model Room {
   updatedAt DateTime @updatedAt
 
   inspections Inspection[]
+
+  // Foundation: Workflow back-relations
+  workflowRows  WorkflowRow[]
+  workflowCells WorkflowCell[]
 }
 
 // ---------------------------------------------------------------------------
@@ -123,9 +133,117 @@ model AuditLog {
   id        String   @id @default(cuid())
   userId    String?
   user      User?    @relation(fields: [userId], references: [id])
-  action    String // CREATE | UPDATE | ARCHIVE | RESTORE | LOGIN
-  entity    String // Room | Question | Section | User | Inspection
+  action    String // CREATE | UPDATE | DELETE | ARCHIVE | RESTORE | LOGIN
+  entity    String // Room | Question | Section | User | Inspection | InspectionItemImage | WorkflowDefinition | WorkflowItem | WorkflowSubmission | WorkflowRow | WorkflowCell
   entityId  String?
   details   String? // JSON string with context / before-after
   createdAt DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Foundation: generic Workflow* models
+// Used by Daily Cleanliness Inspection (and future workflows). The existing
+// PM Room Condition Inspection keeps its own Section/Question/Inspection/Item
+// tables — parallel models, no migration.
+// ---------------------------------------------------------------------------
+
+model WorkflowDefinition {
+  id           String   @id @default(cuid())
+  slug         String   @unique
+  name         String
+  description  String?
+  shape        String // "MATRIX" (rows = rooms, cols = items). Future shapes may follow.
+  rolesAllowed String // JSON-encoded array of role strings, e.g. '["ADMIN","MANAGER","INSPECTOR"]'
+  archived     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  items       WorkflowItem[]
+  submissions WorkflowSubmission[]
+}
+
+model WorkflowItem {
+  id         String             @id @default(cuid())
+  workflowId String
+  workflow   WorkflowDefinition @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  text       String
+  order      Int                @default(0)
+  archived   Boolean            @default(false)
+  createdAt  DateTime           @default(now())
+
+  cells WorkflowCell[]
+
+  @@index([workflowId])
+}
+
+model WorkflowSubmission {
+  id          String             @id @default(cuid())
+  workflowId  String
+  workflow    WorkflowDefinition @relation(fields: [workflowId], references: [id])
+  date        DateTime // stored as UTC midnight; date component is what matters
+  status      String             @default("IN_PROGRESS") // IN_PROGRESS | COMPLETED
+  createdById String
+  createdBy   User               @relation("WorkflowSubmissionCreated", fields: [createdById], references: [id])
+  completedAt DateTime?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  rows  WorkflowRow[]
+  cells WorkflowCell[]
+
+  @@unique([workflowId, date])
+  @@index([date])
+  @@index([workflowId, status])
+}
+
+model WorkflowRow {
+  id              String             @id @default(cuid())
+  submissionId    String
+  submission      WorkflowSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  roomId          String
+  room            Room               @relation(fields: [roomId], references: [id])
+  note            String?
+  lastUpdatedById String?
+  lastUpdatedBy   User?              @relation("WorkflowRowUpdated", fields: [lastUpdatedById], references: [id])
+  lastUpdatedAt   DateTime?
+
+  images WorkflowRowImage[]
+
+  @@unique([submissionId, roomId])
+  @@index([roomId])
+}
+
+model WorkflowCell {
+  id              String             @id @default(cuid())
+  submissionId    String
+  submission      WorkflowSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  itemId          String
+  item            WorkflowItem       @relation(fields: [itemId], references: [id])
+  roomId          String
+  room            Room               @relation(fields: [roomId], references: [id])
+  itemText        String // snapshot of item.text at time of edit
+  status          String // OK | ISSUE | NA
+  lastUpdatedById String
+  lastUpdatedBy   User               @relation("WorkflowCellUpdated", fields: [lastUpdatedById], references: [id])
+  lastUpdatedAt   DateTime           @default(now())
+
+  @@unique([submissionId, roomId, itemId])
+  @@index([submissionId])
+  @@index([roomId])
+  @@index([itemId])
+}
+
+model WorkflowRowImage {
+  id           String      @id @default(cuid())
+  rowId        String
+  row          WorkflowRow @relation(fields: [rowId], references: [id], onDelete: Cascade)
+  storagePath  String
+  width        Int?
+  height       Int?
+  bytes        Int?
+  uploadedById String
+  uploadedBy   User        @relation("WorkflowRowImageUploaded", fields: [uploadedById], references: [id])
+  createdAt    DateTime    @default(now())
+
+  @@index([rowId])
 }
