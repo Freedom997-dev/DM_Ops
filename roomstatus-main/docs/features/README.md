@@ -9,11 +9,11 @@ Index of shipped features. Each feature has its own doc with purpose, roles, rou
 | Room Condition Inspection | [room-condition-inspection.md](room-condition-inspection.md) | Live |
 | Inspection Photo Evidence | [inspection-photos.md](inspection-photos.md) | Live |
 
-## In design
+## In review (in working tree on `dev`)
 
-| Feature | Spec | Status |
+| Feature | Doc | Status |
 |---|---|---|
-| Platform Foundation refactor | (in progress — `dev` branch) | Brainstorming |
+| Platform Foundation + Daily Cleanliness Inspection | [platform-foundation.md](platform-foundation.md) | Awaiting user review; production schema migration pending |
 
 ## Backlog (committed but deferred)
 

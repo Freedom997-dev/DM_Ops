@@ -119,12 +119,113 @@ Append-only activity log. Never updated, never deleted.
 | `id` | `String @id @default(cuid())` | |
 | `userId` | `String?` | FK → User; nullable so LOGIN events don't break if user is deleted later |
 | `action` | `String` | TypeScript-typed union: `CREATE | UPDATE | DELETE | ARCHIVE | RESTORE | LOGIN` |
-| `entity` | `String` | TypeScript-typed union: `Room | Question | Section | User | Inspection | InspectionItemImage` |
+| `entity` | `String` | TypeScript-typed union: `Room | Question | Section | User | Inspection | InspectionItemImage | WorkflowDefinition | WorkflowItem | WorkflowSubmission | WorkflowRow | WorkflowCell` |
 | `entityId` | `String?` | ID of the entity acted on |
 | `details` | `String?` | JSON-stringified context |
 | `createdAt` | `DateTime @default(now())` | |
 
 The DB column types are plain `String` (no enums) to keep migrations cheap. TypeScript unions in `src/lib/audit.ts` constrain values at write time.
+
+---
+
+## Foundation models (generic workflows)
+
+Added by the Foundation refactor — see [`features/platform-foundation.md`](features/platform-foundation.md). The existing PM checklist tables (Section / Question / Inspection / InspectionItem) are NOT migrated; they coexist.
+
+### WorkflowDefinition
+A workflow type (e.g. Daily Cleanliness Inspection). Editable by admins.
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | `String @id @default(cuid())` | |
+| `slug` | `String @unique` | URL slug (e.g. `daily-cleanliness`) |
+| `name` | `String` | Display name |
+| `description` | `String?` | Optional description for the workflows index card |
+| `shape` | `String` | Currently only `MATRIX`. Reserved for future shapes (e.g. `PER_ROOM_DEEP`) |
+| `rolesAllowed` | `String` | JSON-encoded array of role strings, e.g. `["ADMIN","MANAGER","INSPECTOR"]` |
+| `archived` | `Boolean @default(false)` | Soft delete |
+| `createdAt` | `DateTime @default(now())` | |
+| `updatedAt` | `DateTime @updatedAt` | Prisma-managed |
+
+**Relations:** `items WorkflowItem[]`, `submissions WorkflowSubmission[]`
+
+### WorkflowItem
+A column in the matrix (e.g. "Window & Glass"). Cascades from WorkflowDefinition.
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | `String @id @default(cuid())` | |
+| `workflowId` | `String` | FK → WorkflowDefinition, ON DELETE CASCADE |
+| `text` | `String` | Item label |
+| `order` | `Int @default(0)` | Sort order |
+| `archived` | `Boolean @default(false)` | |
+| `createdAt` | `DateTime @default(now())` | |
+
+**Relations:** `workflow WorkflowDefinition`, `cells WorkflowCell[]`
+**Indexed on** `workflowId`.
+
+### WorkflowSubmission
+One inspection session, exactly one per workflow per date. Multiple inspectors collaborate on the same row.
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | `String @id @default(cuid())` | App-generated up-front for storage paths |
+| `workflowId` | `String` | FK → WorkflowDefinition (no cascade — submissions block definition delete) |
+| `date` | `DateTime` | Stored as UTC midnight; the calendar date is what matters |
+| `status` | `String @default("IN_PROGRESS")` | `IN_PROGRESS | COMPLETED` |
+| `createdById` | `String` | FK → User; the inspector who opened the form |
+| `completedAt` | `DateTime?` | Set when status flips to COMPLETED |
+| `createdAt` | `DateTime @default(now())` | |
+| `updatedAt` | `DateTime @updatedAt` | |
+
+**Relations:** `workflow`, `createdBy`, `rows WorkflowRow[]`, `cells WorkflowCell[]`
+**Constraints:** `@@unique([workflowId, date])`. Indexes on `date` and `(workflowId, status)`.
+
+### WorkflowRow
+Per-room note + photos for a submission. **Cascading delete** from WorkflowSubmission.
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | `String @id @default(cuid())` | |
+| `submissionId` | `String` | FK → WorkflowSubmission, ON DELETE CASCADE |
+| `roomId` | `String` | FK → Room |
+| `note` | `String?` | Free text up to 1000 chars |
+| `lastUpdatedById` | `String?` | FK → User (SET NULL on user delete) |
+| `lastUpdatedAt` | `DateTime?` | |
+
+**Relations:** `submission`, `room`, `lastUpdatedBy`, `images WorkflowRowImage[]`
+**Constraints:** `@@unique([submissionId, roomId])`. Index on `roomId`.
+
+### WorkflowCell
+One inspection result for (submission, room, item). Sparse — exists only when an inspector taps a button. **Cascading delete** from WorkflowSubmission.
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | `String @id @default(cuid())` | |
+| `submissionId` | `String` | FK → WorkflowSubmission, ON DELETE CASCADE |
+| `itemId` | `String` | FK → WorkflowItem |
+| `roomId` | `String` | FK → Room |
+| `itemText` | `String` | **Snapshot** of item.text at edit time |
+| `status` | `String` | `OK | ISSUE | NA` |
+| `lastUpdatedById` | `String` | FK → User; who last touched this cell |
+| `lastUpdatedAt` | `DateTime @default(now())` | |
+
+**Relations:** `submission`, `item`, `room`, `lastUpdatedBy`
+**Constraints:** `@@unique([submissionId, roomId, itemId])`. Indexes on `submissionId`, `roomId`, `itemId`.
+
+### WorkflowRowImage
+Photo attached to a WorkflowRow. **Cascading delete** from WorkflowRow.
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | `String @id @default(cuid())` | |
+| `rowId` | `String` | FK → WorkflowRow, ON DELETE CASCADE |
+| `storagePath` | `String` | `workflows/<slug>/<submissionId>/<rowId>/<uuid>.<ext>` |
+| `width`, `height`, `bytes` | `Int?` | Best-effort metadata |
+| `uploadedById` | `String` | FK → User |
+| `createdAt` | `DateTime @default(now())` | |
+
+**Storage cleanup:** like InspectionItemImage, DB cascade does NOT touch Supabase Storage. The `deleteRowImage` server action handles Storage delete before DB delete.
 
 ## Cascade summary
 
@@ -132,9 +233,12 @@ The DB column types are plain `String` (no enums) to keep migrations cheap. Type
 |---|---|
 | Inspection | InspectionItem → InspectionItemImage (DB only; Storage handled separately) |
 | InspectionItem | InspectionItemImage |
-| Room | (NO cascade — referenced inspections block deletion) |
-| User | (NO cascade — referenced inspections block deletion) |
+| Room | (NO cascade — referenced inspections/workflow cells block deletion) |
+| User | (NO cascade — referenced inspections/workflow updates block deletion) |
 | Question | (NO cascade — referenced items block deletion; question is `archived` instead) |
+| WorkflowDefinition | WorkflowItem. Submissions are NOT cascaded — definition can't be deleted while submissions exist; use `archived = true` |
+| WorkflowSubmission | WorkflowRow → WorkflowRowImage AND WorkflowCell (DB only; Storage handled separately) |
+| WorkflowRow | WorkflowRowImage (DB only; Storage handled separately) |
 
 ## Migration approach
 

@@ -59,6 +59,16 @@ For photo uploads: upload to Supabase Storage *before* the Prisma transaction, t
 ### PgBouncer-safe Prisma
 `src/lib/db.ts` appends `?pgbouncer=true&connection_limit=1` to `DATABASE_URL` at runtime if missing. Required because Supabase's Transaction pooler rotates Postgres connections per transaction, which breaks Prisma's default prepared-statement caching.
 
+### Platform Foundation pattern (parallel to PM)
+The app supports two parallel data shapes:
+- **PM Room Condition Inspection** — original tables (`Section`/`Question`/`Inspection`/`InspectionItem`/`InspectionItemImage`). Per-room deep form.
+- **Generic Workflow** — `WorkflowDefinition`/`WorkflowItem`/`WorkflowSubmission`/`WorkflowRow`/`WorkflowCell`/`WorkflowRowImage`. Matrix grid (rows = rooms, cols = items). Daily Cleanliness Inspection is the first instance.
+
+Both patterns coexist on the same database, sharing only `Room`, `User`, `AuditLog`. New workflows use the generic Foundation pattern; PM keeps its bespoke tables for now. See [`features/platform-foundation.md`](features/platform-foundation.md).
+
+### Role-based home
+Authenticated users land at `/workflows`, which filters by `WorkflowDefinition.rolesAllowed`. PM Dashboard becomes a card on this index (for ADMIN/INSPECTOR). The role union is now `ADMIN | MANAGER | INSPECTOR | HOUSEKEEPER`.
+
 ## Project layout
 
 ```

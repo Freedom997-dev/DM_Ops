@@ -7,7 +7,10 @@ import { requireAdmin } from "@/lib/session";
 import { logAudit } from "@/lib/audit";
 import { ROLES } from "@/lib/permissions";
 
-type Result<T = void> = ({ ok: true } & T) | { ok: false; error: string };
+type OkOnly = { ok: true };
+type Failure = { ok: false; error: string };
+type Result = OkOnly | Failure;
+type ResultWith<T> = ({ ok: true } & T) | Failure;
 
 // ---------------------------------------------------------------------------
 // Workflow Items (admin)
@@ -18,7 +21,7 @@ const itemCreateSchema = z.object({
   text: z.string().trim().min(1).max(200),
 });
 
-export async function createWorkflowItem(input: z.infer<typeof itemCreateSchema>): Promise<Result<{ itemId: string }>> {
+export async function createWorkflowItem(input: z.infer<typeof itemCreateSchema>): Promise<ResultWith<{ itemId: string }>> {
   const admin = await requireAdmin();
   const parsed = itemCreateSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Invalid input." };
