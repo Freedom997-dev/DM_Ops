@@ -13,7 +13,8 @@ docs/
 │   ├── README.md              # feature index
 │   ├── _template.md           # template for new feature docs
 │   ├── room-condition-inspection.md
-│   └── inspection-photos.md
+│   ├── inspection-photos.md
+│   └── platform-foundation.md # Okta-style services + Daily Cleanliness
 └── superpowers/               # design specs and implementation plans (created during brainstorms)
     ├── specs/
     └── plans/

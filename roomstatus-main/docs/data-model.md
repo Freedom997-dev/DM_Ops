@@ -197,7 +197,7 @@ Per-room note + photos for a submission. **Cascading delete** from WorkflowSubmi
 **Constraints:** `@@unique([submissionId, roomId])`. Index on `roomId`.
 
 ### WorkflowCell
-One inspection result for (submission, room, item). Sparse — exists only when an inspector taps a button. **Cascading delete** from WorkflowSubmission.
+One inspection result for (submission, room, item). **Sparse** — a row exists only when a cell is marked **OK** or **Issue**. Blank / N/A cells have **no row** (the UI's cycling checkbox deletes the row when cycled back to blank). **Cascading delete** from WorkflowSubmission.
 
 | Field | Type | Notes |
 |---|---|---|
@@ -206,12 +206,13 @@ One inspection result for (submission, room, item). Sparse — exists only when 
 | `itemId` | `String` | FK → WorkflowItem |
 | `roomId` | `String` | FK → Room |
 | `itemText` | `String` | **Snapshot** of item.text at edit time |
-| `status` | `String` | `OK | ISSUE | NA` |
+| `status` | `String` | Stored values are only `OK` or `ISSUE`. (`NA` is the client's "clear" signal — the server deletes the row rather than storing `NA`.) |
 | `lastUpdatedById` | `String` | FK → User; who last touched this cell |
 | `lastUpdatedAt` | `DateTime @default(now())` | |
 
 **Relations:** `submission`, `item`, `room`, `lastUpdatedBy`
 **Constraints:** `@@unique([submissionId, roomId, itemId])`. Indexes on `submissionId`, `roomId`, `itemId`.
+**UI mapping:** single cycling checkbox — blank (no row) → `OK` (✓) → `ISSUE` (✗) → blank (row deleted). See [`features/platform-foundation.md`](features/platform-foundation.md).
 
 ### WorkflowRowImage
 Photo attached to a WorkflowRow. **Cascading delete** from WorkflowRow.

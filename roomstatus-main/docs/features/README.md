@@ -9,18 +9,17 @@ Index of shipped features. Each feature has its own doc with purpose, roles, rou
 | Room Condition Inspection | [room-condition-inspection.md](room-condition-inspection.md) | Live |
 | Inspection Photo Evidence | [inspection-photos.md](inspection-photos.md) | Live |
 
-## In review (in working tree on `dev`)
+## Releasing (on `dev`, pending production DB migration)
 
 | Feature | Doc | Status |
 |---|---|---|
-| Platform Foundation + Daily Cleanliness Inspection | [platform-foundation.md](platform-foundation.md) | Awaiting user review; production schema migration pending |
+| Platform Foundation + Daily Cleanliness Inspection | [platform-foundation.md](platform-foundation.md) | Verified locally (Docker Postgres). **Prod requires** the two `prisma/manual-migrations/2026-06-30-*.sql` files applied to Supabase before `/services/*` works in production. |
 
 ## Backlog (committed but deferred)
 
 - **Per-room status timeline** — append-only, tamper-evident log of every room status transition with SHA-256 hash chaining.
 - **Downloadable inspection report** — per-room or per-inspection PDF/CSV with photos embedded.
-- **Daily Cleanliness Inspection workflow** — Managers + Inspectors.
-- **Room Cleaning Form workflow** — Housekeepers, per room.
+- **Room Cleaning Form workflow** — Housekeepers, per room (uses the Foundation pattern).
 
 ## Authoring a new feature doc
 

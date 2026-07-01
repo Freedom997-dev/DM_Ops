@@ -9,7 +9,7 @@ The original feature — a digital replacement for the paper "Preventive Mainten
 | **Shipped on** | 2026-06-23 (initial app) |
 | **Design spec** | n/a — pre-spec-discipline |
 | **Implementation plan** | n/a |
-| **Live URL path(s)** | `/dashboard`, `/rooms`, `/inspect/[roomId]`, `/admin/*` |
+| **Live URL path(s)** | `/services/pm`, `/services/pm/rooms`, `/services/pm/inspect/[roomId]`, `/services/pm/settings/*` |
 
 ## Roles
 
@@ -20,15 +20,18 @@ The original feature — a digital replacement for the paper "Preventive Mainten
 
 ## Routes
 
+As of the 2026-07-01 Okta-IA restructure, PM lives under `/services/pm/*` and staff/audit moved to the global `/settings`.
+
 | URL | Component / handler | Purpose |
 |---|---|---|
-| `/dashboard` | `src/app/(app)/dashboard/page.tsx` | Color-coded grid of every non-archived room with summary stats |
-| `/rooms` | `src/app/(app)/rooms/page.tsx` | Admin room manager (add/edit/archive); list view for inspectors |
-| `/rooms/[id]` | `src/app/(app)/rooms/[id]/page.tsx` | Room detail + inspection history |
-| `/inspect/[roomId]` | `src/app/(app)/inspect/[roomId]/page.tsx` | Run a new inspection |
-| `/admin/questions` | `src/app/(app)/admin/questions/page.tsx` | Edit checklist sections + questions |
-| `/admin/users` | `src/app/(app)/admin/users/page.tsx` | Manage staff accounts |
-| `/admin/audit` | `src/app/(app)/admin/audit/page.tsx` | Activity log viewer |
+| `/services/pm` | `src/app/(app)/services/pm/page.tsx` | Color-coded grid of every non-archived room with summary stats |
+| `/services/pm/rooms` | `src/app/(app)/services/pm/rooms/page.tsx` | Admin room manager (add/edit/archive); list view for inspectors |
+| `/services/pm/rooms/[id]` | `src/app/(app)/services/pm/rooms/[id]/page.tsx` | Room detail + inspection history |
+| `/services/pm/inspect/[roomId]` | `src/app/(app)/services/pm/inspect/[roomId]/page.tsx` | Run a new inspection |
+| `/services/pm/settings` | `src/app/(app)/services/pm/settings/page.tsx` | PM settings landing (checklist + rooms) |
+| `/services/pm/settings/checklist` | `src/app/(app)/services/pm/settings/checklist/page.tsx` | Edit checklist sections + questions |
+| `/settings/staff` | `src/app/(app)/settings/staff/page.tsx` | Manage staff accounts (global) |
+| `/settings/activity` | `src/app/(app)/settings/activity/page.tsx` | Activity log viewer (global) |
 | `/login` | `src/app/login/page.tsx` | Sign-in form |
 
 ## Data model touchpoints
@@ -59,9 +62,9 @@ See [`docs/data-model.md`](../data-model.md) for full schema.
 
 ## Auth gates
 
-1. `middleware.ts` matches `/dashboard|/rooms|/inspect|/admin` and redirects unauthenticated users to `/login`.
+1. `middleware.ts` matches `/services|/settings` and redirects unauthenticated users to `/login`.
 2. `(app)/layout.tsx` calls `requireUser()` — re-checks server-side.
-3. Admin pages and admin server actions call `requireAdmin()` for role enforcement.
+3. PM settings pages and admin server actions call `requireAdmin()` for role enforcement.
 
 ## Storage / external services
 

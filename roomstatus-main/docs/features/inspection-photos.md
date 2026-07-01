@@ -9,7 +9,7 @@ Inspectors can attach photos to any checklist item during an inspection. Photos 
 | **Shipped on** | 2026-06-24 |
 | **Design spec** | [`docs/superpowers/specs/2026-06-23-inspection-images-design.md`](../superpowers/specs/2026-06-23-inspection-images-design.md) |
 | **Implementation plan** | [`docs/superpowers/plans/2026-06-23-inspection-images.md`](../superpowers/plans/2026-06-23-inspection-images.md) |
-| **Live URL path(s)** | `/inspect/[roomId]` (upload), `/rooms/[id]` (view + admin delete) |
+| **Live URL path(s)** | `/services/pm/inspect/[roomId]` (upload), `/services/pm/rooms/[id]` (view + admin delete) |
 
 ## Roles
 
@@ -24,8 +24,10 @@ Photos extend existing routes; no new pages.
 
 | URL | Where photos appear | Purpose |
 |---|---|---|
-| `/inspect/[roomId]` | Per-question 📷 button + thumbnail strip in `<PhotoPicker>` | Inspector attaches photos before saving |
-| `/rooms/[id]` | Thumbnail strip under each `InspectionItem` with photos | Read-only display; tap to open lightbox |
+| `/services/pm/inspect/[roomId]` | Per-question 📷 button + thumbnail strip in `<PhotoPicker>` | Inspector attaches photos before saving |
+| `/services/pm/rooms/[id]` | Thumbnail strip under each `InspectionItem` with photos | Read-only display; tap to open lightbox |
+
+> Paths updated in the 2026-07-01 Okta-IA restructure (previously `/inspect/[roomId]` and `/rooms/[id]`).
 
 ## Data model touchpoints
 
@@ -47,7 +49,7 @@ See [`docs/data-model.md → InspectionItemImage`](../data-model.md).
 - `src/lib/audit.ts` — typed unions extended with `DELETE` action and `InspectionItemImage` entity.
 - `src/components/InspectForm.tsx` — embeds `<PhotoPicker>` per item; submits as `FormData`.
 - `src/components/InspectionHistory.tsx` — renders thumbnail strips; opens `<PhotoLightbox>` on click.
-- `src/app/(app)/rooms/[id]/page.tsx` — query extended with `images: true`; generates signed URLs server-side; passes `isAdmin` to history component.
+- `src/app/(app)/services/pm/rooms/[id]/page.tsx` — query extended with `images: true`; generates signed URLs server-side; passes `isAdmin` to history component.
 - `src/lib/db.ts` — appends `?pgbouncer=true&connection_limit=1` to `DATABASE_URL` (required for Prisma + Supabase pooler).
 
 ## Behavior notes
@@ -58,7 +60,7 @@ See [`docs/data-model.md → InspectionItemImage`](../data-model.md).
 - **MIME validation.** Anything not starting with `image/` is rejected.
 - **Upload-then-transact rollback.** See [architecture.md → upload-then-transact](../architecture.md). If the Prisma transaction fails after uploads succeed, the action best-effort deletes the uploaded paths.
 - **IDs minted up-front.** `cuid()` is called for the Inspection and each InspectionItem before any DB write, so storage paths can embed them deterministically.
-- **Signed URLs for display, generated server-side.** `src/app/(app)/rooms/[id]/page.tsx` calls `getSignedUrl(path, 3600)` for every image before passing to the client. URLs are good for 1 hour; pages reload after expiry.
+- **Signed URLs for display, generated server-side.** `src/app/(app)/services/pm/rooms/[id]/page.tsx` calls `getSignedUrl(path, 3600)` for every image before passing to the client. URLs are good for 1 hour; pages reload after expiry.
 - **Lightbox trash icon visible only to admins.** `isAdmin` prop drives conditional rendering. Server-side `requireAdmin()` enforces this for the action too — defense in depth.
 - **DB cascade does NOT delete Storage objects.** `deletePhoto` and `deleteInspection` explicitly call `deleteImages(paths)` before the DB delete.
 
