@@ -172,8 +172,8 @@ export async function saveInspection(form: FormData): Promise<SaveInspectionResu
     details: { roomNumber: room.number, summary, photoCount: uploadedPaths.length },
   });
 
-  revalidatePath("/dashboard");
-  revalidatePath("/rooms");
-  revalidatePath(`/rooms/${roomId}`);
+  revalidatePath("/services/pm");
+  revalidatePath("/services/pm/rooms");
+  revalidatePath(`/services/pm/rooms/${roomId}`);
   return { ok: true, inspectionId };
 }

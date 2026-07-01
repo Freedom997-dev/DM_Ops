@@ -71,7 +71,7 @@ export function WorkflowHistory({ workflowSlug, submissions, rooms, byRoom }: Pr
             submissions.map((s) => (
               <Link
                 key={s.id}
-                href={`/workflows/${workflowSlug}?date=${encodeURIComponent(s.date.slice(0, 10))}`}
+                href={`/services/${workflowSlug}?date=${encodeURIComponent(s.date.slice(0, 10))}`}
                 className="card flex items-center justify-between px-4 py-3 hover:bg-slate-50"
               >
                 <div>

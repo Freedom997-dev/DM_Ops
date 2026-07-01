@@ -61,13 +61,13 @@ export default async function DashboardPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
+          <h1 className="text-2xl font-bold text-slate-900">Room Condition (PM)</h1>
           <p className="text-sm text-slate-500">
             Current condition of every room at Divya Motel.
           </p>
         </div>
         {isAdmin && (
-          <Link href="/rooms?add=1" className="btn-primary">
+          <Link href="/services/pm/rooms?add=1" className="btn-primary">
             <Plus className="h-4 w-4" />
             Add room
           </Link>
@@ -87,7 +87,7 @@ export default async function DashboardPage() {
           <DoorOpen className="h-10 w-10 text-slate-300" />
           <p className="text-slate-600">No rooms yet.</p>
           {isAdmin && (
-            <Link href="/rooms?add=1" className="btn-primary">
+            <Link href="/services/pm/rooms?add=1" className="btn-primary">
               <Plus className="h-4 w-4" />
               Add your first room
             </Link>
@@ -149,7 +149,7 @@ function RoomTile({
   const meta = ROOM_STATUS_META[room.status];
   return (
     <Link
-      href={`/rooms/${room.id}`}
+      href={`/services/pm/rooms/${room.id}`}
       className={clsx(
         "card group relative flex flex-col gap-3 p-4 ring-1 transition hover:shadow-md",
         meta.ring,

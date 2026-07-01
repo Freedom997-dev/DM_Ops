@@ -22,13 +22,13 @@ export async function requireUser() {
 
 export async function requireAdmin() {
   const user = await requireUser();
-  if (user.role !== "ADMIN") redirect("/workflows");
+  if (user.role !== "ADMIN") redirect("/services");
   return user;
 }
 
 export async function requireManager() {
   const user = await requireUser();
-  if (!roleIsManager(user.role)) redirect("/workflows");
+  if (!roleIsManager(user.role)) redirect("/services");
   return user;
 }
 
@@ -42,9 +42,9 @@ export async function requireWorkflowAccess(workflowSlug: string) {
   const workflow = await prisma.workflowDefinition.findUnique({
     where: { slug: workflowSlug },
   });
-  if (!workflow || workflow.archived) redirect("/workflows");
+  if (!workflow || workflow.archived) redirect("/services");
   const allowed = parseRolesAllowed(workflow.rolesAllowed);
-  if (!canRunWorkflow(user.role, allowed)) redirect("/workflows");
+  if (!canRunWorkflow(user.role, allowed)) redirect("/services");
   return { user, workflow };
 }
 

@@ -88,14 +88,14 @@ export default async function WorkflowSubmissionPage({
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Link
-          href="/workflows"
+          href="/services"
           className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to workflows
+          Back to services
         </Link>
         <Link
-          href={`/workflows/${workflow.slug}/history`}
+          href={`/services/${workflow.slug}/history`}
           className="inline-flex items-center gap-1 text-sm font-semibold text-brand-600 hover:underline"
         >
           <Clock className="h-4 w-4" />

@@ -36,7 +36,7 @@ export default async function InspectPage({
     <div className="space-y-5">
       <div>
         <Link
-          href={`/rooms/${room.id}`}
+          href={`/services/pm/rooms/${room.id}`}
           className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700"
         >
           <ArrowLeft className="h-4 w-4" />

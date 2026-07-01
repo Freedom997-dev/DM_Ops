@@ -8,11 +8,11 @@ import { WorkflowDefinitionEditor } from "@/components/WorkflowDefinitionEditor"
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminWorkflowEditorPage({ params }: { params: { id: string } }) {
+export default async function ServiceSettingsPage({ params }: { params: { slug: string } }) {
   await requireAdmin();
 
   const workflow = await prisma.workflowDefinition.findUnique({
-    where: { id: params.id },
+    where: { slug: params.slug },
     include: {
       items: { orderBy: { order: "asc" } },
     },
@@ -21,15 +21,23 @@ export default async function AdminWorkflowEditorPage({ params }: { params: { id
 
   return (
     <div className="space-y-5">
-      <Link
-        href="/admin/workflows"
-        className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to workflows
-      </Link>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Link
+          href={`/services/${workflow.slug}`}
+          className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to {workflow.name}
+        </Link>
+        <Link
+          href="/settings/services"
+          className="text-sm font-semibold text-brand-600 hover:underline"
+        >
+          All services →
+        </Link>
+      </div>
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Edit: {workflow.name}</h1>
+        <h1 className="text-2xl font-bold text-slate-900">{workflow.name} — Settings</h1>
         <p className="text-sm text-slate-500">
           Slug <code>{workflow.slug}</code> · shape <code>{workflow.shape}</code>
         </p>

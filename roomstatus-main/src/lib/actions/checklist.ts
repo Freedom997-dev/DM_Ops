@@ -33,7 +33,7 @@ export async function createSection(
     entityId: section.id,
     details: { name: section.name },
   });
-  revalidatePath("/admin/questions");
+  revalidatePath("/services/pm/settings/checklist");
   return { ok: true, message: `Section "${section.name}" added.` };
 }
 
@@ -57,7 +57,7 @@ export async function renameSection(
     entityId: section.id,
     details: { name: section.name },
   });
-  revalidatePath("/admin/questions");
+  revalidatePath("/services/pm/settings/checklist");
   return { ok: true, message: "Section renamed." };
 }
 
@@ -79,7 +79,7 @@ export async function setSectionArchived(id: string, archived: boolean) {
     entityId: section.id,
     details: { name: section.name },
   });
-  revalidatePath("/admin/questions");
+  revalidatePath("/services/pm/settings/checklist");
 }
 
 // ---- Questions ------------------------------------------------------------
@@ -117,7 +117,7 @@ export async function createQuestion(
     entityId: question.id,
     details: { text: question.text },
   });
-  revalidatePath("/admin/questions");
+  revalidatePath("/services/pm/settings/checklist");
   return { ok: true, message: "Question added." };
 }
 
@@ -142,7 +142,7 @@ export async function updateQuestion(
     entityId: question.id,
     details: { before: before?.text, after: text },
   });
-  revalidatePath("/admin/questions");
+  revalidatePath("/services/pm/settings/checklist");
   return { ok: true, message: "Question updated." };
 }
 
@@ -159,5 +159,5 @@ export async function setQuestionArchived(id: string, archived: boolean) {
     entityId: question.id,
     details: { text: question.text },
   });
-  revalidatePath("/admin/questions");
+  revalidatePath("/services/pm/settings/checklist");
 }

@@ -16,7 +16,7 @@ export default function LoginPage() {
 function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
-  const callbackUrl = params.get("callbackUrl") || "/dashboard";
+  const callbackUrl = params.get("callbackUrl") || "/services";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -49,7 +49,7 @@ function LoginForm() {
             <BedDouble className="h-7 w-7" />
           </div>
           <h1 className="text-2xl font-bold text-slate-900">Divya Motel</h1>
-          <p className="text-sm text-slate-500">Room Condition Program</p>
+          <p className="text-sm text-slate-500">Operations Portal</p>
         </div>
 
         <form onSubmit={onSubmit} className="card space-y-4 p-6">

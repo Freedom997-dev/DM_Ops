@@ -5,75 +5,19 @@ import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { useState } from "react";
 import clsx from "clsx";
-import {
-  BedDouble,
-  LayoutDashboard,
-  DoorOpen,
-  ListChecks,
-  Users,
-  History,
-  Layers,
-  LogOut,
-  Menu,
-  X,
-} from "lucide-react";
-import { canAccessAdminSection, isAdmin as roleIsAdmin } from "@/lib/permissions";
+import { BedDouble, LayoutGrid, Settings, LogOut, Menu, X } from "lucide-react";
+import { isManager as roleIsManager } from "@/lib/permissions";
 
 type NavUser = { name?: string | null; role: string };
-
-const ICONS = {
-  workflows: Layers,
-  dashboard: LayoutDashboard,
-  rooms: DoorOpen,
-  questions: ListChecks,
-  users: Users,
-  audit: History,
-  adminWorkflows: Layers,
-} as const;
 
 export function Nav({ user }: { user: NavUser }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const isAdmin = roleIsAdmin(user.role);
+  const canSettings = roleIsManager(user.role);
 
-  const links: { href: string; label: string; icon: keyof typeof ICONS; visible: boolean }[] = [
-    { href: "/workflows", label: "Workflows", icon: "workflows", visible: true },
-    {
-      href: "/dashboard",
-      label: "PM Dashboard",
-      icon: "dashboard",
-      visible: isAdmin || user.role === "INSPECTOR",
-    },
-    {
-      href: "/rooms",
-      label: "Rooms",
-      icon: "rooms",
-      visible: canAccessAdminSection(user.role, "rooms"),
-    },
-    {
-      href: "/admin/questions",
-      label: "PM Checklist",
-      icon: "questions",
-      visible: canAccessAdminSection(user.role, "questions"),
-    },
-    {
-      href: "/admin/workflows",
-      label: "Workflows admin",
-      icon: "adminWorkflows",
-      visible: canAccessAdminSection(user.role, "workflows"),
-    },
-    {
-      href: "/admin/users",
-      label: "Staff",
-      icon: "users",
-      visible: canAccessAdminSection(user.role, "users"),
-    },
-    {
-      href: "/admin/audit",
-      label: "Activity",
-      icon: "audit",
-      visible: canAccessAdminSection(user.role, "audit"),
-    },
+  const links: { href: string; label: string; icon: typeof LayoutGrid; visible: boolean }[] = [
+    { href: "/services", label: "Services", icon: LayoutGrid, visible: true },
+    { href: "/settings", label: "Settings", icon: Settings, visible: canSettings },
   ];
 
   const visible = links.filter((l) => l.visible);
@@ -82,7 +26,7 @@ export function Nav({ user }: { user: NavUser }) {
     return (
       <>
         {visible.map((link) => {
-          const Icon = ICONS[link.icon];
+          const Icon = link.icon;
           const active =
             pathname === link.href || pathname.startsWith(link.href + "/");
           return (
@@ -109,7 +53,7 @@ export function Nav({ user }: { user: NavUser }) {
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-        <Link href="/workflows" className="flex items-center gap-2">
+        <Link href="/services" className="flex items-center gap-2">
           <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-600 text-white">
             <BedDouble className="h-5 w-5" />
           </span>

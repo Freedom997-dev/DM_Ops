@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { ChevronRight, ArchiveRestore, Archive } from "lucide-react";
+import { ChevronRight, ArchiveRestore, Archive, ArrowLeft } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminWorkflowsPage() {
+export default async function SettingsServicesPage() {
   await requireAdmin();
   const definitions = await prisma.workflowDefinition.findMany({
     orderBy: [{ archived: "asc" }, { name: "asc" }],
@@ -14,10 +14,18 @@ export default async function AdminWorkflowsPage() {
 
   return (
     <div className="space-y-5">
+      <Link
+        href="/settings"
+        className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Back to settings
+      </Link>
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Workflows admin</h1>
+        <h1 className="text-2xl font-bold text-slate-900">Services</h1>
         <p className="text-sm text-slate-500">
-          Edit workflow definitions and their item lists. Use these to add new daily/weekly forms.
+          Manage service definitions and their item lists. Each service&rsquo;s own settings are
+          reachable from its settings page.
         </p>
       </div>
 
@@ -25,7 +33,7 @@ export default async function AdminWorkflowsPage() {
         {definitions.map((d) => (
           <Link
             key={d.id}
-            href={`/admin/workflows/${d.id}`}
+            href={`/services/${d.slug}/settings`}
             className="card flex items-center justify-between gap-3 px-4 py-3 hover:bg-slate-50"
           >
             <div>
@@ -50,7 +58,7 @@ export default async function AdminWorkflowsPage() {
         ))}
         {definitions.length === 0 && (
           <div className="card p-8 text-center text-slate-500">
-            No workflows defined yet. Seed Daily Cleanliness via the migration script.
+            No services defined yet. Seed Daily Cleanliness via the migration script.
           </div>
         )}
       </div>

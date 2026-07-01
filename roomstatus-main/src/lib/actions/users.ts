@@ -13,7 +13,7 @@ export type { ActionState };
 const userSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(80),
   email: z.string().trim().toLowerCase().email("Enter a valid email"),
-  role: z.enum(["ADMIN", "INSPECTOR"]),
+  role: z.enum(["ADMIN", "MANAGER", "INSPECTOR", "HOUSEKEEPER"]),
   password: z.string().min(6, "Password must be at least 6 characters"),
 });
 
@@ -51,7 +51,7 @@ export async function createUser(
     entityId: user.id,
     details: { email: user.email, role: user.role },
   });
-  revalidatePath("/admin/users");
+  revalidatePath("/settings/staff");
   return { ok: true, message: `${user.name} added as ${user.role}.` };
 }
 
@@ -66,7 +66,7 @@ export async function setUserActive(id: string, active: boolean) {
     entityId: user.id,
     details: { active },
   });
-  revalidatePath("/admin/users");
+  revalidatePath("/settings/staff");
 }
 
 export async function resetPassword(
@@ -91,6 +91,6 @@ export async function resetPassword(
     entityId: user.id,
     details: { passwordReset: true },
   });
-  revalidatePath("/admin/users");
+  revalidatePath("/settings/staff");
   return { ok: true, message: "Password reset." };
 }

@@ -1,6 +1,7 @@
+import Link from "next/link";
 import { prisma } from "@/lib/db";
-import { requireAdmin } from "@/lib/session";
-import { History } from "lucide-react";
+import { requireManager } from "@/lib/session";
+import { History, ArrowLeft } from "lucide-react";
 import clsx from "clsx";
 
 export const dynamic = "force-dynamic";
@@ -13,8 +14,8 @@ const ACTION_TONE: Record<string, string> = {
   LOGIN: "bg-slate-100 text-slate-600",
 };
 
-export default async function AuditPage() {
-  await requireAdmin();
+export default async function ActivityPage() {
+  await requireManager();
 
   const logs = await prisma.auditLog.findMany({
     orderBy: { createdAt: "desc" },
@@ -24,6 +25,13 @@ export default async function AuditPage() {
 
   return (
     <div className="space-y-5">
+      <Link
+        href="/settings"
+        className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Back to settings
+      </Link>
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold text-slate-900">
           <History className="h-6 w-6 text-brand-600" />

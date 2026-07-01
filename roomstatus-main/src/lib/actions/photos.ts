@@ -43,7 +43,7 @@ export async function deletePhoto(imageId: string): Promise<Result> {
     },
   });
 
-  revalidatePath(`/rooms/${image.inspectionItem.inspection.roomId}`);
+  revalidatePath(`/services/pm/rooms/${image.inspectionItem.inspection.roomId}`);
   return { ok: true };
 }
 
@@ -79,8 +79,8 @@ export async function deleteInspection(inspectionId: string): Promise<Result> {
     details: { roomNumber: inspection.room.number, photosDeleted: paths.length },
   });
 
-  revalidatePath("/dashboard");
-  revalidatePath("/rooms");
-  revalidatePath(`/rooms/${inspection.roomId}`);
+  revalidatePath("/services/pm");
+  revalidatePath("/services/pm/rooms");
+  revalidatePath(`/services/pm/rooms/${inspection.roomId}`);
   return { ok: true };
 }

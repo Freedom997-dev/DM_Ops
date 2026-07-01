@@ -81,7 +81,7 @@ export function InspectForm({
         setError(res.error ?? "Could not save inspection.");
         return;
       }
-      router.push(`/rooms/${roomId}?saved=1`);
+      router.push(`/services/pm/rooms/${roomId}?saved=1`);
       router.refresh();
     });
   }

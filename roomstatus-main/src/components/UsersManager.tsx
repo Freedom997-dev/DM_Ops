@@ -77,9 +77,9 @@ export function UsersManager({
               <div>
                 <div className="flex items-center gap-2 font-semibold text-slate-900">
                   {u.name}
-                  {u.role === "ADMIN" && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-semibold text-brand-700">
-                      <ShieldCheck className="h-3 w-3" /> Admin
+                  {u.role !== "INSPECTOR" && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-semibold capitalize text-brand-700">
+                      <ShieldCheck className="h-3 w-3" /> {u.role.toLowerCase()}
                     </span>
                   )}
                   {!u.active && (
@@ -164,6 +164,8 @@ function AddUserForm({ onClose, onSaved }: { onClose: () => void; onSaved: () =>
           <label className="label">Role *</label>
           <select name="role" className="input" defaultValue="INSPECTOR">
             <option value="INSPECTOR">Inspector</option>
+            <option value="HOUSEKEEPER">Housekeeper</option>
+            <option value="MANAGER">Manager</option>
             <option value="ADMIN">Admin</option>
           </select>
         </div>

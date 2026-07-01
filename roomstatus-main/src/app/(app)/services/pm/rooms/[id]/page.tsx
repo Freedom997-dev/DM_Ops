@@ -67,7 +67,7 @@ export default async function RoomDetailPage({
   return (
     <div className="space-y-6">
       <Link
-        href="/dashboard"
+        href="/services/pm"
         className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700"
       >
         <ArrowLeft className="h-4 w-4" />
@@ -108,12 +108,12 @@ export default async function RoomDetailPage({
           </div>
 
           <div className="flex flex-col gap-2">
-            <Link href={`/inspect/${room.id}`} className="btn-primary">
+            <Link href={`/services/pm/inspect/${room.id}`} className="btn-primary">
               <ClipboardCheck className="h-4 w-4" />
               Start inspection
             </Link>
             {isAdmin && (
-              <Link href={`/rooms?edit=${room.id}`} className="btn-secondary">
+              <Link href={`/services/pm/rooms?edit=${room.id}`} className="btn-secondary">
                 <Pencil className="h-4 w-4" />
                 Edit room
               </Link>

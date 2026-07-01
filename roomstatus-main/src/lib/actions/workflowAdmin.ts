@@ -48,7 +48,7 @@ export async function createWorkflowItem(input: z.infer<typeof itemCreateSchema>
     details: { workflowId: workflow.id, text: parsed.data.text },
   });
 
-  revalidatePath(`/admin/workflows/${workflow.id}`);
+  revalidatePath(`/services/${workflow.slug}/settings`);
   return { ok: true, itemId: item.id };
 }
 
@@ -83,14 +83,17 @@ export async function updateWorkflowItem(input: z.infer<typeof itemUpdateSchema>
     details: { changes: data },
   });
 
-  revalidatePath(`/admin/workflows/${item.workflowId}`);
+  revalidatePath(`/services/${item.workflow.slug}/settings`);
   return { ok: true };
 }
 
 export async function archiveWorkflowItem(itemId: string, archived: boolean): Promise<Result> {
   const admin = await requireAdmin();
 
-  const item = await prisma.workflowItem.findUnique({ where: { id: itemId } });
+  const item = await prisma.workflowItem.findUnique({
+    where: { id: itemId },
+    include: { workflow: true },
+  });
   if (!item) return { ok: false, error: "Item not found." };
 
   await prisma.workflowItem.update({ where: { id: itemId }, data: { archived } });
@@ -103,7 +106,7 @@ export async function archiveWorkflowItem(itemId: string, archived: boolean): Pr
     details: { archived },
   });
 
-  revalidatePath(`/admin/workflows/${item.workflowId}`);
+  revalidatePath(`/services/${item.workflow.slug}/settings`);
   return { ok: true };
 }
 
@@ -141,8 +144,8 @@ export async function updateWorkflowDefinition(input: z.infer<typeof definitionU
     details: { changes: data },
   });
 
-  revalidatePath("/admin/workflows");
-  revalidatePath(`/admin/workflows/${definition.id}`);
+  revalidatePath("/settings/services");
+  revalidatePath(`/services/${definition.slug}/settings`);
   return { ok: true };
 }
 
@@ -162,6 +165,6 @@ export async function archiveWorkflowDefinition(id: string, archived: boolean): 
     details: { archived },
   });
 
-  revalidatePath("/admin/workflows");
+  revalidatePath("/settings/services");
   return { ok: true };
 }

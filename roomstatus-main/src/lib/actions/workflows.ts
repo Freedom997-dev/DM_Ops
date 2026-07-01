@@ -75,7 +75,7 @@ export async function getOrCreateTodaySubmission(workflowSlug: string): Promise<
     details: { workflowSlug, date: today.toISOString() },
   });
 
-  revalidatePath(`/workflows/${workflowSlug}`);
+  revalidatePath(`/services/${workflowSlug}`);
   return { ok: true, submissionId };
 }
 
@@ -142,7 +142,7 @@ export async function updateCell(input: z.infer<typeof updateCellSchema>): Promi
     details: { submissionId, roomId, itemId, newStatus: status },
   });
 
-  revalidatePath(`/workflows/${submission.workflow.slug}`);
+  revalidatePath(`/services/${submission.workflow.slug}`);
 
   return {
     ok: true,
@@ -265,7 +265,7 @@ export async function saveRow(form: FormData): Promise<SaveRowResult> {
     details: { submissionId, roomId, photosAdded: uploadedPaths.length, noteUpdated: noteValue.length > 0 },
   });
 
-  revalidatePath(`/workflows/${submission.workflow.slug}`);
+  revalidatePath(`/services/${submission.workflow.slug}`);
   return { ok: true, rowId };
 }
 
@@ -296,8 +296,8 @@ export async function markSubmissionComplete(submissionId: string): Promise<{ ok
     details: { workflowSlug: submission.workflow.slug, status: "COMPLETED" },
   });
 
-  revalidatePath(`/workflows/${submission.workflow.slug}`);
-  revalidatePath(`/workflows/${submission.workflow.slug}/history`);
+  revalidatePath(`/services/${submission.workflow.slug}`);
+  revalidatePath(`/services/${submission.workflow.slug}/history`);
   return { ok: true };
 }
 
@@ -334,6 +334,6 @@ export async function deleteRowImage(imageId: string): Promise<{ ok: true } | { 
     details: { storagePath: image.storagePath, imageId },
   });
 
-  revalidatePath(`/workflows/${image.row.submission.workflow.slug}`);
+  revalidatePath(`/services/${image.row.submission.workflow.slug}`);
   return { ok: true };
 }
