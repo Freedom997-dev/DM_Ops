@@ -2,13 +2,14 @@
 
 import clsx from "clsx";
 import { useState, useTransition } from "react";
-import { Check, X, Minus } from "lucide-react";
+import { Check, X } from "lucide-react";
 import { updateCell } from "@/lib/actions/workflows";
 
 export type CellStatus = "OK" | "ISSUE" | "NA";
 
 type Props = {
-  submissionId: string;
+  submissionId: string | null;
+  ensureSubmission: () => Promise<string | null>;
   roomId: string;
   itemId: string;
   initialStatus: CellStatus | null;
@@ -17,14 +18,17 @@ type Props = {
   onChange?: (status: CellStatus | null) => void;
 };
 
-const CHOICES: { value: CellStatus; label: string; icon: typeof Check; classes: string }[] = [
-  { value: "OK",    label: "OK",    icon: Check, classes: "bg-emerald-500 text-white"  },
-  { value: "ISSUE", label: "Issue", icon: X,     classes: "bg-red-500 text-white"      },
-  { value: "NA",    label: "N/A",   icon: Minus, classes: "bg-slate-400 text-white"    },
-];
+// Single cycling checkbox:
+//   blank (N/A) → OK (✓) → Issue (✗) → blank …
+function nextStatus(cur: CellStatus | null): CellStatus | null {
+  if (cur === null || cur === "NA") return "OK";
+  if (cur === "OK") return "ISSUE";
+  return null; // ISSUE → blank
+}
 
 export function WorkflowCellButton({
   submissionId,
+  ensureSubmission,
   roomId,
   itemId,
   initialStatus,
@@ -32,19 +36,39 @@ export function WorkflowCellButton({
   disabled,
   onChange,
 }: Props) {
-  const [status, setStatus] = useState<CellStatus | null>(initialStatus);
+  const [status, setStatus] = useState<CellStatus | null>(
+    initialStatus === "NA" ? null : initialStatus,
+  );
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  function pick(next: CellStatus) {
+  function cycle() {
     if (disabled) return;
     setError(null);
     const prev = status;
+    const next = nextStatus(status);
     // Optimistic
     setStatus(next);
     onChange?.(next);
     startTransition(async () => {
-      const res = await updateCell({ submissionId, roomId, itemId, status: next });
+      // Create the day's submission on first interaction if it doesn't exist yet.
+      let sid = submissionId;
+      if (!sid) {
+        sid = await ensureSubmission();
+        if (!sid) {
+          setError("Could not start today's inspection.");
+          setStatus(prev);
+          onChange?.(prev);
+          return;
+        }
+      }
+      // null (blank) is sent as "NA" which the server treats as "clear the cell".
+      const res = await updateCell({
+        submissionId: sid,
+        roomId,
+        itemId,
+        status: next ?? "NA",
+      });
       if (!res.ok) {
         setError(res.error);
         setStatus(prev);
@@ -53,41 +77,36 @@ export function WorkflowCellButton({
     });
   }
 
+  const label =
+    status === "OK" ? "OK" : status === "ISSUE" ? "Issue" : "Blank / N/A";
+
   return (
-    <div
-      className={clsx(
-        "flex items-center justify-center gap-0.5 p-0.5",
-        pending && "opacity-60",
-      )}
-      title={
-        error
-          ? error
-          : lastUpdatedBy
-            ? `Last updated by ${lastUpdatedBy}`
-            : undefined
-      }
-    >
-      {CHOICES.map((c) => {
-        const active = status === c.value;
-        const Icon = c.icon;
-        return (
-          <button
-            key={c.value}
-            type="button"
-            disabled={disabled || pending}
-            onClick={() => pick(c.value)}
-            aria-label={`Mark ${c.label}`}
-            aria-pressed={active}
-            className={clsx(
-              "flex h-7 w-7 items-center justify-center rounded transition",
-              active ? c.classes : "bg-slate-100 text-slate-300 hover:bg-slate-200 hover:text-slate-500",
-              disabled && "cursor-not-allowed opacity-50",
-            )}
-          >
-            <Icon className="h-3.5 w-3.5" strokeWidth={3} />
-          </button>
-        );
-      })}
+    <div className="flex items-center justify-center p-1">
+      <button
+        type="button"
+        disabled={disabled || pending}
+        onClick={cycle}
+        aria-label={`${label} — tap to change`}
+        title={
+          error
+            ? error
+            : lastUpdatedBy
+              ? `${label} · last updated by ${lastUpdatedBy}`
+              : label
+        }
+        className={clsx(
+          "flex h-8 w-8 items-center justify-center rounded-md border transition",
+          status === "OK" && "border-emerald-600 bg-emerald-500 text-white",
+          status === "ISSUE" && "border-red-600 bg-red-500 text-white",
+          (status === null || status === "NA") &&
+            "border-slate-300 bg-white text-transparent hover:border-brand-400 hover:bg-brand-50",
+          pending && "opacity-60",
+          disabled && "cursor-not-allowed opacity-50",
+        )}
+      >
+        {status === "OK" && <Check className="h-4 w-4" strokeWidth={3} />}
+        {status === "ISSUE" && <X className="h-4 w-4" strokeWidth={3} />}
+      </button>
     </div>
   );
 }

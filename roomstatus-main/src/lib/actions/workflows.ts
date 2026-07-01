@@ -113,6 +113,26 @@ export async function updateCell(input: z.infer<typeof updateCellSchema>): Promi
   const item = await prisma.workflowItem.findUnique({ where: { id: itemId } });
   if (!item) return { ok: false, error: "Item not found." };
 
+  // "NA" means blank / not-applicable — we don't store a row for it.
+  // Delete any existing cell so blank == no record (cleanest history).
+  if (status === "NA") {
+    const existing = await prisma.workflowCell.findUnique({
+      where: { submissionId_roomId_itemId: { submissionId, roomId, itemId } },
+    });
+    if (existing) {
+      await prisma.workflowCell.delete({ where: { id: existing.id } });
+      await logAudit({
+        userId: user.id,
+        action: "DELETE",
+        entity: "WorkflowCell",
+        entityId: existing.id,
+        details: { submissionId, roomId, itemId, newStatus: "NA" },
+      });
+      revalidatePath(`/services/${submission.workflow.slug}`);
+    }
+    return { ok: true, cellId: existing?.id ?? "", lastUpdatedBy: user.name ?? "", lastUpdatedAt: new Date().toISOString() };
+  }
+
   const upserted = await prisma.workflowCell.upsert({
     where: {
       submissionId_roomId_itemId: { submissionId, roomId, itemId },

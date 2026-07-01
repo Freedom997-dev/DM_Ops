@@ -76,16 +76,13 @@ export function WorkflowMatrix({
 
   const counts = useMemo(() => {
     let ok = 0,
-      issue = 0,
-      na = 0;
+      issue = 0;
     for (const c of seedCells) {
       if (c.status === "OK") ok++;
       else if (c.status === "ISSUE") issue++;
-      else if (c.status === "NA") na++;
     }
     const total = rooms.length * items.length;
-    const marked = ok + issue + na;
-    return { ok, issue, na, total, marked, unmarked: total - marked };
+    return { ok, issue, total, blank: total - ok - issue };
   }, [seedCells, rooms.length, items.length]);
 
   async function ensureSubmission(): Promise<string | null> {
@@ -176,18 +173,18 @@ export function WorkflowMatrix({
       )}
 
       {/* Counts */}
-      <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs font-medium">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-medium">
         <span className="inline-flex items-center gap-1 text-emerald-700">
           <span className="h-2 w-2 rounded-full bg-emerald-500" /> {counts.ok} OK
         </span>
         <span className="inline-flex items-center gap-1 text-red-700">
           <span className="h-2 w-2 rounded-full bg-red-500" /> {counts.issue} Issue
         </span>
-        <span className="inline-flex items-center gap-1 text-slate-500">
-          <span className="h-2 w-2 rounded-full bg-slate-400" /> {counts.na} N/A
-        </span>
         <span className="inline-flex items-center gap-1 text-slate-400">
-          <span className="h-2 w-2 rounded-full bg-slate-200" /> {counts.unmarked} unmarked
+          <span className="h-2 w-2 rounded-full border border-slate-300 bg-white" /> {counts.blank} blank / N/A
+        </span>
+        <span className="ml-auto text-slate-400">
+          Tap a box: blank → <span className="text-emerald-700">✓ OK</span> → <span className="text-red-700">✗ Issue</span> → blank
         </span>
       </div>
 
@@ -202,10 +199,10 @@ export function WorkflowMatrix({
               {items.map((item) => (
                 <th
                   key={item.id}
-                  className="sticky top-0 z-20 border-b border-slate-200 bg-slate-50 px-1 py-1 text-xs text-slate-600"
-                  style={{ minWidth: 84 }}
+                  className="sticky top-0 z-20 border-b border-l border-slate-100 bg-slate-50 px-1 py-1 text-xs text-slate-600"
+                  style={{ minWidth: 46, width: 46 }}
                 >
-                  <div className="flex h-24 items-end justify-center px-0.5">
+                  <div className="flex h-28 items-end justify-center px-0.5">
                     <span
                       className="whitespace-nowrap text-[11px] font-semibold"
                       style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
@@ -245,17 +242,15 @@ export function WorkflowMatrix({
                     {items.map((item) => {
                       const cell = cellMap.get(`${room.id}::${item.id}`);
                       return (
-                        <td key={item.id} className="border-b border-slate-100 p-0">
+                        <td key={item.id} className="border-b border-l border-slate-100 p-0">
                           <WorkflowCellButton
-                            submissionId={submissionId ?? ""}
+                            submissionId={submissionId}
+                            ensureSubmission={ensureSubmission}
                             roomId={room.id}
                             itemId={item.id}
                             initialStatus={cell?.status ?? null}
                             lastUpdatedBy={cell?.lastUpdatedBy ?? null}
-                            disabled={completed || !submissionId}
-                            onChange={async () => {
-                              if (!submissionId) await ensureSubmission();
-                            }}
+                            disabled={completed}
                           />
                         </td>
                       );
