@@ -57,7 +57,8 @@ See [`docs/data-model.md`](../data-model.md) for full schema of the new tables.
 
 ### New
 - `src/lib/permissions.ts` — role matrix (`canAccessAdminSection`, `canRunWorkflow`, `parseRolesAllowed`, `isManager`)
-- `src/lib/actions/workflows.ts` — submission flow: `getOrCreateTodaySubmission`, `updateCell`, `saveRow`, `markSubmissionComplete`, `deleteRowImage`
+- `src/lib/actions/workflows.ts` — submission flow: `getOrCreateTodaySubmission`, `updateCell`, `saveRow` (photos), `saveRowNote` (note-only), `markSubmissionComplete`, `reopenSubmission` (admin), `deleteRowImage`
+- `src/components/WorkflowNoteCell.tsx` — inline note box for the sticky Notes column (save-on-blur)
 - `src/lib/actions/workflowAdmin.ts` — admin CRUD on definitions and items
 - `src/components/WorkflowMatrix.tsx` — main matrix UI; passes `ensureSubmission` to each cell so the first cell tap bootstraps the day's submission
 - `src/components/WorkflowCellButton.tsx` — **single cycling checkbox** (blank → OK → Issue → blank) with optimistic updates
@@ -89,7 +90,8 @@ See [`docs/data-model.md`](../data-model.md) for full schema of the new tables.
 - **Blank = no DB row.** Only OK and Issue are stored as `WorkflowCell` rows. Cycling a cell back to blank **deletes** its row (with a `DELETE` audit entry). So "unmarked" and "N/A" are the same visual/data state — a clean, sparse table.
 - **First cell tap bootstraps the submission.** Cells are enabled immediately. The first interaction on any cell (or a room label) calls `getOrCreateTodaySubmission`, then applies the change in the same transition. `@@unique([workflowId, date])` guarantees one submission per workflow per UTC-date.
 - **Per-cell last-write-wins.** Optimistic UI; server upserts (or deletes on blank); the audit log retains every cell change.
-- **Per-row note + photos.** Tap a room label on the left → expand the panel → edit note, add photos, save.
+- **Per-row note is an always-visible column.** The rightmost **Notes** column is sticky to the right of the matrix; each room has an inline note box that saves on blur via `saveRowNote` (note-only; never touches photos).
+- **Per-row photos** live in an expand panel: tap a room label on the left → panel opens (photos only, note is edited in the column) → add/delete photos, save.
 - **Mark complete** locks the submission. Set on the matrix page (manager+). Once locked, cells become read-only. A new submission auto-creates for the next day.
 - **Reopen (admin only).** A completed submission shows a **Reopen** button to admins. It flips status back to `IN_PROGRESS`, clears `completedAt`, and re-enables the cells for correction. Logged as an `UPDATE` on `WorkflowSubmission` with `status: "REOPENED"` in details.
 - **History views answer Room+Date.** "By date" lists submissions; "By room" filters all submissions touching a given room.
@@ -139,3 +141,5 @@ After production schema is in place, push `dev` → `main` to deploy.
 - 2026-07-01 · Restructured to Okta-style IA: `/services` catalog + per-service settings + global `/settings`. All PM routes moved under `/services/pm/*`. Old `/dashboard`, `/rooms`, `/inspect`, `/workflows`, `/admin` routes removed.
 - 2026-07-01 · Matrix cell changed from three separate buttons to a **single cycling checkbox** (blank → OK → Issue → blank). Blank now means "no row" (deletes the cell). First cell tap bootstraps the submission (fixed a disabled-until-submission deadlock).
 - 2026-07-01 · Added **admin Reopen** for completed submissions (`reopenSubmission` action + button). Previously deferred.
+- 2026-07-01 · Notes moved to an **always-visible sticky Notes column** on the right (`WorkflowNoteCell` + `saveRowNote`); the row-expand panel is now photos-only.
+- 2026-07-01 · **RBAC**: added `setUserRole` (admin-only, with last-admin guard) and a per-user role dropdown in Staff & access. Staff page now passes `isAdmin`.

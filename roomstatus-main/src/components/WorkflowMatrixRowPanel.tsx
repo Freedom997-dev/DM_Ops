@@ -15,7 +15,7 @@ export type RowImage = {
 type Props = {
   submissionId: string;
   roomId: string;
-  initialNote: string | null;
+  roomLabel: string;
   initialImages: RowImage[];
   isAdmin: boolean;
   disabled?: boolean;
@@ -26,14 +26,13 @@ type Props = {
 export function WorkflowMatrixRowPanel({
   submissionId,
   roomId,
-  initialNote,
+  roomLabel,
   initialImages,
   isAdmin,
   disabled,
   onClose,
   onSaved,
 }: Props) {
-  const [note, setNote] = useState(initialNote ?? "");
   const [files, setFiles] = useState<File[]>([]);
   const [images, setImages] = useState<RowImage[]>(initialImages);
   const [pending, startTransition] = useTransition();
@@ -42,10 +41,14 @@ export function WorkflowMatrixRowPanel({
 
   function save() {
     setError(null);
+    if (files.length === 0) {
+      onClose();
+      return;
+    }
     const form = new FormData();
     form.set("submissionId", submissionId);
     form.set("roomId", roomId);
-    form.set("note", note);
+    // Note is NOT sent here — it's edited in the always-visible Notes column.
     files.forEach((file, i) => {
       form.append(`image-${i}`, file, file.name);
     });
@@ -78,17 +81,9 @@ export function WorkflowMatrixRowPanel({
   return (
     <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-3">
       <div className="flex items-start justify-between gap-3">
-        <div className="flex-1 space-y-1">
-          <label className="label">Notes for this room</label>
-          <textarea
-            className="input min-h-[64px] text-sm"
-            placeholder="Anything to record about this room…"
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            disabled={disabled || pending}
-            maxLength={1000}
-          />
-        </div>
+        <h3 className="text-sm font-bold text-slate-700">
+          Photos — {roomLabel}
+        </h3>
         <button
           type="button"
           onClick={onClose}
@@ -141,7 +136,7 @@ export function WorkflowMatrixRowPanel({
           className="btn-primary"
         >
           {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-          {pending ? "Saving…" : "Save row"}
+          {pending ? "Saving…" : "Save photos"}
         </button>
       </div>
     </div>

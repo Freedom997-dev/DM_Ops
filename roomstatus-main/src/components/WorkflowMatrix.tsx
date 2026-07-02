@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import clsx from "clsx";
 import { Check, Loader2, LockOpen, RefreshCw } from "lucide-react";
 import { WorkflowCellButton, type CellStatus } from "@/components/WorkflowCellButton";
+import { WorkflowNoteCell } from "@/components/WorkflowNoteCell";
 import { WorkflowMatrixRowPanel, type RowImage } from "@/components/WorkflowMatrixRowPanel";
 import { getOrCreateTodaySubmission, markSubmissionComplete, reopenSubmission } from "@/lib/actions/workflows";
 
@@ -239,6 +240,12 @@ export function WorkflowMatrix({
                   </div>
                 </th>
               ))}
+              <th
+                className="sticky right-0 top-0 z-30 border-b border-l-2 border-slate-200 bg-slate-50 px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-slate-600"
+                style={{ minWidth: 220, width: 220 }}
+              >
+                Notes
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -282,14 +289,29 @@ export function WorkflowMatrix({
                         </td>
                       );
                     })}
+                    <td
+                      className={clsx(
+                        "sticky right-0 z-10 border-b border-l-2 border-slate-200 p-1 align-top",
+                        isOpen ? "bg-amber-50" : "bg-white",
+                      )}
+                      style={{ minWidth: 220, width: 220 }}
+                    >
+                      <WorkflowNoteCell
+                        submissionId={submissionId}
+                        ensureSubmission={ensureSubmission}
+                        roomId={room.id}
+                        initialNote={row?.note ?? null}
+                        disabled={completed}
+                      />
+                    </td>
                   </tr>
                   {isOpen && submissionId && (
                     <tr>
-                      <td colSpan={items.length + 1} className="border-b border-slate-200 bg-amber-50 p-3">
+                      <td colSpan={items.length + 2} className="border-b border-slate-200 bg-amber-50 p-3">
                         <WorkflowMatrixRowPanel
                           submissionId={submissionId}
                           roomId={room.id}
-                          initialNote={row?.note ?? null}
+                          roomLabel={`Room ${room.number}`}
                           initialImages={row?.images ?? []}
                           isAdmin={isAdmin}
                           disabled={completed}

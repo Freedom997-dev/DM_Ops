@@ -192,6 +192,8 @@ export async function saveRow(form: FormData): Promise<SaveRowResult> {
   if (typeof submissionId !== "string" || typeof roomId !== "string") {
     return { ok: false, error: "Missing submissionId or roomId." };
   }
+  // Only touch the note if the form explicitly sent one (photos-only saves omit it).
+  const hasNote = form.has("note");
   const noteValue = typeof note === "string" ? note.trim().slice(0, 1000) : "";
 
   const submission = await prisma.workflowSubmission.findUnique({
@@ -247,12 +249,12 @@ export async function saveRow(form: FormData): Promise<SaveRowResult> {
           id: rowId,
           submissionId,
           roomId,
-          note: noteValue || null,
+          ...(hasNote ? { note: noteValue || null } : {}),
           lastUpdatedById: user.id,
           lastUpdatedAt: new Date(),
         },
         update: {
-          note: noteValue || null,
+          ...(hasNote ? { note: noteValue || null } : {}),
           lastUpdatedById: user.id,
           lastUpdatedAt: new Date(),
         },
@@ -287,6 +289,54 @@ export async function saveRow(form: FormData): Promise<SaveRowResult> {
 
   revalidatePath(`/services/${submission.workflow.slug}`);
   return { ok: true, rowId };
+}
+
+// ---------------------------------------------------------------------------
+// Save just the per-room note (from the always-visible Notes column)
+// ---------------------------------------------------------------------------
+
+export async function saveRowNote(
+  submissionId: string,
+  roomId: string,
+  note: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const submission = await prisma.workflowSubmission.findUnique({
+    where: { id: submissionId },
+    include: { workflow: true },
+  });
+  if (!submission) return { ok: false, error: "Submission not found." };
+  if (submission.status === "COMPLETED") {
+    return { ok: false, error: "Submission is already marked complete." };
+  }
+  const { user } = await requireWorkflowAccess(submission.workflow.slug);
+
+  const noteValue = note.trim().slice(0, 1000);
+
+  await prisma.workflowRow.upsert({
+    where: { submissionId_roomId: { submissionId, roomId } },
+    create: {
+      submissionId,
+      roomId,
+      note: noteValue || null,
+      lastUpdatedById: user.id,
+      lastUpdatedAt: new Date(),
+    },
+    update: {
+      note: noteValue || null,
+      lastUpdatedById: user.id,
+      lastUpdatedAt: new Date(),
+    },
+  });
+
+  await logAudit({
+    userId: user.id,
+    action: "UPDATE",
+    entity: "WorkflowRow",
+    details: { submissionId, roomId, noteUpdated: true },
+  });
+
+  revalidatePath(`/services/${submission.workflow.slug}`);
+  return { ok: true };
 }
 
 // ---------------------------------------------------------------------------

@@ -58,6 +58,18 @@ export async function createUser(
 export async function setUserActive(id: string, active: boolean) {
   const admin = await requireAdmin();
   if (id === admin.id) return; // can't disable yourself
+
+  // Don't let the last active admin be disabled.
+  if (!active) {
+    const target = await prisma.user.findUnique({ where: { id } });
+    if (target?.role === "ADMIN") {
+      const otherAdmins = await prisma.user.count({
+        where: { role: "ADMIN", active: true, NOT: { id } },
+      });
+      if (otherAdmins === 0) return; // silently refuse; UI guards this too
+    }
+  }
+
   const user = await prisma.user.update({ where: { id }, data: { active } });
   await logAudit({
     userId: admin.id,
@@ -67,6 +79,46 @@ export async function setUserActive(id: string, active: boolean) {
     details: { active },
   });
   revalidatePath("/settings/staff");
+}
+
+const ROLE_VALUES = ["ADMIN", "MANAGER", "INSPECTOR", "HOUSEKEEPER"] as const;
+
+export async function setUserRole(
+  id: string,
+  role: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const admin = await requireAdmin();
+  if (!ROLE_VALUES.includes(role as (typeof ROLE_VALUES)[number])) {
+    return { ok: false, error: "Invalid role." };
+  }
+  if (id === admin.id) {
+    return { ok: false, error: "You can't change your own role." };
+  }
+
+  const target = await prisma.user.findUnique({ where: { id } });
+  if (!target) return { ok: false, error: "User not found." };
+  if (target.role === role) return { ok: true };
+
+  // Prevent demoting the last remaining admin.
+  if (target.role === "ADMIN" && role !== "ADMIN") {
+    const otherAdmins = await prisma.user.count({
+      where: { role: "ADMIN", active: true, NOT: { id } },
+    });
+    if (otherAdmins === 0) {
+      return { ok: false, error: "Can't change the last admin's role — promote someone else first." };
+    }
+  }
+
+  await prisma.user.update({ where: { id }, data: { role } });
+  await logAudit({
+    userId: admin.id,
+    action: "UPDATE",
+    entity: "User",
+    entityId: id,
+    details: { roleFrom: target.role, roleTo: role },
+  });
+  revalidatePath("/settings/staff");
+  return { ok: true };
 }
 
 export async function resetPassword(

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { prisma } from "@/lib/db";
-import { requireManager } from "@/lib/session";
+import { requireManager, isAdmin as userIsAdmin } from "@/lib/session";
 import { UsersManager } from "@/components/UsersManager";
 
 export const dynamic = "force-dynamic";
@@ -38,6 +38,7 @@ export default async function StaffPage() {
       </div>
       <UsersManager
         currentUserId={admin.id}
+        isAdmin={userIsAdmin(admin)}
         users={users.map((u) => ({
           id: u.id,
           name: u.name,

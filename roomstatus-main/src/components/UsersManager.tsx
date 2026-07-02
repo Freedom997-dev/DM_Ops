@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useFormState } from "react-dom";
 import clsx from "clsx";
@@ -10,8 +10,16 @@ import {
   createUser,
   resetPassword,
   setUserActive,
+  setUserRole,
   type ActionState,
 } from "@/lib/actions/users";
+
+const ROLE_OPTIONS = [
+  { value: "ADMIN", label: "Admin" },
+  { value: "MANAGER", label: "Manager" },
+  { value: "INSPECTOR", label: "Inspector" },
+  { value: "HOUSEKEEPER", label: "Housekeeper" },
+] as const;
 
 const EMPTY: ActionState = { ok: false };
 
@@ -27,13 +35,29 @@ type StaffUser = {
 export function UsersManager({
   users,
   currentUserId,
+  isAdmin,
 }: {
   users: StaffUser[];
   currentUserId: string;
+  isAdmin: boolean;
 }) {
   const router = useRouter();
   const [adding, setAdding] = useState(false);
   const [resetFor, setResetFor] = useState<StaffUser | null>(null);
+  const [roleError, setRoleError] = useState<string | null>(null);
+  const [rolePending, startRole] = useTransition();
+
+  function changeRole(userId: string, role: string) {
+    setRoleError(null);
+    startRole(async () => {
+      const res = await setUserRole(userId, role);
+      if (!res.ok) {
+        setRoleError(res.error);
+        return;
+      }
+      router.refresh();
+    });
+  }
 
   return (
     <div className="space-y-5">
@@ -41,7 +65,9 @@ export function UsersManager({
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Staff accounts</h1>
           <p className="text-sm text-slate-500">
-            Admins manage rooms, checklist and staff. Inspectors can run inspections.
+            Roles: <b>Admin</b> (full control), <b>Manager</b> (run services, manage staff, view activity),
+            <b> Inspector</b> (run inspections), <b>Housekeeper</b> (room cleaning).
+            {isAdmin ? " Change a role from the dropdown on each row." : " Only admins can change roles."}
           </p>
         </div>
         <button onClick={() => setAdding((a) => !a)} className="btn-primary">
@@ -49,6 +75,10 @@ export function UsersManager({
           Add staff
         </button>
       </div>
+
+      {roleError && (
+        <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{roleError}</p>
+      )}
 
       {adding && (
         <AddUserForm
@@ -95,6 +125,21 @@ export function UsersManager({
             </div>
 
             <div className="flex items-center gap-2">
+              {isAdmin && u.id !== currentUserId && (
+                <select
+                  value={u.role}
+                  onChange={(e) => changeRole(u.id, e.target.value)}
+                  disabled={rolePending}
+                  className="input h-9 w-32 py-0 text-sm"
+                  title="Change role"
+                >
+                  {ROLE_OPTIONS.map((r) => (
+                    <option key={r.value} value={r.value}>
+                      {r.label}
+                    </option>
+                  ))}
+                </select>
+              )}
               <button
                 onClick={() => setResetFor(u)}
                 className="btn-secondary px-3 py-2"
