@@ -91,6 +91,7 @@ See [`docs/data-model.md`](../data-model.md) for full schema of the new tables.
 - **Per-cell last-write-wins.** Optimistic UI; server upserts (or deletes on blank); the audit log retains every cell change.
 - **Per-row note + photos.** Tap a room label on the left → expand the panel → edit note, add photos, save.
 - **Mark complete** locks the submission. Set on the matrix page (manager+). Once locked, cells become read-only. A new submission auto-creates for the next day.
+- **Reopen (admin only).** A completed submission shows a **Reopen** button to admins. It flips status back to `IN_PROGRESS`, clears `completedAt`, and re-enables the cells for correction. Logged as an `UPDATE` on `WorkflowSubmission` with `status: "REOPENED"` in details.
 - **History views answer Room+Date.** "By date" lists submissions; "By room" filters all submissions touching a given room.
 - **Item text snapshot in cells.** `WorkflowCell.itemText` is copied at edit time so historical cells stay readable even if an admin edits or archives an item later.
 - **Storage path:** `workflows/<slug>/<submissionId>/<rowId>/<uuid>.<ext>` in the same private `inspection-photos` bucket. Reuses `src/lib/storage.ts`.
@@ -116,7 +117,6 @@ See [`docs/data-model.md`](../data-model.md) for full schema of the new tables.
 - Real-time sync via Supabase Realtime (refresh-based for now)
 - Auto-create submissions at midnight via cron (manual open)
 - Per-cell notes / per-cell photos
-- Reopening completed submissions via UI (admin can flip via direct DB action)
 - Form shapes other than MATRIX (e.g. PER_ROOM_DEEP)
 - Workflow scheduling (recurring cron)
 - Workflow-scoped rooms (currently all non-archived rooms)
@@ -138,3 +138,4 @@ After production schema is in place, push `dev` → `main` to deploy.
 - 2026-06-30 · Initial design and implementation in `dev` branch
 - 2026-07-01 · Restructured to Okta-style IA: `/services` catalog + per-service settings + global `/settings`. All PM routes moved under `/services/pm/*`. Old `/dashboard`, `/rooms`, `/inspect`, `/workflows`, `/admin` routes removed.
 - 2026-07-01 · Matrix cell changed from three separate buttons to a **single cycling checkbox** (blank → OK → Issue → blank). Blank now means "no row" (deletes the cell). First cell tap bootstraps the submission (fixed a disabled-until-submission deadlock).
+- 2026-07-01 · Added **admin Reopen** for completed submissions (`reopenSubmission` action + button). Previously deferred.

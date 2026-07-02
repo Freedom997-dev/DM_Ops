@@ -322,6 +322,40 @@ export async function markSubmissionComplete(submissionId: string): Promise<{ ok
 }
 
 // ---------------------------------------------------------------------------
+// Reopen a completed submission (admin only)
+// ---------------------------------------------------------------------------
+
+export async function reopenSubmission(submissionId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const submission = await prisma.workflowSubmission.findUnique({
+    where: { id: submissionId },
+    include: { workflow: true },
+  });
+  if (!submission) return { ok: false, error: "Submission not found." };
+
+  // Only admins can reopen a locked submission.
+  const admin = await requireAdmin();
+
+  if (submission.status !== "COMPLETED") return { ok: true };
+
+  await prisma.workflowSubmission.update({
+    where: { id: submissionId },
+    data: { status: "IN_PROGRESS", completedAt: null },
+  });
+
+  await logAudit({
+    userId: admin.id,
+    action: "UPDATE",
+    entity: "WorkflowSubmission",
+    entityId: submissionId,
+    details: { workflowSlug: submission.workflow.slug, status: "REOPENED" },
+  });
+
+  revalidatePath(`/services/${submission.workflow.slug}`);
+  revalidatePath(`/services/${submission.workflow.slug}/history`);
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
 // Delete a row image (admin only)
 // ---------------------------------------------------------------------------
 

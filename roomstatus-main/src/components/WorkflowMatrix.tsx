@@ -3,10 +3,10 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import clsx from "clsx";
-import { Check, Loader2, RefreshCw } from "lucide-react";
+import { Check, Loader2, LockOpen, RefreshCw } from "lucide-react";
 import { WorkflowCellButton, type CellStatus } from "@/components/WorkflowCellButton";
 import { WorkflowMatrixRowPanel, type RowImage } from "@/components/WorkflowMatrixRowPanel";
-import { getOrCreateTodaySubmission, markSubmissionComplete } from "@/lib/actions/workflows";
+import { getOrCreateTodaySubmission, markSubmissionComplete, reopenSubmission } from "@/lib/actions/workflows";
 
 type Room = { id: string; number: string; name: string | null };
 type Item = { id: string; text: string };
@@ -122,6 +122,21 @@ export function WorkflowMatrix({
     });
   }
 
+  function handleReopen() {
+    if (!submissionId) return;
+    if (!confirm("Reopen this completed inspection? Cells become editable again.")) return;
+    setError(null);
+    startTransition(async () => {
+      const res = await reopenSubmission(submissionId);
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      setSubmissionStatus("IN_PROGRESS");
+      router.refresh();
+    });
+  }
+
   function handleRefresh() {
     router.refresh();
   }
@@ -163,6 +178,18 @@ export function WorkflowMatrix({
             >
               {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
               Mark complete
+            </button>
+          )}
+          {isAdmin && completed && submissionId && (
+            <button
+              type="button"
+              onClick={handleReopen}
+              className="btn-secondary"
+              disabled={pending}
+              title="Admin: reopen this completed inspection"
+            >
+              {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <LockOpen className="h-4 w-4" />}
+              Reopen
             </button>
           )}
         </div>
