@@ -106,7 +106,10 @@ export default async function WorkflowSubmissionPage({
       {!isToday && (
         <p className="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-800">
           Viewing past date:{" "}
-          {targetDate.toLocaleDateString(undefined, { dateStyle: "full" })}. This is read-only.
+          {targetDate.toLocaleDateString(undefined, { dateStyle: "full" })}.{" "}
+          {submission?.status === "COMPLETED"
+            ? "Completed — read-only. Admins can Reopen to edit."
+            : "You can edit it; changes save automatically. Use Mark complete when done."}
         </p>
       )}
 
@@ -120,7 +123,7 @@ export default async function WorkflowSubmissionPage({
         seedCells={seedCells}
         seedRows={seedRows}
         isAdmin={isAdmin(user)}
-        canMarkComplete={isToday && isManager(user)}
+        canMarkComplete={isManager(user)}
       />
     </div>
   );

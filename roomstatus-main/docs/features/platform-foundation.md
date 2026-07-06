@@ -143,3 +143,5 @@ After production schema is in place, push `dev` → `main` to deploy.
 - 2026-07-01 · Added **admin Reopen** for completed submissions (`reopenSubmission` action + button). Previously deferred.
 - 2026-07-01 · Notes moved to an **always-visible sticky Notes column** on the right (`WorkflowNoteCell` + `saveRowNote`); the row-expand panel is now photos-only.
 - 2026-07-01 · **RBAC**: added `setUserRole` (admin-only, with last-admin guard) and a per-user role dropdown in Staff & access. Staff page now passes `isAdmin`.
+- 2026-07-02 · Past-date submissions are now **editable** by managers+ (removed the `isToday` gate on Mark complete; edits auto-save, Mark complete finalizes). Banner reworded from "read-only" to reflect editability (completed submissions stay read-only until an admin reopens).
+- 2026-07-02 · Matrix grid given a bounded height (`max-h-[70vh]`) so the horizontal scrollbar stays reachable without scrolling past all rooms; sticky Room (left), header (top), and Notes (right) hold in place.

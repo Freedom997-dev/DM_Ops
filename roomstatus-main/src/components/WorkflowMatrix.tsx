@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import clsx from "clsx";
 import { Check, Loader2, LockOpen, RefreshCw } from "lucide-react";
@@ -59,6 +59,34 @@ export function WorkflowMatrix({
   const [pending, startTransition] = useTransition();
   const [creating, startCreate] = useTransition();
   const [error, setError] = useState<string | null>(null);
+
+  // Synced sticky horizontal scrollbar. The grid keeps its natural height so
+  // the page (and mouse wheel) scrolls vertically; a thin bar pinned near the
+  // top mirrors the grid's horizontal scroll so it's always reachable.
+  const topBarRef = useRef<HTMLDivElement>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
+  const [scrollW, setScrollW] = useState(0);
+
+  useEffect(() => {
+    const grid = gridRef.current;
+    if (!grid) return;
+    const update = () => setScrollW(grid.scrollWidth);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(grid);
+    return () => ro.disconnect();
+  }, [rooms.length, items.length]);
+
+  function syncFromTop() {
+    if (gridRef.current && topBarRef.current) {
+      gridRef.current.scrollLeft = topBarRef.current.scrollLeft;
+    }
+  }
+  function syncFromGrid() {
+    if (gridRef.current && topBarRef.current) {
+      topBarRef.current.scrollLeft = gridRef.current.scrollLeft;
+    }
+  }
 
   const completed = submissionStatus === "COMPLETED";
 
@@ -216,8 +244,23 @@ export function WorkflowMatrix({
         </span>
       </div>
 
-      {/* Matrix */}
-      <div className="overflow-auto rounded-xl border border-slate-200 bg-white">
+      {/* Sticky horizontal scrollbar pinned below the nav — mirrors the grid's
+          scroll so you can pan left/right from anywhere without scrolling to
+          the bottom. Vertical scrolling stays on the page (mouse wheel works). */}
+      <div
+        ref={topBarRef}
+        onScroll={syncFromTop}
+        className="sticky top-[60px] z-20 overflow-x-auto overflow-y-hidden rounded-t-lg border border-b-0 border-slate-200 bg-slate-50"
+      >
+        <div style={{ width: scrollW, height: 8 }} />
+      </div>
+
+      {/* Matrix — natural height so the page (and mouse wheel) scrolls vertically. */}
+      <div
+        ref={gridRef}
+        onScroll={syncFromGrid}
+        className="overflow-x-auto rounded-b-xl rounded-tr-xl border border-slate-200 bg-white"
+      >
         <table className="border-separate border-spacing-0">
           <thead>
             <tr>
