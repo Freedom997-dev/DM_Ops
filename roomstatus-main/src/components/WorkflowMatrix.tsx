@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import clsx from "clsx";
 import { Check, Loader2, LockOpen, Printer, RefreshCw } from "lucide-react";
@@ -61,34 +61,6 @@ export function WorkflowMatrix({
   const [pending, startTransition] = useTransition();
   const [creating, startCreate] = useTransition();
   const [error, setError] = useState<string | null>(null);
-
-  // Synced sticky horizontal scrollbar. The grid keeps its natural height so
-  // the page (and mouse wheel) scrolls vertically; a thin bar pinned near the
-  // top mirrors the grid's horizontal scroll so it's always reachable.
-  const topBarRef = useRef<HTMLDivElement>(null);
-  const gridRef = useRef<HTMLDivElement>(null);
-  const [scrollW, setScrollW] = useState(0);
-
-  useEffect(() => {
-    const grid = gridRef.current;
-    if (!grid) return;
-    const update = () => setScrollW(grid.scrollWidth);
-    update();
-    const ro = new ResizeObserver(update);
-    ro.observe(grid);
-    return () => ro.disconnect();
-  }, [rooms.length, items.length]);
-
-  function syncFromTop() {
-    if (gridRef.current && topBarRef.current) {
-      gridRef.current.scrollLeft = topBarRef.current.scrollLeft;
-    }
-  }
-  function syncFromGrid() {
-    if (gridRef.current && topBarRef.current) {
-      topBarRef.current.scrollLeft = gridRef.current.scrollLeft;
-    }
-  }
 
   const completed = submissionStatus === "COMPLETED";
 
@@ -270,23 +242,9 @@ export function WorkflowMatrix({
         </span>
       </div>
 
-      {/* Sticky horizontal scrollbar pinned below the nav — mirrors the grid's
-          scroll so you can pan left/right from anywhere without scrolling to
-          the bottom. Vertical scrolling stays on the page (mouse wheel works). */}
-      <div
-        ref={topBarRef}
-        onScroll={syncFromTop}
-        className="no-print sticky top-[60px] z-20 overflow-x-auto overflow-y-hidden rounded-t-lg border border-b-0 border-slate-200 bg-slate-50"
-      >
-        <div style={{ width: scrollW, height: 8 }} />
-      </div>
-
-      {/* Matrix — natural height so the page (and mouse wheel) scrolls vertically. */}
-      <div
-        ref={gridRef}
-        onScroll={syncFromGrid}
-        className="matrix-scroll overflow-x-auto rounded-b-xl rounded-tr-xl border border-slate-200 bg-white"
-      >
+      {/* Matrix — bounded scroll box: header row stays fixed at the top and the
+          Room column stays fixed at the left while you scroll inside. */}
+      <div className="matrix-scroll max-h-[75vh] overflow-auto rounded-xl border border-slate-200 bg-white">
         <table className="border-separate border-spacing-0">
           <thead>
             <tr>
@@ -310,7 +268,7 @@ export function WorkflowMatrix({
                 </th>
               ))}
               <th
-                className="sticky right-0 top-0 z-30 border-b border-l-2 border-slate-200 bg-slate-50 px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-slate-600"
+                className="sticky top-0 z-20 border-b border-l-2 border-slate-200 bg-slate-50 px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-slate-600"
                 style={{ minWidth: 220, width: 220 }}
               >
                 Notes
@@ -360,7 +318,7 @@ export function WorkflowMatrix({
                     })}
                     <td
                       className={clsx(
-                        "sticky right-0 z-10 border-b border-l-2 border-slate-200 p-1 align-top",
+                        "border-b border-l-2 border-slate-200 p-1 align-top",
                         isOpen ? "bg-amber-50" : "bg-white",
                       )}
                       style={{ minWidth: 220, width: 220 }}
