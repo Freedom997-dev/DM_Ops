@@ -20,6 +20,78 @@ body {
   scrollbar-width: thin;
 }
 
+/* Print-only / screen-only helpers (used by the matrix PDF print view) */
+.print-only {
+  display: none;
+}
+
+@media print {
+  /* Landscape so the wide matrix fits across the page */
+  @page {
+    size: landscape;
+    margin: 12mm;
+  }
+
+  /* Make browser render the green/red cell colors instead of stripping them */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Print ONLY the marked print area; hide everything else (nav, chrome, etc.) */
+  body * {
+    visibility: hidden;
+  }
+  .print-area,
+  .print-area * {
+    visibility: visible;
+  }
+  .print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+
+  /* Hide interactive chrome inside the print area; show the print header */
+  .no-print {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+
+  /* Flatten the scroll box and un-stick columns so the whole grid flows/paginates */
+  .matrix-scroll {
+    overflow: visible !important;
+    max-height: none !important;
+    border: none !important;
+  }
+  .matrix-scroll table {
+    width: 100%;
+    font-size: 9px;
+  }
+  .matrix-scroll th,
+  .matrix-scroll td {
+    position: static !important;
+  }
+  /* Repeat the header row on every printed page */
+  .matrix-scroll thead {
+    display: table-header-group;
+  }
+  /* Don't split a room row across pages */
+  .matrix-scroll tr {
+    break-inside: avoid;
+  }
+  /* Notes textareas print as plain text */
+  .matrix-scroll textarea {
+    border: none !important;
+    resize: none !important;
+    overflow: visible !important;
+    height: auto !important;
+  }
+}
+
 @layer components {
   .card {
     @apply rounded-2xl border border-slate-200 bg-white shadow-sm;

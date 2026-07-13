@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import clsx from "clsx";
-import { Check, Loader2, LockOpen, RefreshCw } from "lucide-react";
+import { Check, Loader2, LockOpen, Printer, RefreshCw } from "lucide-react";
 import { WorkflowCellButton, type CellStatus } from "@/components/WorkflowCellButton";
 import { WorkflowNoteCell } from "@/components/WorkflowNoteCell";
 import { WorkflowMatrixRowPanel, type RowImage } from "@/components/WorkflowMatrixRowPanel";
@@ -36,6 +36,7 @@ type Props = {
   seedRows: MatrixRowSeed[];
   isAdmin: boolean;
   canMarkComplete: boolean;
+  printDateLabel: string;
 };
 
 export function WorkflowMatrix({
@@ -49,6 +50,7 @@ export function WorkflowMatrix({
   seedRows,
   isAdmin,
   canMarkComplete,
+  printDateLabel,
 }: Props) {
   const router = useRouter();
   const [submissionId, setSubmissionId] = useState<string | null>(initialSubmissionId);
@@ -170,10 +172,23 @@ export function WorkflowMatrix({
     router.refresh();
   }
 
+  function handlePrint() {
+    window.print();
+  }
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 print-area">
+      {/* Print-only header (hidden on screen, shown on the printed PDF) */}
+      <div className="print-only mb-3">
+        <h1 className="text-lg font-bold">{workflowName} — Divya Motel</h1>
+        <p className="text-sm">
+          {printDateLabel} · {counts.ok} OK · {counts.issue} Issue · {counts.blank} blank/N/A ·{" "}
+          {completed ? "Completed" : "In progress"}
+        </p>
+      </div>
+
       {/* Top bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="no-print flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-slate-900">{workflowName}</h1>
           <p className="text-sm text-slate-500">
@@ -198,6 +213,17 @@ export function WorkflowMatrix({
             <RefreshCw className="h-4 w-4" />
             Refresh
           </button>
+          {submissionId && (
+            <button
+              type="button"
+              onClick={handlePrint}
+              className="btn-secondary"
+              title="Print / Save as PDF"
+            >
+              <Printer className="h-4 w-4" />
+              Print
+            </button>
+          )}
           {canMarkComplete && !completed && submissionId && (
             <button
               type="button"
@@ -225,11 +251,11 @@ export function WorkflowMatrix({
       </div>
 
       {error && (
-        <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
+        <p className="no-print rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
       )}
 
       {/* Counts */}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-medium">
+      <div className="no-print flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-medium">
         <span className="inline-flex items-center gap-1 text-emerald-700">
           <span className="h-2 w-2 rounded-full bg-emerald-500" /> {counts.ok} OK
         </span>
@@ -250,7 +276,7 @@ export function WorkflowMatrix({
       <div
         ref={topBarRef}
         onScroll={syncFromTop}
-        className="sticky top-[60px] z-20 overflow-x-auto overflow-y-hidden rounded-t-lg border border-b-0 border-slate-200 bg-slate-50"
+        className="no-print sticky top-[60px] z-20 overflow-x-auto overflow-y-hidden rounded-t-lg border border-b-0 border-slate-200 bg-slate-50"
       >
         <div style={{ width: scrollW, height: 8 }} />
       </div>
@@ -259,7 +285,7 @@ export function WorkflowMatrix({
       <div
         ref={gridRef}
         onScroll={syncFromGrid}
-        className="overflow-x-auto rounded-b-xl rounded-tr-xl border border-slate-200 bg-white"
+        className="matrix-scroll overflow-x-auto rounded-b-xl rounded-tr-xl border border-slate-200 bg-white"
       >
         <table className="border-separate border-spacing-0">
           <thead>

@@ -124,6 +124,7 @@ export default async function WorkflowSubmissionPage({
         seedRows={seedRows}
         isAdmin={isAdmin(user)}
         canMarkComplete={isManager(user)}
+        printDateLabel={targetDate.toLocaleDateString(undefined, { dateStyle: "full" })}
       />
     </div>
   );
