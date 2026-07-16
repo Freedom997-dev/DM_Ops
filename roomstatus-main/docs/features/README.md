@@ -2,24 +2,24 @@
 
 Index of shipped features. Each feature has its own doc with purpose, roles, routes, data model touchpoints, key files, and behavior notes.
 
-## Shipped
+## Shipped (Live in production)
 
 | Feature | Doc | Status |
 |---|---|---|
-| Room Condition Inspection | [room-condition-inspection.md](room-condition-inspection.md) | Live |
+| Room Condition Inspection | [room-condition-inspection.md](room-condition-inspection.md) | Live (now under `/services/pm/*`) |
 | Inspection Photo Evidence | [inspection-photos.md](inspection-photos.md) | Live |
+| Platform Foundation + Daily Cleanliness | [platform-foundation.md](platform-foundation.md) | Live — Okta-style `/services` + `/settings`, matrix, RBAC, reopen, print-to-PDF |
 
-## Releasing (on `dev`, pending production DB migration)
+## In development
 
 | Feature | Doc | Status |
 |---|---|---|
-| Platform Foundation + Daily Cleanliness Inspection | [platform-foundation.md](platform-foundation.md) | Verified locally (Docker Postgres). **Prod requires** the two `prisma/manual-migrations/2026-06-30-*.sql` files applied to Supabase before `/services/*` works in production. |
+| Housekeeping (HK) | [housekeeping.md](housekeeping.md) *(created when built)* | Starting on the `HK` branch — scope TBD from user instructions |
 
-## Backlog (committed but deferred)
+## Backlog (deferred)
 
-- **Per-room status timeline** — append-only, tamper-evident log of every room status transition with SHA-256 hash chaining.
-- **Downloadable inspection report** — per-room or per-inspection PDF/CSV with photos embedded.
-- **Room Cleaning Form workflow** — Housekeepers, per room (uses the Foundation pattern).
+- **Per-room status timeline** — append-only, tamper-evident log of every room status transition (SHA-256 hash chaining). Would consume the chatty `WorkflowCell` audit entries.
+- **CSV/Excel export** of submissions (print-to-PDF already shipped).
 
 ## Authoring a new feature doc
 

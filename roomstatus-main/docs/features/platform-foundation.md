@@ -13,8 +13,8 @@ The Foundation layer turns the app from a single-purpose PM checklist tool into 
 | | |
 |---|---|
 | **Design spec** | [`docs/superpowers/specs/2026-06-30-foundation-daily-cleanliness-design.md`](../superpowers/specs/2026-06-30-foundation-daily-cleanliness-design.md) |
-| **Implementation plan** | — (designed and implemented in `dev` branch directly) |
-| **Branch** | `dev` |
+| **Implementation plan** | — (designed and implemented directly, then iterated) |
+| **Status** | **Live** on `main` / production |
 | **Live URL path(s)** | `/services`, `/services/[slug]`, `/services/[slug]/history`, `/services/[slug]/settings`, `/services/pm/*`, `/settings`, `/settings/staff`, `/settings/access`, `/settings/services`, `/settings/activity` |
 
 ## Roles
@@ -58,7 +58,7 @@ See [`docs/data-model.md`](../data-model.md) for full schema of the new tables.
 ### New
 - `src/lib/permissions.ts` — role matrix (`canAccessAdminSection`, `canRunWorkflow`, `parseRolesAllowed`, `isManager`)
 - `src/lib/actions/workflows.ts` — submission flow: `getOrCreateTodaySubmission`, `updateCell`, `saveRow` (photos), `saveRowNote` (note-only), `markSubmissionComplete`, `reopenSubmission` (admin), `deleteRowImage`
-- `src/components/WorkflowNoteCell.tsx` — inline note box for the sticky Notes column (save-on-blur)
+- `src/components/WorkflowNoteCell.tsx` — inline note box for the far-right Notes column (save-on-blur)
 - `src/lib/actions/workflowAdmin.ts` — admin CRUD on definitions and items
 - `src/components/WorkflowMatrix.tsx` — main matrix UI; passes `ensureSubmission` to each cell so the first cell tap bootstraps the day's submission
 - `src/components/WorkflowCellButton.tsx` — **single cycling checkbox** (blank → OK → Issue → blank) with optimistic updates
@@ -90,9 +90,11 @@ See [`docs/data-model.md`](../data-model.md) for full schema of the new tables.
 - **Blank = no DB row.** Only OK and Issue are stored as `WorkflowCell` rows. Cycling a cell back to blank **deletes** its row (with a `DELETE` audit entry). So "unmarked" and "N/A" are the same visual/data state — a clean, sparse table.
 - **First cell tap bootstraps the submission.** Cells are enabled immediately. The first interaction on any cell (or a room label) calls `getOrCreateTodaySubmission`, then applies the change in the same transition. `@@unique([workflowId, date])` guarantees one submission per workflow per UTC-date.
 - **Per-cell last-write-wins.** Optimistic UI; server upserts (or deletes on blank); the audit log retains every cell change.
-- **Per-row note is an always-visible column.** The rightmost **Notes** column is sticky to the right of the matrix; each room has an inline note box that saves on blur via `saveRowNote` (note-only; never touches photos).
+- **Per-row note is an always-visible column.** The **Notes** column is the last (far-right) column of the matrix — a normal, non-sticky column reached by scrolling right past the items. Each room has an inline note box that saves on blur via `saveRowNote` (note-only; never touches photos).
 - **Per-row photos** live in an expand panel: tap a room label on the left → panel opens (photos only, note is edited in the column) → add/delete photos, save.
-- **Mark complete** locks the submission. Set on the matrix page (manager+). Once locked, cells become read-only. A new submission auto-creates for the next day.
+- **Grid scroll behavior.** The matrix sits in a bounded scroll box (`max-h-[75vh] overflow-auto`) so the **header row** (item names) and the **Room column** (left) stay pinned while you scroll rooms up/down or items left/right. The Notes column is NOT pinned — it's the natural far-right column. (Rationale: on mobile, pinning both Room-left and Notes-right left no room for item columns; only the header + Room stay fixed now.)
+- **Print / Save as PDF.** A **Print** button on the matrix calls `window.print()`. An `@media print` stylesheet in `globals.css` reformats the grid for paper: landscape, full grid (✓/✗/blank + Notes), a print-only header (workflow name · date · counts), all interactive chrome hidden, columns un-stuck, header row repeated per page. No dependency or server code — the browser dialog produces the PDF. Works for today and any past date.
+- **Mark complete** locks the submission. Set on the matrix page (manager+), any date. Once locked, cells become read-only. A new submission auto-creates for the next day.
 - **Reopen (admin only).** A completed submission shows a **Reopen** button to admins. It flips status back to `IN_PROGRESS`, clears `completedAt`, and re-enables the cells for correction. Logged as an `UPDATE` on `WorkflowSubmission` with `status: "REOPENED"` in details.
 - **History views answer Room+Date.** "By date" lists submissions; "By room" filters all submissions touching a given room.
 - **Item text snapshot in cells.** `WorkflowCell.itemText` is copied at edit time so historical cells stay readable even if an admin edits or archives an item later.
@@ -122,18 +124,14 @@ See [`docs/data-model.md`](../data-model.md) for full schema of the new tables.
 - Form shapes other than MATRIX (e.g. PER_ROOM_DEEP)
 - Workflow scheduling (recurring cron)
 - Workflow-scoped rooms (currently all non-archived rooms)
-- Export submissions to PDF/CSV
+- CSV/Excel export (print-to-PDF is done; structured data export is not)
 - Multi-tenancy
 
-## Migration steps for production
+## Status: LIVE in production
 
-In a **Supabase-management chat** (not this chat), apply in order:
+Shipped to `main` and deployed on Vercel (`https://roomstatus-theta.vercel.app`). The two `prisma/manual-migrations/2026-06-30-*.sql` files were applied to the production Supabase database (6 `Workflow*` tables + the Daily Cleanliness definition with 18 items). No further migration is pending for this feature.
 
-1. `prisma/manual-migrations/2026-06-30-add-foundation-workflow-tables.sql` via `apply_migration` (name suggestion: `add_foundation_workflow_tables`)
-2. `prisma/manual-migrations/2026-06-30-seed-daily-cleanliness.sql` via `execute_sql`
-3. Verify with `list_tables` (should see 6 new tables) and a count query (should see 1 WorkflowDefinition and 18 WorkflowItem rows)
-
-After production schema is in place, push `dev` → `main` to deploy.
+For reference, the production DB migration (already done) was: apply `add-foundation-workflow-tables.sql`, then `seed-daily-cleanliness.sql`, via Supabase MCP in a Supabase-management chat.
 
 ## Change log
 
@@ -144,6 +142,5 @@ After production schema is in place, push `dev` → `main` to deploy.
 - 2026-07-01 · Notes moved to an **always-visible sticky Notes column** on the right (`WorkflowNoteCell` + `saveRowNote`); the row-expand panel is now photos-only.
 - 2026-07-01 · **RBAC**: added `setUserRole` (admin-only, with last-admin guard) and a per-user role dropdown in Staff & access. Staff page now passes `isAdmin`.
 - 2026-07-02 · Past-date submissions are now **editable** by managers+ (removed the `isToday` gate on Mark complete; edits auto-save, Mark complete finalizes). Banner reworded from "read-only" to reflect editability (completed submissions stay read-only until an admin reopens).
-- 2026-07-02 · Matrix grid given a bounded height (`max-h-[70vh]`) so the horizontal scrollbar stays reachable without scrolling past all rooms; sticky Room (left), header (top), and Notes (right) hold in place.
-- 2026-07-02 · Replaced the height cap with a **synced sticky horizontal scrollbar** (mirrors the grid) so vertical mouse-wheel scrolls the page normally while horizontal stays reachable.
 - 2026-07-02 · **Print / Save as PDF**: a Print button on the matrix triggers `window.print()`. An `@media print` stylesheet (`globals.css`) renders the full grid landscape (✓/✗/blank + Notes), hides all UI chrome, un-sticks columns, and prints a header with date + counts. No server code or dependency — the browser's print dialog does the PDF. Works for today and any past date.
+- 2026-07-14 · **Scroll behavior settled** (after iterating through a `max-h-70vh` box and a synced-scrollbar experiment): the grid uses a bounded scroll box (`max-h-[75vh] overflow-auto`) so the **header row and Room column stay pinned** while scrolling. The **Notes column is un-pinned** (normal far-right column) — pinning both Room-left and Notes-right left no room for items on mobile. The synced-scrollbar strip was removed.
