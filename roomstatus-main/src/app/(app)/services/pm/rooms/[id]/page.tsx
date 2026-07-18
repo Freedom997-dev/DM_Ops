@@ -35,7 +35,9 @@ export default async function RoomDetailPage({
   if (!room) notFound();
 
   const latest = room.inspections[0];
-  const status = roomStatusFromSummary(latest?.summary) as RoomStatus;
+  const latestFixedCount =
+    latest?.items.filter((i) => i.status === "REPAIR_COMPLETED").length ?? 0;
+  const status = roomStatusFromSummary(latest?.summary, latestFixedCount) as RoomStatus;
 
   const history = await Promise.all(
     room.inspections.map(async (i) => ({

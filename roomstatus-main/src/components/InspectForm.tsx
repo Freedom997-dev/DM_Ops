@@ -3,13 +3,17 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import clsx from "clsx";
-import { Loader2, MessageSquarePlus, Save } from "lucide-react";
+import { AlertTriangle, Loader2, MessageSquarePlus, Save, Wrench } from "lucide-react";
 import { saveInspection } from "@/lib/actions/inspections";
 import { ITEM_STATUS_META, type ItemStatus } from "@/lib/status";
 import { PhotoPicker } from "@/components/PhotoPicker";
 
 type Question = { id: string; text: string };
 type Section = { id: string; name: string; questions: Question[] };
+type Carried = {
+  status: "NEEDS_REPAIR" | "REPAIR_COMPLETED" | "NA";
+  note: string | null;
+};
 
 const CHOICES: ItemStatus[] = ["OK", "NEEDS_REPAIR", "REPAIR_COMPLETED", "NA"];
 
@@ -17,10 +21,15 @@ export function InspectForm({
   roomId,
   roomNumber,
   sections,
+  carried = {},
+  lastInspectedAt = null,
 }: {
   roomId: string;
   roomNumber: string;
   sections: Section[];
+  /** Unresolved items from the last inspection, keyed by question id. */
+  carried?: Record<string, Carried>;
+  lastInspectedAt?: string | null;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -31,11 +40,29 @@ export function InspectForm({
     [sections],
   );
 
+  // Unresolved items from the last inspection start where they left off; the
+  // rest start at OK. Keeps a known-broken item from silently going green.
   const [statuses, setStatuses] = useState<Record<string, ItemStatus>>(() =>
-    Object.fromEntries(allQuestions.map((q) => [q.id, "OK" as ItemStatus])),
+    Object.fromEntries(
+      allQuestions.map((q) => [q.id, (carried[q.id]?.status ?? "OK") as ItemStatus]),
+    ),
   );
-  const [notes, setNotes] = useState<Record<string, string>>({});
+  const [notes, setNotes] = useState<Record<string, string>>(() =>
+    Object.fromEntries(
+      allQuestions
+        .filter((q) => carried[q.id]?.note)
+        .map((q) => [q.id, carried[q.id]!.note as string]),
+    ),
+  );
   const [openNote, setOpenNote] = useState<Record<string, boolean>>({});
+
+  const carriedRepairCount = allQuestions.filter(
+    (q) => carried[q.id]?.status === "NEEDS_REPAIR",
+  ).length;
+  // Of those, how many the inspector has since resolved (marked Fixed or OK).
+  const stillOpenCount = allQuestions.filter(
+    (q) => carried[q.id]?.status === "NEEDS_REPAIR" && statuses[q.id] === "NEEDS_REPAIR",
+  ).length;
   const [generalNotes, setGeneralNotes] = useState("");
   const [photos, setPhotos] = useState<Record<string, File[]>>({});
 
@@ -88,6 +115,32 @@ export function InspectForm({
 
   return (
     <div className="space-y-5 pb-28">
+      {carriedRepairCount > 0 && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <div className="flex items-start gap-2.5">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+            <div className="text-sm text-amber-900">
+              <p className="font-semibold">
+                {carriedRepairCount} open repair{carriedRepairCount === 1 ? "" : "s"} carried
+                over from the last inspection
+                {lastInspectedAt && (
+                  <> ({new Date(lastInspectedAt).toLocaleDateString()})</>
+                )}
+                .
+              </p>
+              <p className="mt-0.5 text-amber-800">
+                They stay flagged until you resolve them. Mark each one{" "}
+                <span className="font-semibold">Fixed</span> once repaired, or leave it as{" "}
+                <span className="font-semibold">Repair</span> if it&apos;s still broken.
+                {stillOpenCount !== carriedRepairCount && (
+                  <> · {stillOpenCount} still marked as needing repair.</>
+                )}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {sections.map((section) => (
         <div key={section.id} className="card overflow-hidden">
           <div className="border-b border-slate-100 bg-slate-50 px-4 py-2.5">
@@ -100,9 +153,34 @@ export function InspectForm({
               const current = statuses[q.id];
               const showNote = openNote[q.id];
               return (
-                <li key={q.id} className="px-4 py-3">
+                <li
+                  key={q.id}
+                  className={clsx(
+                    "px-4 py-3",
+                    carried[q.id]?.status === "NEEDS_REPAIR" && "bg-amber-50/50",
+                  )}
+                >
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <span className="text-sm text-slate-700">{q.text}</span>
+                    <span className="text-sm text-slate-700">
+                      {q.text}
+                      {carried[q.id]?.status === "NEEDS_REPAIR" && (
+                        <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 align-middle text-[11px] font-semibold text-amber-800">
+                          <AlertTriangle className="h-3 w-3" />
+                          Open from last inspection
+                        </span>
+                      )}
+                      {carried[q.id]?.status === "REPAIR_COMPLETED" && (
+                        <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 align-middle text-[11px] font-semibold text-blue-800">
+                          <Wrench className="h-3 w-3" />
+                          Repaired last inspection
+                        </span>
+                      )}
+                      {carried[q.id]?.status === "NA" && (
+                        <span className="ml-2 align-middle text-[11px] font-medium text-slate-400">
+                          N/A last time
+                        </span>
+                      )}
+                    </span>
                     <div className="flex flex-wrap gap-1.5">
                       {CHOICES.map((choice) => {
                         const meta = ITEM_STATUS_META[choice];

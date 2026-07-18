@@ -19,7 +19,12 @@ export default async function RoomsPage({
         where: { status: "COMPLETED" },
         orderBy: { completedAt: "desc" },
         take: 1,
-        select: { summary: true, completedAt: true },
+        select: {
+          summary: true,
+          completedAt: true,
+          // Repaired-but-unverified items drive the amber "Fixed – verify" state.
+          _count: { select: { items: { where: { status: "REPAIR_COMPLETED" } } } },
+        },
       },
     },
   });
@@ -34,7 +39,10 @@ export default async function RoomsPage({
         floor: r.floor,
         notes: r.notes,
         archived: r.archived,
-        status: roomStatusFromSummary(latest?.summary) as RoomStatus,
+        status: roomStatusFromSummary(
+          latest?.summary,
+          latest?._count.items ?? 0,
+        ) as RoomStatus,
         lastInspected: latest?.completedAt ? latest.completedAt.toISOString() : null,
       };
     })
