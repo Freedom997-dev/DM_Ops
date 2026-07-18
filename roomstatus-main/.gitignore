@@ -19,6 +19,9 @@ prisma/dev.db-journal
 *.db
 *.db-journal
 
+# local dev image storage (filesystem storage driver)
+.local-storage/
+
 # misc
 .DS_Store
 .vscode

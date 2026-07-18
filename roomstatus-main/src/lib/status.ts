@@ -2,7 +2,7 @@
 // inspection flow.
 
 export type ItemStatus = "OK" | "NEEDS_REPAIR" | "REPAIR_COMPLETED" | "NA";
-export type RoomStatus = "OK" | "NEEDS_REPAIR" | "NOT_INSPECTED";
+export type RoomStatus = "OK" | "NEEDS_REPAIR" | "FIXED" | "NOT_INSPECTED";
 
 export const ITEM_STATUS_META: Record<
   ItemStatus,
@@ -56,6 +56,13 @@ export const ROOM_STATUS_META: Record<
     ring: "ring-red-200",
     bar: "bg-red-500",
   },
+  FIXED: {
+    label: "Fixed – verify",
+    chip: "bg-amber-100 text-amber-800 border-amber-200",
+    dot: "bg-amber-500",
+    ring: "ring-amber-200",
+    bar: "bg-amber-500",
+  },
   NOT_INSPECTED: {
     label: "Not Inspected",
     chip: "bg-slate-100 text-slate-600 border-slate-200",
@@ -65,12 +72,21 @@ export const ROOM_STATUS_META: Record<
   },
 };
 
-// Given the latest completed inspection's summary, derive the room status.
+/**
+ * Derives the room status from its latest completed inspection.
+ *
+ * Priority: outstanding repairs beat everything — a room with both a broken
+ * item and a repaired one is still red. A room whose repairs are all done but
+ * not yet re-checked goes amber ("Fixed – verify") until an inspection marks
+ * those items OK, which is what turns it green.
+ */
 export function roomStatusFromSummary(
   summary: string | null | undefined,
+  fixedCount = 0,
 ): RoomStatus {
   if (!summary) return "NOT_INSPECTED";
   if (summary === "NEEDS_REPAIR") return "NEEDS_REPAIR";
+  if (fixedCount > 0) return "FIXED";
   return "OK";
 }
 

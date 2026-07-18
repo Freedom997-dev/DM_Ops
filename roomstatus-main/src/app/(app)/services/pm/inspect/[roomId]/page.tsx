@@ -32,6 +32,40 @@ export default async function InspectPage({
   const usable = sections.filter((s) => s.questions.length > 0);
   const totalQuestions = usable.reduce((n, s) => n + s.questions.length, 0);
 
+  // Carry non-OK state forward from the most recent completed inspection.
+  //   NEEDS_REPAIR     — stays flagged until explicitly resolved, so a rushed
+  //                      inspection can't silently "heal" a room.
+  //   REPAIR_COMPLETED — the repair record sticks with the item.
+  //   NA               — usually a permanent property (no iron/board etc.).
+  // Items previously OK start fresh at OK.
+  const CARRIED_STATUSES = ["NEEDS_REPAIR", "REPAIR_COMPLETED", "NA"] as const;
+  type CarriedStatus = (typeof CARRIED_STATUSES)[number];
+
+  const lastInspection = await prisma.inspection.findFirst({
+    where: { roomId: room.id, status: "COMPLETED" },
+    orderBy: { completedAt: "desc" },
+    select: {
+      completedAt: true,
+      items: {
+        where: { status: { in: [...CARRIED_STATUSES] } },
+        select: { questionId: true, status: true, note: true },
+      },
+    },
+  });
+
+  const liveQuestionIds = new Set(usable.flatMap((s) => s.questions.map((q) => q.id)));
+  const carried: Record<string, { status: CarriedStatus; note: string | null }> = {};
+  for (const item of lastInspection?.items ?? []) {
+    // Skip questions that have since been archived or removed.
+    if (!liveQuestionIds.has(item.questionId)) continue;
+    if (!CARRIED_STATUSES.includes(item.status as CarriedStatus)) continue;
+    carried[item.questionId] = { status: item.status as CarriedStatus, note: item.note };
+  }
+
+  const carriedRepairs = Object.values(carried).filter(
+    (c) => c.status === "NEEDS_REPAIR",
+  ).length;
+
   return (
     <div className="space-y-5">
       <div>
@@ -51,9 +85,21 @@ export default async function InspectPage({
               Inspect Room {room.number}
             </h1>
             <p className="text-sm text-slate-500">
-              {totalQuestions} checklist item{totalQuestions === 1 ? "" : "s"} ·
-              every item starts at <span className="font-medium text-emerald-700">OK</span>;
-              mark the exceptions.
+              {totalQuestions} checklist item{totalQuestions === 1 ? "" : "s"} ·{" "}
+              {carriedRepairs > 0 ? (
+                <>
+                  <span className="font-medium text-amber-700">
+                    {carriedRepairs} open repair{carriedRepairs === 1 ? "" : "s"}
+                  </span>{" "}
+                  carried over — confirm or mark Fixed.
+                </>
+              ) : (
+                <>
+                  every item starts at{" "}
+                  <span className="font-medium text-emerald-700">OK</span>; mark the
+                  exceptions.
+                </>
+              )}
             </p>
           </div>
         </div>
@@ -64,7 +110,13 @@ export default async function InspectPage({
           The checklist is empty. An admin needs to add questions first.
         </div>
       ) : (
-        <InspectForm roomId={room.id} roomNumber={room.number} sections={usable} />
+        <InspectForm
+          roomId={room.id}
+          roomNumber={room.number}
+          sections={usable}
+          carried={carried}
+          lastInspectedAt={lastInspection?.completedAt?.toISOString() ?? null}
+        />
       )}
     </div>
   );
