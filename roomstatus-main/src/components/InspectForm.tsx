@@ -1,12 +1,15 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import clsx from "clsx";
 import { AlertTriangle, Loader2, MessageSquarePlus, Save, Wrench } from "lucide-react";
 import { saveInspection } from "@/lib/actions/inspections";
 import { ITEM_STATUS_META, type ItemStatus } from "@/lib/status";
 import { PhotoPicker } from "@/components/PhotoPicker";
+import { useItemSearch } from "@/components/useItemSearch";
+import { InspectSearchBar } from "@/components/InspectSearchBar";
+import { HighlightedText } from "@/components/HighlightedText";
 
 type Question = { id: string; text: string };
 type Section = { id: string; name: string; questions: Question[] };
@@ -39,6 +42,18 @@ export function InspectForm({
     () => sections.flatMap((s) => s.questions),
     [sections],
   );
+
+  // "Find on page" search across all 95 items.
+  const search = useItemSearch(allQuestions);
+  const rowRefs = useRef<Map<string, HTMLLIElement>>(new Map());
+
+  // Scroll the active match to the center of the viewport when it changes.
+  useEffect(() => {
+    if (!search.activeId) return;
+    rowRefs.current
+      .get(search.activeId)
+      ?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [search.activeId]);
 
   // Unresolved items from the last inspection start where they left off; the
   // rest start at OK. Keeps a known-broken item from silently going green.
@@ -115,6 +130,8 @@ export function InspectForm({
 
   return (
     <div className="space-y-5 pb-28">
+      <InspectSearchBar search={search} />
+
       {carriedRepairCount > 0 && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
           <div className="flex items-start gap-2.5">
@@ -155,14 +172,20 @@ export function InspectForm({
               return (
                 <li
                   key={q.id}
+                  ref={(el) => {
+                    const m = rowRefs.current;
+                    if (el) m.set(q.id, el);
+                    else m.delete(q.id);
+                  }}
                   className={clsx(
                     "px-4 py-3",
                     carried[q.id]?.status === "NEEDS_REPAIR" && "bg-amber-50/50",
+                    search.activeId === q.id && "rounded-lg ring-2 ring-inset ring-brand-500",
                   )}
                 >
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <span className="text-sm text-slate-700">
-                      {q.text}
+                      <HighlightedText text={q.text} query={search.query} />
                       {carried[q.id]?.status === "NEEDS_REPAIR" && (
                         <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 align-middle text-[11px] font-semibold text-amber-800">
                           <AlertTriangle className="h-3 w-3" />
