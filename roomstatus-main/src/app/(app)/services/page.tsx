@@ -34,7 +34,7 @@ export default async function ServicesIndex() {
           _count: { select: { rows: true } },
         },
       });
-      return { slug: d.slug, name: d.name, description: d.description, submission };
+      return { slug: d.slug, name: d.name, submission };
     }),
   );
 
@@ -63,26 +63,23 @@ export default async function ServicesIndex() {
           </div>
         )}
 
-        {/* Built-in PM service */}
+        {/* Built-in PM service — title only */}
         {showPmCard && (
           <ServiceCard
             href="/services/pm"
             icon={<ClipboardList className="h-5 w-5" />}
             name="Room Condition (PM)"
-            description="Per-room deep inspection — the original 95-item preventive maintenance checklist."
             settingsHref={admin ? "/services/pm/settings" : undefined}
-            statusLine="Deep inspection · per room"
           />
         )}
 
-        {/* Workflow services (Daily Cleanliness, future) */}
+        {/* Workflow services (Daily Cleanliness, future) — title + today's status */}
         {workflowCards.map((c) => (
           <ServiceCard
             key={c.slug}
             href={`/services/${c.slug}`}
             icon={<LayoutGrid className="h-5 w-5" />}
             name={c.name}
-            description={c.description}
             settingsHref={admin ? `/services/${c.slug}/settings` : undefined}
             historyHref={`/services/${c.slug}/history`}
             statusLine={
@@ -103,7 +100,6 @@ function ServiceCard({
   href,
   icon,
   name,
-  description,
   settingsHref,
   historyHref,
   statusLine,
@@ -113,10 +109,9 @@ function ServiceCard({
   href: string;
   icon: React.ReactNode;
   name: string;
-  description: string | null;
   settingsHref?: string;
   historyHref?: string;
-  statusLine: string;
+  statusLine?: string;
   startedBy?: string | null;
   completed?: boolean;
 }) {
@@ -131,16 +126,14 @@ function ServiceCard({
           <Settings className="h-4 w-4" />
         </Link>
       )}
-      <Link href={href} className="flex flex-col gap-3">
-        <div className="flex items-start gap-3 pr-8">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
-            {icon}
-          </span>
-          <div>
-            <h2 className="text-lg font-bold text-slate-900">{name}</h2>
-            {description && <p className="text-xs text-slate-500">{description}</p>}
-          </div>
-        </div>
+      <Link href={href} className="flex items-center gap-3 pr-8">
+        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
+          {icon}
+        </span>
+        <h2 className="text-lg font-bold text-slate-900">{name}</h2>
+      </Link>
+
+      {statusLine && (
         <div className="space-y-1 text-xs">
           <div
             className={
@@ -152,7 +145,9 @@ function ServiceCard({
             {completed !== undefined && (
               <span
                 className={
-                  completed ? "h-2 w-2 rounded-full bg-emerald-500" : "h-2 w-2 rounded-full bg-amber-500"
+                  completed
+                    ? "h-2 w-2 rounded-full bg-emerald-500"
+                    : "h-2 w-2 rounded-full bg-amber-500"
                 }
               />
             )}
@@ -165,14 +160,21 @@ function ServiceCard({
             </div>
           )}
         </div>
-      </Link>
+      )}
+
       <div className="mt-auto flex items-center gap-3">
         {historyHref && (
-          <Link href={historyHref} className="text-xs font-semibold text-brand-600 hover:underline">
+          <Link
+            href={historyHref}
+            className="text-xs font-semibold text-brand-600 hover:underline"
+          >
             View history →
           </Link>
         )}
-        <Link href={href} className="ml-auto inline-flex items-center text-xs font-semibold text-slate-400 group-hover:text-brand-600">
+        <Link
+          href={href}
+          className="ml-auto inline-flex items-center text-xs font-semibold text-slate-400 group-hover:text-brand-600"
+        >
           Open <ChevronRight className="h-3.5 w-3.5" />
         </Link>
       </div>
