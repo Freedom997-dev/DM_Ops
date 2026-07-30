@@ -7,15 +7,20 @@ Living reference for the Room Condition Program and the wider operations platfor
 ```
 docs/
 ├── README.md                  # this file — index + discipline
-├── architecture.md            # stack, hosting, deployment, key decisions
+├── getting-started.md         # run locally (Docker Postgres + local storage), scripts, logins
+├── architecture.md            # stack, hosting, deployment, key patterns
 ├── data-model.md              # Prisma schema reference, relations, cascade behavior
+├── routes.md                  # every page & API route + who can access
+├── roles-and-permissions.md   # roles, admin matrix, per-feature capabilities, enforcement
 ├── features/                  # one file per shipped feature
 │   ├── README.md              # feature index
 │   ├── _template.md           # template for new feature docs
 │   ├── room-condition-inspection.md
 │   ├── inspection-photos.md
-│   └── platform-foundation.md # Okta-style services + Daily Cleanliness
-└── superpowers/               # design specs and implementation plans (created during brainstorms)
+│   ├── pm-item-search.md      # Ctrl+F on the inspect form
+│   ├── platform-foundation.md # Okta-style services + Daily Cleanliness
+│   └── housekeeping.md        # Housekeeping Tracking (HKT)
+└── superpowers/               # design specs and implementation plans (frozen at design time)
     ├── specs/
     └── plans/
 ```
@@ -36,6 +41,9 @@ If you're editing code in a feature folder, ask: *does this change the user-visi
 
 ## Quick links
 
+- [Getting started](getting-started.md) — run it locally
 - [Architecture](architecture.md)
 - [Data model](data-model.md)
+- [Routes](routes.md)
+- [Roles & permissions](roles-and-permissions.md)
 - [Features index](features/README.md)

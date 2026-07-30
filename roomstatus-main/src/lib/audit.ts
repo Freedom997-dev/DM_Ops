@@ -14,7 +14,10 @@ type AuditInput = {
     | "WorkflowItem"
     | "WorkflowSubmission"
     | "WorkflowRow"
-    | "WorkflowCell";
+    | "WorkflowCell"
+    | "HousekeepingTask"
+    | "HousekeepingPhoto"
+    | "HousekeepingSetting";
   entityId?: string | null;
   details?: Record<string, unknown> | string | null;
 };

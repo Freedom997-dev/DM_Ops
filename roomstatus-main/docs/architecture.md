@@ -35,6 +35,7 @@
 | `NEXTAUTH_URL` | Public base URL for NextAuth cookies | Production + Preview |
 | `SUPABASE_URL` | `https://gufddccguumpbtzxsbpj.supabase.co` | Production + Preview |
 | `SUPABASE_SERVICE_ROLE_KEY` | Server-only Supabase key for Storage writes | Production + Preview |
+| `CRON_SECRET` | Bearer token for the housekeeping retention cron | Production |
 
 `SUPABASE_SERVICE_ROLE_KEY` must never appear in client code. Imported only inside `src/lib/storage.ts` which is server-only.
 
@@ -54,7 +55,10 @@ When an inspection is saved, the `questionText` and `sectionName` are *copied* i
 Mutations live in `src/lib/actions/*` as `"use server"` functions called directly from forms. No `/api` REST layer.
 
 ### Upload-then-transact (storage + DB)
-For photo uploads: upload to Supabase Storage *before* the Prisma transaction, then write DB rows referencing the storage paths. If DB write fails, best-effort delete the uploaded objects. Holding a DB connection during Storage I/O is an anti-pattern.
+For photo uploads: upload to Storage *before* the Prisma transaction, then write DB rows referencing the storage paths. If DB write fails, best-effort delete the uploaded objects. Holding a DB connection during Storage I/O is an anti-pattern.
+
+### Pluggable storage driver (Supabase / local filesystem)
+`src/lib/storage.ts` exposes `uploadImage` / `getSignedUrl` / `deleteImages` and picks a backend automatically: **Supabase Storage** when `SUPABASE_URL` is a real `https://…supabase.co` URL + service-role key (production), otherwise a **local filesystem driver** (dev) that writes under `.local-storage/` and serves via the auth-guarded `/api/local-images/[...path]` route. This lets photo upload/preview work locally with zero Supabase setup. Callers never know which backend is active.
 
 ### PgBouncer-safe Prisma
 `src/lib/db.ts` appends `?pgbouncer=true&connection_limit=1` to `DATABASE_URL` at runtime if missing. Required because Supabase's Transaction pooler rotates Postgres connections per transaction, which breaks Prisma's default prepared-statement caching.
@@ -108,15 +112,24 @@ roomstatus-main/
 
 ## Local development (offline from Supabase)
 
-Because the Supabase Transaction pooler port can be unreachable from some networks (and to keep production untouched during feature work), local dev runs against a **Docker Postgres** container:
+Local dev runs against a **Docker Postgres** container (`docker-compose.yml`, Postgres 16
+on port 5433) and the **local filesystem storage driver** — so neither the DB nor photos
+touch production. Full walkthrough: [getting-started.md](getting-started.md).
 
 ```bash
-docker run --name divya-pg -e POSTGRES_PASSWORD=devpass -e POSTGRES_DB=divya -p 5433:5432 -d postgres:16
-# .env.local → DATABASE_URL="postgresql://postgres:devpass@localhost:5433/divya?sslmode=disable"
-npx prisma db push          # create all tables locally
-npx tsx prisma/seed.ts      # admin + PM checklist + sample rooms
-npx tsx prisma/seedWorkflows.ts   # Daily Cleanliness workflow + items
+docker compose up -d               # Postgres on localhost:5433
+npx prisma db push                 # create all tables locally
+npx tsx prisma/seed.ts             # admin + PM checklist + sample rooms
+npx tsx prisma/seedWorkflows.ts    # Daily Cleanliness workflow + items
+npx tsx prisma/seedHousekeeping.ts # HK settings + default status actions
 npm run dev
 ```
 
-The real Supabase `DATABASE_URL` is preserved in `.env.local.production-backup`. Storage-dependent features (photo upload) won't work locally unless `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` point at the real bucket. `.env.local` is gitignored — production reads its own Vercel env vars.
+Photo upload **does** work locally now — the storage driver falls back to the filesystem
+when Supabase isn't configured (see *Pluggable storage driver* above). The real Supabase
+`DATABASE_URL` is preserved in `.env.local.production-backup`; `.env.local` is gitignored
+and production reads its own Vercel env vars.
+
+## Scheduled cleanup (cron)
+
+Housekeeping photos are kept small via a **daily retention sweep**: `GET /api/cron/housekeeping-cleanup` deletes any `HousekeepingPhoto` older than the admin-set `retentionDays` (Storage + DB). It is guarded by a `CRON_SECRET` bearer token and scheduled in `vercel.json` (`0 3 * * *`); Vercel Cron sends the secret automatically. Delete-on-approval does most of the work; the sweep is the safety net for rejected/abandoned cycles. Housekeeping is a **built-in service** (role logic in `src/lib/housekeeping.ts`), not a `WorkflowDefinition`.

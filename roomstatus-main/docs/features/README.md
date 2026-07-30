@@ -9,12 +9,14 @@ Index of shipped features. Each feature has its own doc with purpose, roles, rou
 | Room Condition Inspection | [room-condition-inspection.md](room-condition-inspection.md) | Live (now under `/services/pm/*`) |
 | Inspection Photo Evidence | [inspection-photos.md](inspection-photos.md) | Live |
 | Platform Foundation + Daily Cleanliness | [platform-foundation.md](platform-foundation.md) | Live — Okta-style `/services` + `/settings`, matrix, RBAC, reopen, print-to-PDF |
+| PM Inspect — Item Search | [pm-item-search.md](pm-item-search.md) | Live — Ctrl+F "find on page" for the 95-item inspect form |
+| Housekeeping Tracking (HKT) | [housekeeping.md](housekeeping.md) | Built on `HKT` — flexible room + daily tasks, assignment (manual + auto), photo/inspection flow, activity timeline, configurable status actions + task templates, retention |
 
 ## In development
 
 | Feature | Doc | Status |
 |---|---|---|
-| Housekeeping (HK) | [housekeeping.md](housekeeping.md) *(created when built)* | Starting on the `HK` branch — scope TBD from user instructions |
+| _(none)_ | | |
 
 ## Backlog (deferred)
 

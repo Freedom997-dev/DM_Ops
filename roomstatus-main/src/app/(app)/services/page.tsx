@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { ChevronRight, ClipboardList, LayoutGrid, Settings, User2 } from "lucide-react";
+import { ChevronRight, ClipboardList, LayoutGrid, Settings, User2, Sparkles } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/session";
 import { canRunWorkflow, parseRolesAllowed, isAdmin } from "@/lib/permissions";
+import { canAccessHousekeeping, canConfigureHousekeeping } from "@/lib/housekeeping";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +41,16 @@ export default async function ServicesIndex() {
 
   // PM is a built-in service (its own tables). Shown to ADMIN + INSPECTOR.
   const showPmCard = admin || user.role === "INSPECTOR";
+  const showHkCard = canAccessHousekeeping(user.role);
+
+  // Live housekeeping snapshot for the card status line.
+  const hkCounts = showHkCard
+    ? {
+        toClean: await prisma.housekeepingTask.count({ where: { status: "READY_TO_CLEAN" } }),
+        inProgress: await prisma.housekeepingTask.count({ where: { status: "IN_PROGRESS" } }),
+        forInspection: await prisma.housekeepingTask.count({ where: { status: "READY_FOR_INSPECTION" } }),
+      }
+    : null;
 
   return (
     <div className="space-y-6">
@@ -70,6 +81,22 @@ export default async function ServicesIndex() {
             icon={<ClipboardList className="h-5 w-5" />}
             name="Room Condition (PM)"
             settingsHref={admin ? "/services/pm/settings" : undefined}
+          />
+        )}
+
+        {/* Built-in Housekeeping (HKT) service */}
+        {showHkCard && (
+          <ServiceCard
+            href="/services/housekeeping"
+            icon={<Sparkles className="h-5 w-5" />}
+            name="Housekeeping"
+            settingsHref={canConfigureHousekeeping(user.role) ? "/services/housekeeping/settings" : undefined}
+            statusLine={
+              hkCounts
+                ? `${hkCounts.toClean} to clean · ${hkCounts.inProgress} in progress · ${hkCounts.forInspection} to inspect`
+                : undefined
+            }
+            completed={hkCounts ? hkCounts.toClean + hkCounts.inProgress + hkCounts.forInspection === 0 : undefined}
           />
         )}
 

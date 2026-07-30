@@ -30,6 +30,14 @@ model User {
   workflowRowUpdates         WorkflowRow[]        @relation("WorkflowRowUpdated")
   workflowCellUpdates        WorkflowCell[]       @relation("WorkflowCellUpdated")
   workflowRowImagesUploaded  WorkflowRowImage[]   @relation("WorkflowRowImageUploaded")
+
+  // Housekeeping (HKT) back-relations
+  hkAssigned       HousekeepingTask[]  @relation("HKAssigned")
+  hkAssignedByMe   HousekeepingTask[]  @relation("HKAssignedBy")
+  hkCreated        HousekeepingTask[]  @relation("HKCreated")
+  hkSubmitted      HousekeepingTask[]  @relation("HKSubmitted")
+  hkReviewed       HousekeepingTask[]  @relation("HKReviewed")
+  hkPhotosUploaded HousekeepingPhoto[] @relation("HKPhotoUploaded")
 }
 
 // ---------------------------------------------------------------------------
@@ -50,6 +58,9 @@ model Room {
   // Foundation: Workflow back-relations
   workflowRows  WorkflowRow[]
   workflowCells WorkflowCell[]
+
+  // Housekeeping (HKT) back-relation
+  housekeepingTasks HousekeepingTask[]
 }
 
 // ---------------------------------------------------------------------------
@@ -246,4 +257,133 @@ model WorkflowRowImage {
   createdAt    DateTime    @default(now())
 
   @@index([rowId])
+}
+
+// ---------------------------------------------------------------------------
+// Housekeeping (HKT) — per-room cleaning status lifecycle
+// READY_TO_CLEAN -> IN_PROGRESS -> READY_FOR_INSPECTION -> READY_TO_RENT
+// (inspector reject loops back to READY_TO_CLEAN). Built-in service, not a
+// WorkflowDefinition. See docs/superpowers/specs/2026-07-14-housekeeping-design.md
+// ---------------------------------------------------------------------------
+model HousekeepingTask {
+  id                    String    @id @default(cuid())
+
+  // Flexible: a room clean OR a general daily task.
+  kind                  String    @default("ROOM_CLEANING") // ROOM_CLEANING | GENERAL
+  title                 String? // set for GENERAL tasks (e.g. "Restock lobby")
+  roomId                String? // null for GENERAL tasks
+  room                  Room?     @relation(fields: [roomId], references: [id])
+
+  // Status set depends on kind:
+  //   ROOM_CLEANING: READY_TO_CLEAN | IN_PROGRESS | READY_FOR_INSPECTION | READY_TO_RENT
+  //   GENERAL:       TODO | IN_PROGRESS | DONE
+  status                String
+  requestReason         String? // which status action triggered it (e.g. "Checkout")
+
+  // Assignment — who is responsible, and who assigned them.
+  assignedHousekeeperId String?
+  assignedHousekeeper   User?     @relation("HKAssigned", fields: [assignedHousekeeperId], references: [id])
+  assignedById          String?
+  assignedBy            User?     @relation("HKAssignedBy", fields: [assignedById], references: [id])
+  assignedAt            DateTime?
+  startedAt             DateTime? // set on -> IN_PROGRESS
+
+  createdById           String // who created / checked the room out
+  createdBy             User      @relation("HKCreated", fields: [createdById], references: [id])
+
+  submittedById         String? // housekeeper who submitted for inspection
+  submittedBy           User?     @relation("HKSubmitted", fields: [submittedById], references: [id])
+  submittedAt           DateTime?
+
+  reviewedById          String?
+  reviewedBy            User?     @relation("HKReviewed", fields: [reviewedById], references: [id])
+  reviewedAt            DateTime?
+  reviewNote            String?
+
+  closedAt              DateTime? // set when -> READY_TO_RENT
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  photos HousekeepingPhoto[]
+  items  HousekeepingTaskItem[]
+
+  @@index([roomId])
+  @@index([status])
+}
+
+// Task media — photos and videos. (Table name kept for migration stability.)
+model HousekeepingPhoto {
+  id           String           @id @default(cuid())
+  taskId       String
+  task         HousekeepingTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  storagePath  String
+  mediaType    String           @default("IMAGE") // IMAGE | VIDEO
+  width        Int?
+  height       Int?
+  bytes        Int?
+  uploadedById String
+  uploadedBy   User             @relation("HKPhotoUploaded", fields: [uploadedById], references: [id])
+  createdAt    DateTime         @default(now())
+
+  @@index([taskId])
+  @@index([createdAt]) // for the retention sweep
+}
+
+model HousekeepingSetting {
+  id               String   @id @default("singleton") // one row only
+  deleteOnApproval Boolean  @default(true)
+  retentionDays    Int      @default(7)
+  instructions     String? // cleaning instructions shown to housekeepers
+  updatedAt        DateTime @updatedAt
+}
+
+// Admin-editable list of "status actions" shown on the check-out panel
+// (e.g. Checkout, Request for cleaning). Applying one creates a Ready-to-Clean
+// room task tagged with the action's label as its requestReason.
+model HousekeepingStatusAction {
+  id        String   @id @default(cuid())
+  label     String
+  order     Int      @default(0)
+  archived  Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+// Admin-editable list of general daily-task templates (the quick-picks in the
+// "New task" panel, e.g. Clean lobby, Laundry, Restock supplies).
+model HousekeepingTaskTemplate {
+  id        String   @id @default(cuid())
+  label     String
+  order     Int      @default(0)
+  archived  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  checklistItems HousekeepingChecklistItem[]
+}
+
+// Admin-defined checklist item (subtask) for a task type.
+// `templateId` null = the room-cleaning checklist; set = a daily-task template's checklist.
+// Items are snapshotted onto each task as HousekeepingTaskItem when the task is created.
+model HousekeepingChecklistItem {
+  id         String                    @id @default(cuid())
+  templateId String? // null = room-cleaning checklist
+  template   HousekeepingTaskTemplate? @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  label      String
+  order      Int                       @default(0)
+  archived   Boolean                   @default(false)
+  createdAt  DateTime                  @default(now())
+
+  @@index([templateId])
+}
+
+// A subtask on a specific task: the housekeeper marks Done / Not Done / N/A + note.
+model HousekeepingTaskItem {
+  id     String           @id @default(cuid())
+  taskId String
+  task   HousekeepingTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  label  String // snapshot of the checklist item at task creation
+  order  Int              @default(0)
+  status String           @default("PENDING") // PENDING | DONE | NOT_DONE | NA
+  note   String?
+
+  @@index([taskId])
 }

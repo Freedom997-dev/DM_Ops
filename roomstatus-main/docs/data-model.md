@@ -247,3 +247,21 @@ The production schema was created via **Supabase MCP `apply_migration`** (raw SQ
 - `prisma/migrations/` does NOT exist in this repo.
 - If you ever need `prisma migrate dev` to work locally, run `prisma migrate resolve --applied init_room_inspection_schema` first to align Prisma's view of migrations history.
 - Future schema changes should be applied via Supabase MCP (in a Supabase-management chat) AND mirrored in `prisma/schema.prisma` so the Prisma client types stay in sync.
+
+## Housekeeping (HKT) models
+
+Three additive tables for the Housekeeping service (built-in, not a Workflow).
+
+| Model | Key fields | Notes |
+|---|---|---|
+| `HousekeepingTask` | `kind` (ROOM_CLEANING\|GENERAL), `title?`, `roomId?`, `status`, `requestReason?`, `assignedHousekeeperId?`, `assignedById?`, `assignedAt?`, `startedAt?`, `submittedById?/At?`, `reviewedById?/At?`, `reviewNote?`, `closedAt?` | One flexible task table. `roomId` nullable (general tasks have none). Status set depends on kind (room 4-state / general 3-state). `requestReason` records which status action created it (e.g. "Checkout"). Indexes: `roomId`, `status`. |
+| `HousekeepingPhoto` | `taskId`, `storagePath`, `mediaType` (IMAGE\|VIDEO), `width?/height?/bytes?`, `uploadedById` | Task media (photos + videos). Cascade-deletes with its task. Index on `createdAt` for the retention sweep. |
+| `HousekeepingTaskItem` | `taskId`, `label`, `order`, `status` (PENDING\|DONE\|NOT_DONE\|NA), `note?` | A subtask on a specific task, snapshotted from the checklist at creation. Cascade-deletes with its task. |
+| `HousekeepingChecklistItem` | `templateId?`, `label`, `order`, `archived` | Admin-defined checklist. `templateId` null = the room-cleaning checklist; set = a daily-task template's checklist. Cascades from its template. |
+| `HousekeepingSetting` | `id="singleton"`, `deleteOnApproval`, `retentionDays`, `instructions?` | One row. Admin-editable retention policy. |
+| `HousekeepingStatusAction` | `label`, `order`, `archived` | Admin-editable list of check-out panel actions (Checkout, Request for cleaning, …). Applying one creates a Ready-to-Clean task tagged with the label. |
+| `HousekeepingTaskTemplate` | `label`, `order`, `archived` | Admin-editable quick-picks for the "New task" panel (Clean lobby, Laundry, …); each can have its own checklist. |
+
+**Cascade:** `HousekeepingTask → HousekeepingPhoto` (DB cascade; Storage objects removed explicitly by actions/sweep). Room/User FKs are `SET NULL` (assignee/room) or `RESTRICT` (creator) — a task keeps its history even if a user is later removed.
+
+**User back-relations:** `hkAssigned`, `hkAssignedByMe`, `hkCreated`, `hkSubmitted`, `hkReviewed`, `hkPhotosUploaded`. **Room back-relation:** `housekeepingTasks`.
