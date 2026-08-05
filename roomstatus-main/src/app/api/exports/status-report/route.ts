@@ -1,5 +1,5 @@
 import ExcelJS from "exceljs";
-import { requireUser } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { getStatusReport, type ReportItem } from "@/lib/reports";
 
 export const dynamic = "force-dynamic";
@@ -77,7 +77,7 @@ function addItemSheet(
  * Summary · Rooms · Open Repairs · Awaiting Verification.
  */
 export async function GET() {
-  await requireUser();
+  await requirePermission("pm:inspections:view");
 
   const report = await getStatusReport();
 

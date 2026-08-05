@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { ArrowLeft, ChevronRight, Users, History, LayoutGrid, ShieldCheck } from "lucide-react";
-import { requireManager } from "@/lib/session";
-import { canAccessAdminSection } from "@/lib/permissions";
+import { requireManager, can } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -18,30 +17,30 @@ export default async function SettingsIndex() {
     {
       href: "/settings/staff",
       icon: <Users className="h-5 w-5" />,
-      title: "Staff & access",
-      description: "Add staff, set roles, reset passwords, deactivate accounts.",
-      visible: canAccessAdminSection(user.role, "users"),
+      title: "Staff",
+      description: "Add staff, assign roles, reset passwords, deactivate accounts.",
+      visible: can(user, "admin:staff:view"),
     },
     {
       href: "/settings/access",
       icon: <ShieldCheck className="h-5 w-5" />,
-      title: "Access control",
-      description: "See which roles can run which services.",
-      visible: canAccessAdminSection(user.role, "workflows"),
+      title: "Roles & permissions",
+      description: "Create roles and control what each can see and do across every app.",
+      visible: can(user, "admin:roles:view"),
     },
     {
       href: "/settings/services",
       icon: <LayoutGrid className="h-5 w-5" />,
       title: "Services",
       description: "Create, edit and archive service definitions and their items.",
-      visible: canAccessAdminSection(user.role, "workflows"),
+      visible: can(user, "admin:services:view"),
     },
     {
       href: "/settings/activity",
       icon: <History className="h-5 w-5" />,
       title: "Activity log",
       description: "Every change across the platform, newest first.",
-      visible: canAccessAdminSection(user.role, "audit"),
+      visible: can(user, "admin:audit:view"),
     },
   ];
 

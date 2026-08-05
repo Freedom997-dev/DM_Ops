@@ -18,10 +18,13 @@ model User {
   name         String
   email        String   @unique
   passwordHash String
-  role         String   @default("INSPECTOR") // ADMIN | MANAGER | INSPECTOR | HOUSEKEEPER
+  // DEPRECATED: superseded by RBAC roles (see UserRole). Kept (not dropped) so
+  // the Postgres migration is non-destructive; no longer read by the app.
+  role         String   @default("INSPECTOR")
   active       Boolean  @default(true)
   createdAt    DateTime @default(now())
 
+  roles       UserRole[]
   inspections Inspection[]
   auditLogs   AuditLog[]
 
@@ -38,6 +41,59 @@ model User {
   hkSubmitted      HousekeepingTask[]  @relation("HKSubmitted")
   hkReviewed       HousekeepingTask[]  @relation("HKReviewed")
   hkPhotosUploaded HousekeepingPhoto[] @relation("HKPhotoUploaded")
+}
+
+// ---------------------------------------------------------------------------
+// RBAC: roles + per-role permission grants + user<->role assignments.
+//
+// Valid permission keys are defined in code (src/lib/rbac/catalog.ts) as
+// "app:feature:action" strings. The DB only records which roles are granted
+// which of those keys, so admins create roles and toggle permissions at
+// runtime. Per-service (workflow) access continues to use
+// WorkflowDefinition.rolesAllowed, now referencing these role keys.
+// ---------------------------------------------------------------------------
+model Role {
+  id          String   @id @default(cuid())
+  key         String   @unique // SUPER_ADMIN, ADMIN, MANAGER, INSPECTOR, HOUSEKEEPER, ...
+  label       String
+  description String?
+  isSystem    Boolean  @default(false) // built-in roles cannot be deleted
+  createdAt   DateTime @default(now())
+
+  permissions RolePermission[]
+  users       UserRole[]
+}
+
+model RolePermission {
+  id         String @id @default(cuid())
+  roleId     String
+  role       Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission String // "app:feature:action" — validated against the code catalog
+
+  @@unique([roleId, permission])
+  @@index([roleId])
+}
+
+model UserRole {
+  userId String
+  roleId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@index([roleId])
+}
+
+// Failed-login tracking for rate limiting / lockout (see src/lib/login-attempts.ts).
+// One row per failed sign-in, keyed by the email typed (stored even when no such
+// user exists, so lockout can't probe which emails are real). Cleared on success.
+model LoginAttempt {
+  id        String   @id @default(cuid())
+  email     String
+  ip        String?
+  createdAt DateTime @default(now())
+
+  @@index([email, createdAt])
 }
 
 // ---------------------------------------------------------------------------

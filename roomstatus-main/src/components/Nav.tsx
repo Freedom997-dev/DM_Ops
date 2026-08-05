@@ -6,14 +6,29 @@ import { signOut } from "next-auth/react";
 import { useState } from "react";
 import clsx from "clsx";
 import { BedDouble, LayoutGrid, Settings, LogOut, Menu, X } from "lucide-react";
-import { isManager as roleIsManager } from "@/lib/permissions";
 
-type NavUser = { name?: string | null; role: string };
+type NavUser = {
+  name?: string | null;
+  roleKeys: string[];
+  isSuperAdmin: boolean;
+  canSettings: boolean;
+};
+
+function prettyRole(key: string): string {
+  return key
+    .toLowerCase()
+    .split("_")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
 
 export function Nav({ user }: { user: NavUser }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const canSettings = roleIsManager(user.role);
+  const canSettings = user.canSettings;
+  const roleLabel = user.isSuperAdmin
+    ? "Super Admin"
+    : user.roleKeys.map(prettyRole).join(" · ") || "No role";
 
   const links: { href: string; label: string; icon: typeof LayoutGrid; visible: boolean }[] = [
     { href: "/services", label: "Services", icon: LayoutGrid, visible: true },
@@ -72,7 +87,7 @@ export function Nav({ user }: { user: NavUser }) {
           <div className="text-right leading-tight">
             <div className="text-sm font-medium text-slate-700">{user.name}</div>
             <div className="text-[11px] uppercase tracking-wide text-slate-400">
-              {user.role}
+              {roleLabel}
             </div>
           </div>
           <button
@@ -104,7 +119,7 @@ export function Nav({ user }: { user: NavUser }) {
             <div className="leading-tight">
               <div className="text-sm font-medium text-slate-700">{user.name}</div>
               <div className="text-[11px] uppercase tracking-wide text-slate-400">
-                {user.role}
+                {roleLabel}
               </div>
             </div>
             <button

@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
-import { requireAdmin } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { logAudit } from "@/lib/audit";
 
 export type ActionState = { ok: boolean; error?: string; message?: string };
@@ -19,7 +19,7 @@ export async function createRoom(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("pm:rooms:add");
   const parsed = roomSchema.safeParse({
     number: formData.get("number"),
     name: formData.get("name") || undefined,
@@ -55,7 +55,7 @@ export async function updateRoom(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("pm:rooms:update");
   const id = String(formData.get("id") || "");
   const parsed = roomSchema.safeParse({
     number: formData.get("number"),
@@ -91,7 +91,7 @@ export async function updateRoom(
 }
 
 export async function setRoomArchived(id: string, archived: boolean) {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("pm:rooms:delete");
   const room = await prisma.room.update({ where: { id }, data: { archived } });
   await logAudit({
     userId: admin.id,

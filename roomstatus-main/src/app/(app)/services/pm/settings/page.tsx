@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { ArrowLeft, ChevronRight, ListChecks, DoorOpen } from "lucide-react";
-import { requireAdmin } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
 export default async function PmSettingsPage() {
-  await requireAdmin();
+  await requirePermission("pm:checklist:view");
 
   const cards = [
     {

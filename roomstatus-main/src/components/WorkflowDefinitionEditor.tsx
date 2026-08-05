@@ -3,7 +3,6 @@
 import { useState, useTransition } from "react";
 import clsx from "clsx";
 import { Archive, ArchiveRestore, Loader2, Plus, Save } from "lucide-react";
-import { ROLES, type Role } from "@/lib/permissions";
 import {
   archiveWorkflowDefinition,
   archiveWorkflowItem,
@@ -16,9 +15,11 @@ type Definition = {
   id: string;
   name: string;
   description: string | null;
-  rolesAllowed: Role[];
+  rolesAllowed: string[];
   archived: boolean;
 };
+
+type RoleOption = { key: string; label: string };
 
 type Item = {
   id: string;
@@ -30,18 +31,19 @@ type Item = {
 type Props = {
   definition: Definition;
   items: Item[];
+  roles: RoleOption[];
 };
 
-export function WorkflowDefinitionEditor({ definition, items: initialItems }: Props) {
+export function WorkflowDefinitionEditor({ definition, items: initialItems, roles }: Props) {
   const [name, setName] = useState(definition.name);
   const [description, setDescription] = useState(definition.description ?? "");
-  const [rolesAllowed, setRolesAllowed] = useState<Role[]>(definition.rolesAllowed);
+  const [rolesAllowed, setRolesAllowed] = useState<string[]>(definition.rolesAllowed);
   const [items, setItems] = useState(initialItems);
   const [newItemText, setNewItemText] = useState("");
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  function toggleRole(role: Role) {
+  function toggleRole(role: string) {
     setRolesAllowed((cur) =>
       cur.includes(role) ? cur.filter((r) => r !== role) : [...cur, role],
     );
@@ -128,13 +130,13 @@ export function WorkflowDefinitionEditor({ definition, items: initialItems }: Pr
         <div className="space-y-1">
           <label className="label">Roles allowed</label>
           <div className="flex flex-wrap gap-1.5">
-            {ROLES.map((role) => {
-              const on = rolesAllowed.includes(role);
+            {roles.map((role) => {
+              const on = rolesAllowed.includes(role.key);
               return (
                 <button
-                  key={role}
+                  key={role.key}
                   type="button"
-                  onClick={() => toggleRole(role)}
+                  onClick={() => toggleRole(role.key)}
                   disabled={pending}
                   className={clsx(
                     "rounded-lg border px-2.5 py-1 text-xs font-semibold transition",
@@ -143,7 +145,7 @@ export function WorkflowDefinitionEditor({ definition, items: initialItems }: Pr
                       : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50",
                   )}
                 >
-                  {role}
+                  {role.label}
                 </button>
               );
             })}

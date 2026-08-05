@@ -2,21 +2,25 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { prisma } from "@/lib/db";
-import { requireAdmin } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { parseRolesAllowed } from "@/lib/permissions";
 import { WorkflowDefinitionEditor } from "@/components/WorkflowDefinitionEditor";
 
 export const dynamic = "force-dynamic";
 
 export default async function ServiceSettingsPage({ params }: { params: { slug: string } }) {
-  await requireAdmin();
+  await requirePermission("admin:services:manage");
 
-  const workflow = await prisma.workflowDefinition.findUnique({
-    where: { slug: params.slug },
-    include: {
-      items: { orderBy: { order: "asc" } },
-    },
-  });
+  const [workflow, roles] = await Promise.all([
+    prisma.workflowDefinition.findUnique({
+      where: { slug: params.slug },
+      include: { items: { orderBy: { order: "asc" } } },
+    }),
+    prisma.role.findMany({
+      orderBy: [{ isSystem: "desc" }, { createdAt: "asc" }],
+      select: { key: true, label: true },
+    }),
+  ]);
   if (!workflow) notFound();
 
   return (
@@ -51,6 +55,7 @@ export default async function ServiceSettingsPage({ params }: { params: { slug: 
           archived: workflow.archived,
         }}
         items={workflow.items.map((i) => ({ id: i.id, text: i.text, order: i.order, archived: i.archived }))}
+        roles={roles}
       />
     </div>
   );

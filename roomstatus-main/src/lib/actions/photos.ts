@@ -2,14 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
-import { requireAdmin } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { logAudit } from "@/lib/audit";
 import { deleteImages } from "@/lib/storage";
 
 type Result = { ok: true } | { ok: false; error: string };
 
 export async function deletePhoto(imageId: string): Promise<Result> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("pm:inspections:update");
 
   const image = await prisma.inspectionItemImage.findUnique({
     where: { id: imageId },
@@ -48,7 +48,7 @@ export async function deletePhoto(imageId: string): Promise<Result> {
 }
 
 export async function deleteInspection(inspectionId: string): Promise<Result> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("pm:inspections:delete");
 
   const inspection = await prisma.inspection.findUnique({
     where: { id: inspectionId },

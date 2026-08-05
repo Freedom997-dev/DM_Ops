@@ -4,7 +4,7 @@ import cuid from "cuid";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
-import { requireUser } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { logAudit } from "@/lib/audit";
 import { summaryFromItems } from "@/lib/status";
 import { uploadImage, deleteImages } from "@/lib/storage";
@@ -36,7 +36,7 @@ function extFromMime(mime: string): string {
 }
 
 export async function saveInspection(form: FormData): Promise<SaveInspectionResult> {
-  const user = await requireUser();
+  const user = await requirePermission("pm:inspections:add");
 
   // --- 1. Parse and validate the JSON payload ---
   const payloadRaw = form.get("payload");

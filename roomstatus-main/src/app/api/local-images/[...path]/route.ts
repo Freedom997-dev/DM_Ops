@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { requireUser } from "@/lib/session";
+import { getCurrentUser, can } from "@/lib/session";
 import { readLocalImage, isLocalStorage } from "@/lib/storage";
 
 const CONTENT_TYPES: Record<string, string> = {
@@ -27,10 +27,19 @@ export async function GET(
     return new Response("Not found", { status: 404 });
   }
 
-  // Require a signed-in user (matches the private-bucket access model).
-  await requireUser();
-
   const storagePath = params.path.map(decodeURIComponent).join("/");
+
+  // Authorize by image domain: housekeeping photos vs PM inspection images.
+  // Return 404 (not a redirect) for unauthenticated/unauthorized — this is an
+  // API route, and 404 avoids leaking whether a given image exists.
+  const user = await getCurrentUser();
+  const requiredPerm = storagePath.startsWith("housekeeping/")
+    ? "housekeeping:board:view"
+    : "pm:inspections:view";
+  if (!can(user, requiredPerm)) {
+    return new Response("Not found", { status: 404 });
+  }
+
   const ext = storagePath.split(".").pop()?.toLowerCase() ?? "";
   const contentType = CONTENT_TYPES[ext] ?? "application/octet-stream";
 

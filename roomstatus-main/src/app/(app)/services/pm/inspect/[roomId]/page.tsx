@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ClipboardList } from "lucide-react";
 import { prisma } from "@/lib/db";
-import { requireUser } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { InspectForm } from "@/components/InspectForm";
 
 export const dynamic = "force-dynamic";
@@ -12,7 +12,7 @@ export default async function InspectPage({
 }: {
   params: { roomId: string };
 }) {
-  await requireUser();
+  await requirePermission("pm:inspections:view");
 
   const room = await prisma.room.findUnique({ where: { id: params.roomId } });
   if (!room) notFound();

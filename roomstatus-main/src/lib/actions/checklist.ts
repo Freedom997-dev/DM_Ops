@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
-import { requireAdmin } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { logAudit } from "@/lib/audit";
 import type { ActionState } from "./rooms";
 
@@ -18,7 +18,7 @@ export async function createSection(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("pm:checklist:add");
   const parsed = sectionSchema.safeParse({ name: formData.get("name") });
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
 
@@ -41,7 +41,7 @@ export async function renameSection(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("pm:checklist:update");
   const id = String(formData.get("id") || "");
   const parsed = sectionSchema.safeParse({ name: formData.get("name") });
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
@@ -62,7 +62,7 @@ export async function renameSection(
 }
 
 export async function setSectionArchived(id: string, archived: boolean) {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("pm:checklist:delete");
   const section = await prisma.section.update({
     where: { id },
     data: { archived },
@@ -92,7 +92,7 @@ export async function createQuestion(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("pm:checklist:add");
   const parsed = questionSchema.safeParse({
     sectionId: formData.get("sectionId"),
     text: formData.get("text"),
@@ -125,7 +125,7 @@ export async function updateQuestion(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("pm:checklist:update");
   const id = String(formData.get("id") || "");
   const text = String(formData.get("text") || "").trim();
   if (!text) return { ok: false, error: "Question text is required" };
@@ -147,7 +147,7 @@ export async function updateQuestion(
 }
 
 export async function setQuestionArchived(id: string, archived: boolean) {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("pm:checklist:delete");
   const question = await prisma.question.update({
     where: { id },
     data: { archived },

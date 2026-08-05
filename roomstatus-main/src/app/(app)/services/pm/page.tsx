@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
-import { getCurrentUser } from "@/lib/session";
+import { requirePermission, can } from "@/lib/session";
 import { RoomStatusBadge } from "@/components/StatusBadge";
 import { roomStatusFromSummary, ROOM_STATUS_META, type RoomStatus } from "@/lib/status";
 import {
@@ -50,8 +50,8 @@ export default async function DashboardPage({
 }: {
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
-  const user = await getCurrentUser();
-  const isAdmin = user?.role === "ADMIN";
+  const user = await requirePermission("pm:dashboard:view");
+  const isAdmin = can(user, "pm:rooms:update");
   const view = parseView(searchParams?.view);
 
   const rooms = await prisma.room.findMany({

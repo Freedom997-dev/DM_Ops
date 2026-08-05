@@ -3,9 +3,8 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
-import { requireAdmin } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { logAudit } from "@/lib/audit";
-import { ROLES } from "@/lib/permissions";
 
 type OkOnly = { ok: true };
 type Failure = { ok: false; error: string };
@@ -22,7 +21,7 @@ const itemCreateSchema = z.object({
 });
 
 export async function createWorkflowItem(input: z.infer<typeof itemCreateSchema>): Promise<ResultWith<{ itemId: string }>> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("admin:services:manage");
   const parsed = itemCreateSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Invalid input." };
 
@@ -59,7 +58,7 @@ const itemUpdateSchema = z.object({
 });
 
 export async function updateWorkflowItem(input: z.infer<typeof itemUpdateSchema>): Promise<Result> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("admin:services:manage");
   const parsed = itemUpdateSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Invalid input." };
 
@@ -88,7 +87,7 @@ export async function updateWorkflowItem(input: z.infer<typeof itemUpdateSchema>
 }
 
 export async function archiveWorkflowItem(itemId: string, archived: boolean): Promise<Result> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("admin:services:manage");
 
   const item = await prisma.workflowItem.findUnique({
     where: { id: itemId },
@@ -118,11 +117,11 @@ const definitionUpdateSchema = z.object({
   id: z.string().min(1),
   name: z.string().trim().min(1).max(200).optional(),
   description: z.string().trim().max(1000).optional(),
-  rolesAllowed: z.array(z.enum(ROLES)).min(1).optional(),
+  rolesAllowed: z.array(z.string()).min(1).optional(),
 });
 
 export async function updateWorkflowDefinition(input: z.infer<typeof definitionUpdateSchema>): Promise<Result> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("admin:services:manage");
   const parsed = definitionUpdateSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Invalid input." };
 
@@ -150,7 +149,7 @@ export async function updateWorkflowDefinition(input: z.infer<typeof definitionU
 }
 
 export async function archiveWorkflowDefinition(id: string, archived: boolean): Promise<Result> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("admin:services:manage");
 
   const definition = await prisma.workflowDefinition.findUnique({ where: { id } });
   if (!definition) return { ok: false, error: "Workflow not found." };

@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { getCurrentUser } from "@/lib/session";
+import { requirePermission, can } from "@/lib/session";
 import { roomStatusFromSummary, type RoomStatus } from "@/lib/status";
 import { RoomsManager } from "@/components/RoomsManager";
 
@@ -10,8 +10,8 @@ export default async function RoomsPage({
 }: {
   searchParams: { add?: string; edit?: string };
 }) {
-  const user = await getCurrentUser();
-  const isAdmin = user?.role === "ADMIN";
+  const user = await requirePermission("pm:rooms:view");
+  const isAdmin = can(user, "pm:rooms:update");
 
   const rooms = await prisma.room.findMany({
     include: {

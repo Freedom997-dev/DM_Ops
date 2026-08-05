@@ -1,5 +1,5 @@
 import ExcelJS from "exceljs";
-import { requireUser } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { getRepairRows } from "@/lib/reports";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +13,7 @@ const XLSX_MIME =
  * Auth-guarded — same access model as the dashboard it mirrors.
  */
 export async function GET() {
-  await requireUser();
+  await requirePermission("pm:inspections:view");
 
   const rows = await getRepairRows();
 

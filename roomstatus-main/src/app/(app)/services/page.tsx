@@ -1,9 +1,8 @@
 import Link from "next/link";
 import { ChevronRight, ClipboardList, LayoutGrid, Settings, User2, Sparkles } from "lucide-react";
 import { prisma } from "@/lib/db";
-import { requireUser } from "@/lib/session";
-import { canRunWorkflow, parseRolesAllowed, isAdmin } from "@/lib/permissions";
-import { canAccessHousekeeping, canConfigureHousekeeping } from "@/lib/housekeeping";
+import { requireUser, can, canAccessApp, isManager } from "@/lib/session";
+import { canRunWorkflow, parseRolesAllowed } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +13,7 @@ function todayMidnightUTC(): Date {
 
 export default async function ServicesIndex() {
   const user = await requireUser();
-  const admin = isAdmin(user.role);
+  const showSettings = isManager(user);
   const today = todayMidnightUTC();
 
   const definitions = await prisma.workflowDefinition.findMany({
@@ -22,8 +21,10 @@ export default async function ServicesIndex() {
     orderBy: { name: "asc" },
   });
 
-  const accessible = definitions.filter((d) =>
-    canRunWorkflow(user.role, parseRolesAllowed(d.rolesAllowed)),
+  const accessible = definitions.filter(
+    (d) =>
+      user.isSuperAdmin ||
+      canRunWorkflow(user.roleKeys, parseRolesAllowed(d.rolesAllowed)),
   );
 
   const workflowCards = await Promise.all(
@@ -39,9 +40,9 @@ export default async function ServicesIndex() {
     }),
   );
 
-  // PM is a built-in service (its own tables). Shown to ADMIN + INSPECTOR.
-  const showPmCard = admin || user.role === "INSPECTOR";
-  const showHkCard = canAccessHousekeeping(user.role);
+  // PM is a built-in service (its own tables). Shown to anyone with PM access.
+  const showPmCard = canAccessApp(user, "pm");
+  const showHkCard = can(user, "housekeeping:board:view");
 
   // Live housekeeping snapshot for the card status line.
   const hkCounts = showHkCard
@@ -59,7 +60,7 @@ export default async function ServicesIndex() {
           <h1 className="text-2xl font-bold text-slate-900">Services</h1>
           <p className="text-sm text-slate-500">Pick a service to run.</p>
         </div>
-        {admin && (
+        {showSettings && (
           <Link href="/settings" className="btn-secondary">
             <Settings className="h-4 w-4" />
             Settings
@@ -68,7 +69,7 @@ export default async function ServicesIndex() {
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {workflowCards.length === 0 && !showPmCard && (
+        {workflowCards.length === 0 && !showPmCard && !showHkCard && (
           <div className="card col-span-full p-8 text-center text-slate-500">
             No services assigned to your role. Talk to an admin.
           </div>
@@ -80,7 +81,7 @@ export default async function ServicesIndex() {
             href="/services/pm"
             icon={<ClipboardList className="h-5 w-5" />}
             name="Room Condition (PM)"
-            settingsHref={admin ? "/services/pm/settings" : undefined}
+            settingsHref={can(user, "pm:checklist:view") ? "/services/pm/settings" : undefined}
           />
         )}
 
@@ -90,7 +91,7 @@ export default async function ServicesIndex() {
             href="/services/housekeeping"
             icon={<Sparkles className="h-5 w-5" />}
             name="Housekeeping"
-            settingsHref={canConfigureHousekeeping(user.role) ? "/services/housekeeping/settings" : undefined}
+            settingsHref={can(user, "housekeeping:settings:configure") ? "/services/housekeeping/settings" : undefined}
             statusLine={
               hkCounts
                 ? `${hkCounts.toClean} to clean · ${hkCounts.inProgress} in progress · ${hkCounts.forInspection} to inspect`
@@ -107,7 +108,7 @@ export default async function ServicesIndex() {
             href={`/services/${c.slug}`}
             icon={<LayoutGrid className="h-5 w-5" />}
             name={c.name}
-            settingsHref={admin ? `/services/${c.slug}/settings` : undefined}
+            settingsHref={can(user, "admin:services:manage") ? `/services/${c.slug}/settings` : undefined}
             historyHref={`/services/${c.slug}/history`}
             statusLine={
               c.submission

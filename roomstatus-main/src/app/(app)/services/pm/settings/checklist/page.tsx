@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { prisma } from "@/lib/db";
-import { requireAdmin } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { ChecklistManager } from "@/components/ChecklistManager";
 
 export const dynamic = "force-dynamic";
 
 export default async function ChecklistPage() {
-  await requireAdmin();
+  await requirePermission("pm:checklist:view");
 
   const sections = await prisma.section.findMany({
     where: { archived: false },

@@ -34,7 +34,13 @@ function LoginForm() {
     });
     setLoading(false);
     if (res?.error) {
-      setError("Incorrect email or password.");
+      // "TOO_MANY_ATTEMPTS" is thrown by authorize() in src/lib/auth.ts
+      // (LOCKED_OUT_ERROR) when an email is temporarily locked out.
+      setError(
+        res.error === "TOO_MANY_ATTEMPTS"
+          ? "Too many failed attempts. Please wait a few minutes and try again."
+          : "Incorrect email or password.",
+      );
       return;
     }
     router.push(callbackUrl);

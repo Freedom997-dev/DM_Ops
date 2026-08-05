@@ -2,20 +2,16 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowLeft, Settings, Sparkles } from "lucide-react";
 import { prisma } from "@/lib/db";
-import { requireUser } from "@/lib/session";
+import { requirePermission, can } from "@/lib/session";
 import { getSignedUrl } from "@/lib/storage";
-import {
-  canAccessHousekeeping, canManageHousekeeping, canSubmitCleaning,
-  canReviewCleaning, canConfigureHousekeeping, type HkKind, type HkStatus,
-} from "@/lib/housekeeping";
+import { type HkKind, type HkStatus } from "@/lib/housekeeping";
 import type { HkTaskView, HkRoomOption, HkPerson, HkStatusAction, HkTaskTemplate } from "@/lib/hk-view";
 import { HousekeepingDashboard } from "@/components/HousekeepingDashboard";
 
 export const dynamic = "force-dynamic";
 
 export default async function HousekeepingPage() {
-  const user = await requireUser();
-  if (!canAccessHousekeeping(user.role)) redirect("/services");
+  const user = await requirePermission("housekeeping:board:view");
 
   const [tasks, rooms, housekeepers, setting, statusActions, taskTemplates] = await Promise.all([
     prisma.housekeepingTask.findMany({
@@ -117,7 +113,7 @@ export default async function HousekeepingPage() {
         <Link href="/services" className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700">
           <ArrowLeft className="h-4 w-4" /> Back to services
         </Link>
-        {canConfigureHousekeeping(user.role) && (
+        {can(user, "housekeeping:settings:configure") && (
           <Link href="/services/housekeeping/settings" className="inline-flex items-center gap-1 text-sm font-semibold text-brand-600 hover:underline">
             <Settings className="h-4 w-4" /> Settings
           </Link>
@@ -150,10 +146,10 @@ export default async function HousekeepingPage() {
         statusActions={actions}
         taskTemplates={templates}
         caps={{
-          manage: canManageHousekeeping(user.role),
-          submit: canSubmitCleaning(user.role),
-          review: canReviewCleaning(user.role),
-          admin: canConfigureHousekeeping(user.role),
+          manage: can(user, "housekeeping:tasks:manage"),
+          submit: can(user, "housekeeping:tasks:submit"),
+          review: can(user, "housekeeping:cleaning:review"),
+          admin: can(user, "housekeeping:settings:configure"),
         }}
         currentUserId={user.id}
       />

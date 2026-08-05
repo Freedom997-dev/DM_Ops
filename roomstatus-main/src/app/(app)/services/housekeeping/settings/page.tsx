@@ -2,8 +2,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { requireUser } from "@/lib/session";
-import { canConfigureHousekeeping } from "@/lib/housekeeping";
+import { requireUser, can } from "@/lib/session";
 import { HkConfigManager } from "@/components/HkConfigManager";
 import type { HkStatusAction, HkChecklistItem, HkTemplateWithChecklist } from "@/lib/hk-view";
 
@@ -11,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 export default async function HousekeepingSettingsPage() {
   const user = await requireUser();
-  if (!canConfigureHousekeeping(user.role)) redirect("/services/housekeeping");
+  if (!can(user, "housekeeping:settings:configure")) redirect("/services/housekeeping");
 
   const [setting, statusActions, taskTemplates, roomChecklist, roomCount] = await Promise.all([
     prisma.housekeepingSetting.findUnique({ where: { id: "singleton" } }),

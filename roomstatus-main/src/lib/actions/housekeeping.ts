@@ -2,17 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
-import { requireUser } from "@/lib/session";
+import { requireUser, can } from "@/lib/session";
 import { logAudit } from "@/lib/audit";
 import { uploadImage, deleteImages } from "@/lib/storage";
 import {
   hkPhotoPath,
   hkGeneralPhotoPath,
   isOpenStatus,
-  canManageHousekeeping,
-  canSubmitCleaning,
-  canReviewCleaning,
-  canConfigureHousekeeping,
 } from "@/lib/housekeeping";
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10 MB
@@ -47,7 +43,7 @@ export async function checkOutRooms(
   reason?: string | null,
 ): Promise<{ ok: true; created: number; skipped: number } | { ok: false; error: string }> {
   const user = await requireUser();
-  if (!canManageHousekeeping(user.role)) return { ok: false, error: "Not allowed." };
+  if (!can(user, "housekeeping:tasks:manage")) return { ok: false, error: "Not allowed." };
   if (!Array.isArray(roomIds) || roomIds.length === 0) {
     return { ok: false, error: "No rooms selected." };
   }
@@ -113,7 +109,7 @@ export async function createGeneralTask(input: {
   templateId?: string | null;
 }): Promise<Result> {
   const user = await requireUser();
-  if (!canManageHousekeeping(user.role)) return { ok: false, error: "Not allowed." };
+  if (!can(user, "housekeeping:tasks:manage")) return { ok: false, error: "Not allowed." };
 
   const title = input.title.trim();
   if (!title) return { ok: false, error: "Give the task a title." };
@@ -163,7 +159,7 @@ export async function assignTasks(
   housekeeperId: string | null,
 ): Promise<{ ok: true; count: number } | { ok: false; error: string }> {
   const user = await requireUser();
-  if (!canManageHousekeeping(user.role)) return { ok: false, error: "Not allowed." };
+  if (!can(user, "housekeeping:tasks:manage")) return { ok: false, error: "Not allowed." };
   if (!Array.isArray(taskIds) || taskIds.length === 0) return { ok: false, error: "No tasks selected." };
 
   if (housekeeperId) {
@@ -201,7 +197,7 @@ export async function autoAssign(
   taskIds?: string[],
 ): Promise<{ ok: true; assigned: number } | { ok: false; error: string }> {
   const user = await requireUser();
-  if (!canManageHousekeeping(user.role)) return { ok: false, error: "Not allowed." };
+  if (!can(user, "housekeeping:tasks:manage")) return { ok: false, error: "Not allowed." };
 
   const housekeepers = await prisma.user.findMany({
     where: { role: "HOUSEKEEPER", active: true },
@@ -272,7 +268,7 @@ export async function autoAssign(
 // --- Start work: READY_TO_CLEAN|TODO -> IN_PROGRESS (self-assigns if free) ---
 export async function startTask(taskId: string): Promise<Result> {
   const user = await requireUser();
-  if (!canSubmitCleaning(user.role)) return { ok: false, error: "Not allowed." };
+  if (!can(user, "housekeeping:tasks:submit")) return { ok: false, error: "Not allowed." };
 
   const task = await prisma.housekeepingTask.findUnique({
     where: { id: taskId },
@@ -308,7 +304,7 @@ export async function startTask(taskId: string): Promise<Result> {
 // --- Housekeeper submits a cleaned ROOM for inspection (photos required) ---
 export async function submitForInspection(form: FormData): Promise<Result> {
   const user = await requireUser();
-  if (!canSubmitCleaning(user.role)) return { ok: false, error: "Not allowed." };
+  if (!can(user, "housekeeping:tasks:submit")) return { ok: false, error: "Not allowed." };
 
   const taskId = form.get("taskId");
   if (typeof taskId !== "string") return { ok: false, error: "Missing task." };
@@ -363,7 +359,7 @@ export async function submitForInspection(form: FormData): Promise<Result> {
 // --- Complete a GENERAL task -> DONE (photos optional) ---
 export async function completeGeneralTask(form: FormData): Promise<Result> {
   const user = await requireUser();
-  if (!canSubmitCleaning(user.role)) return { ok: false, error: "Not allowed." };
+  if (!can(user, "housekeeping:tasks:submit")) return { ok: false, error: "Not allowed." };
 
   const taskId = form.get("taskId");
   if (typeof taskId !== "string") return { ok: false, error: "Missing task." };
@@ -424,7 +420,7 @@ export async function reviewTask(
   note?: string,
 ): Promise<Result> {
   const user = await requireUser();
-  if (!canReviewCleaning(user.role)) return { ok: false, error: "Not allowed." };
+  if (!can(user, "housekeeping:cleaning:review")) return { ok: false, error: "Not allowed." };
 
   const task = await prisma.housekeepingTask.findUnique({
     where: { id: taskId },
@@ -516,7 +512,7 @@ export async function bulkReview(
 
 export async function deleteHousekeepingPhoto(photoId: string): Promise<Result> {
   const user = await requireUser();
-  if (!canConfigureHousekeeping(user.role)) return { ok: false, error: "Not allowed." };
+  if (!can(user, "housekeeping:settings:configure")) return { ok: false, error: "Not allowed." };
 
   const photo = await prisma.housekeepingPhoto.findUnique({ where: { id: photoId } });
   if (!photo) return { ok: false, error: "Photo not found." };
@@ -537,7 +533,7 @@ export async function updateHousekeepingSettings(input: {
   instructions: string;
 }): Promise<Result> {
   const user = await requireUser();
-  if (!canConfigureHousekeeping(user.role)) return { ok: false, error: "Not allowed." };
+  if (!can(user, "housekeeping:settings:configure")) return { ok: false, error: "Not allowed." };
 
   const days = Math.min(365, Math.max(1, Math.round(input.retentionDays)));
   await prisma.housekeepingSetting.upsert({
@@ -583,7 +579,7 @@ export async function sweepExpiredHousekeepingPhotos(): Promise<{ deleted: numbe
 // --- Status actions (the check-out panel's bottom-bar options) ---
 export async function createStatusAction(label: string): Promise<Result> {
   const user = await requireUser();
-  if (!canConfigureHousekeeping(user.role)) return { ok: false, error: "Not allowed." };
+  if (!can(user, "housekeeping:settings:configure")) return { ok: false, error: "Not allowed." };
   const clean = label.trim();
   if (!clean) return { ok: false, error: "Enter a label." };
 
@@ -598,7 +594,7 @@ export async function createStatusAction(label: string): Promise<Result> {
 
 export async function renameStatusAction(id: string, label: string): Promise<Result> {
   const user = await requireUser();
-  if (!canConfigureHousekeeping(user.role)) return { ok: false, error: "Not allowed." };
+  if (!can(user, "housekeeping:settings:configure")) return { ok: false, error: "Not allowed." };
   const clean = label.trim();
   if (!clean) return { ok: false, error: "Enter a label." };
   await prisma.housekeepingStatusAction.update({ where: { id }, data: { label: clean.slice(0, 60) } });
@@ -609,7 +605,7 @@ export async function renameStatusAction(id: string, label: string): Promise<Res
 
 export async function archiveStatusAction(id: string): Promise<Result> {
   const user = await requireUser();
-  if (!canConfigureHousekeeping(user.role)) return { ok: false, error: "Not allowed." };
+  if (!can(user, "housekeeping:settings:configure")) return { ok: false, error: "Not allowed." };
   const remaining = await prisma.housekeepingStatusAction.count({ where: { archived: false } });
   if (remaining <= 1) return { ok: false, error: "Keep at least one status action." };
   await prisma.housekeepingStatusAction.update({ where: { id }, data: { archived: true } });
@@ -621,7 +617,7 @@ export async function archiveStatusAction(id: string): Promise<Result> {
 // --- Task templates (the "New task" panel's quick-picks) ---
 export async function createTaskTemplate(label: string): Promise<Result> {
   const user = await requireUser();
-  if (!canConfigureHousekeeping(user.role)) return { ok: false, error: "Not allowed." };
+  if (!can(user, "housekeeping:settings:configure")) return { ok: false, error: "Not allowed." };
   const clean = label.trim();
   if (!clean) return { ok: false, error: "Enter a label." };
   const max = await prisma.housekeepingTaskTemplate.aggregate({ _max: { order: true } });
@@ -635,7 +631,7 @@ export async function createTaskTemplate(label: string): Promise<Result> {
 
 export async function renameTaskTemplate(id: string, label: string): Promise<Result> {
   const user = await requireUser();
-  if (!canConfigureHousekeeping(user.role)) return { ok: false, error: "Not allowed." };
+  if (!can(user, "housekeeping:settings:configure")) return { ok: false, error: "Not allowed." };
   const clean = label.trim();
   if (!clean) return { ok: false, error: "Enter a label." };
   await prisma.housekeepingTaskTemplate.update({ where: { id }, data: { label: clean.slice(0, 80) } });
@@ -646,7 +642,7 @@ export async function renameTaskTemplate(id: string, label: string): Promise<Res
 
 export async function archiveTaskTemplate(id: string): Promise<Result> {
   const user = await requireUser();
-  if (!canConfigureHousekeeping(user.role)) return { ok: false, error: "Not allowed." };
+  if (!can(user, "housekeeping:settings:configure")) return { ok: false, error: "Not allowed." };
   await prisma.housekeepingTaskTemplate.update({ where: { id }, data: { archived: true } });
   revalidatePath("/services/housekeeping/settings");
   refresh();
@@ -656,7 +652,7 @@ export async function archiveTaskTemplate(id: string): Promise<Result> {
 // --- Cleaning checklist items (templateId null = room cleaning) ---
 export async function createChecklistItem(templateId: string | null, label: string): Promise<Result> {
   const user = await requireUser();
-  if (!canConfigureHousekeeping(user.role)) return { ok: false, error: "Not allowed." };
+  if (!can(user, "housekeeping:settings:configure")) return { ok: false, error: "Not allowed." };
   const clean = label.trim();
   if (!clean) return { ok: false, error: "Enter a label." };
   const max = await prisma.housekeepingChecklistItem.aggregate({
@@ -671,7 +667,7 @@ export async function createChecklistItem(templateId: string | null, label: stri
 
 export async function renameChecklistItem(id: string, label: string): Promise<Result> {
   const user = await requireUser();
-  if (!canConfigureHousekeeping(user.role)) return { ok: false, error: "Not allowed." };
+  if (!can(user, "housekeeping:settings:configure")) return { ok: false, error: "Not allowed." };
   const clean = label.trim();
   if (!clean) return { ok: false, error: "Enter a label." };
   await prisma.housekeepingChecklistItem.update({ where: { id }, data: { label: clean.slice(0, 120) } });
@@ -681,7 +677,7 @@ export async function renameChecklistItem(id: string, label: string): Promise<Re
 
 export async function archiveChecklistItem(id: string): Promise<Result> {
   const user = await requireUser();
-  if (!canConfigureHousekeeping(user.role)) return { ok: false, error: "Not allowed." };
+  if (!can(user, "housekeeping:settings:configure")) return { ok: false, error: "Not allowed." };
   await prisma.housekeepingChecklistItem.update({ where: { id }, data: { archived: true } });
   revalidatePath("/services/housekeeping/settings");
   return { ok: true };
@@ -693,7 +689,7 @@ export async function saveTaskItems(
   items: { id: string; status: string; note: string | null }[],
 ): Promise<Result> {
   const user = await requireUser();
-  if (!canSubmitCleaning(user.role)) return { ok: false, error: "Not allowed." };
+  if (!can(user, "housekeeping:tasks:submit")) return { ok: false, error: "Not allowed." };
 
   const valid = new Set(["PENDING", "DONE", "NOT_DONE", "NA"]);
   // Ensure the items belong to this task.
@@ -719,7 +715,7 @@ export async function saveTaskItems(
 // --- Add a room (rooms are shared with PM) ---
 export async function hkCreateRoom(input: { number: string; name?: string }): Promise<Result> {
   const user = await requireUser();
-  if (!canConfigureHousekeeping(user.role)) return { ok: false, error: "Not allowed." };
+  if (!can(user, "housekeeping:settings:configure")) return { ok: false, error: "Not allowed." };
   const number = input.number.trim();
   if (!number) return { ok: false, error: "Enter a room number." };
 

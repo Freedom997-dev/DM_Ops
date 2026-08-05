@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ClipboardCheck, MapPin, Pencil } from "lucide-react";
 import { prisma } from "@/lib/db";
-import { getCurrentUser } from "@/lib/session";
+import { requirePermission, can } from "@/lib/session";
 import { getSignedUrl } from "@/lib/storage";
 import { RoomStatusBadge } from "@/components/StatusBadge";
 import { InspectionHistory } from "@/components/InspectionHistory";
@@ -15,8 +15,8 @@ export default async function RoomDetailPage({
 }: {
   params: { id: string };
 }) {
-  const user = await getCurrentUser();
-  const isAdmin = user?.role === "ADMIN";
+  const user = await requirePermission("pm:rooms:view");
+  const isAdmin = can(user, "pm:rooms:update");
 
   const room = await prisma.room.findUnique({
     where: { id: params.id },
