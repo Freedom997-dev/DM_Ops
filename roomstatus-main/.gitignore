@@ -29,3 +29,8 @@ next-env.d.ts
 
 # brainstorming companion (local mockups only)
 .superpowers/
+
+# prod data snapshots/backups (contain password hashes — never commit)
+prod_backup_*.json
+prod_backup_*.sql
+.vercel

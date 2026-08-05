@@ -103,6 +103,27 @@ export async function createUser(
   return { ok: true, message: `${user.name} added.` };
 }
 
+// No privilege escalation via password reset: can't reset a Super Admin's
+// password unless you are one, and can't reset a user who holds permissions
+// you don't (same rule as roleGrantableBy, applied to the target's current roles).
+async function targetManageableBy(admin: AuthUser, targetId: string): Promise<string | null> {
+  if (admin.isSuperAdmin) return null;
+  const current = await prisma.userRole.findMany({
+    where: { userId: targetId },
+    select: { role: { select: { key: true, permissions: { select: { permission: true } } } } },
+  });
+  if (current.some((c) => c.role.key === ROLE_KEYS.SUPER_ADMIN)) {
+    return "Only a Super Admin can reset a Super Admin's password.";
+  }
+  const targetPerms = new Set(current.flatMap((c) => c.role.permissions.map((p) => p.permission)));
+  for (const perm of targetPerms) {
+    if (!admin.permissions.has(perm)) {
+      return "You can't manage a user with permissions you don't hold.";
+    }
+  }
+  return null;
+}
+
 async function superAdminRoleId(): Promise<string | null> {
   const r = await prisma.role.findUnique({
     where: { key: ROLE_KEYS.SUPER_ADMIN },
@@ -226,6 +247,9 @@ export async function resetPassword(
   const password = String(formData.get("password") || "");
   const pw = validatePassword(password);
   if (!pw.ok) return { ok: false, error: pw.error };
+
+  const denyReason = await targetManageableBy(admin, id);
+  if (denyReason) return { ok: false, error: denyReason };
 
   const passwordHash = await bcrypt.hash(password, 12);
   const user = await prisma.user.update({ where: { id }, data: { passwordHash } });

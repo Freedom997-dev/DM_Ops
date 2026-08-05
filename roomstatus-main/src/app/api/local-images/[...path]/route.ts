@@ -27,7 +27,17 @@ export async function GET(
     return new Response("Not found", { status: 404 });
   }
 
-  const storagePath = params.path.map(decodeURIComponent).join("/");
+  // Reject traversal/segment tricks before they can influence the permission
+  // check below (the prefix check is a string match on attacker-controlled
+  // input, so a segment like ".." or one containing "/" could otherwise be
+  // used to misclassify which domain a path belongs to).
+  const decodedSegments = params.path.map(decodeURIComponent);
+  for (const seg of decodedSegments) {
+    if (seg === "" || seg === "." || seg === ".." || seg.includes("/") || seg.includes("\\")) {
+      return new Response("Not found", { status: 404 });
+    }
+  }
+  const storagePath = decodedSegments.join("/");
 
   // Authorize by image domain: housekeeping photos vs PM inspection images.
   // Return 404 (not a redirect) for unauthenticated/unauthorized — this is an

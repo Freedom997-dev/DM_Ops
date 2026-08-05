@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { sweepExpiredHousekeepingPhotos } from "@/lib/actions/housekeeping";
+import { sweepExpiredHousekeepingPhotos } from "@/lib/jobs/housekeeping-sweep";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
