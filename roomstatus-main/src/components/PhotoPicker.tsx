@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Camera, X, AlertTriangle } from "lucide-react";
+import { Camera, Images, X, AlertTriangle } from "lucide-react";
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 const SOFT_WARN_AT = 20;
@@ -13,7 +13,8 @@ type Props = {
 };
 
 export function PhotoPicker({ questionId, files, onChange }: Props) {
-  const inputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const libraryInputRef = useRef<HTMLInputElement>(null);
   const [previews, setPreviews] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -71,17 +72,36 @@ export function PhotoPicker({ questionId, files, onChange }: Props) {
         ))}
         <button
           type="button"
-          onClick={() => inputRef.current?.click()}
+          onClick={() => cameraInputRef.current?.click()}
           className="flex h-12 w-12 items-center justify-center rounded-md border border-dashed border-slate-300 text-slate-500 hover:border-slate-400 hover:text-slate-700"
-          aria-label={`Add photo to ${questionId}`}
+          aria-label={`Take photo for ${questionId}`}
         >
           <Camera className="h-4 w-4" />
         </button>
+        <button
+          type="button"
+          onClick={() => libraryInputRef.current?.click()}
+          className="flex h-12 w-12 items-center justify-center rounded-md border border-dashed border-slate-300 text-slate-500 hover:border-slate-400 hover:text-slate-700"
+          aria-label={`Add photo from library to ${questionId}`}
+        >
+          <Images className="h-4 w-4" />
+        </button>
+        {/* Separate from the library input below: `capture` + `multiple` together
+            is unreliable on mobile browsers (many ignore `capture` and fall back
+            to the file/library chooser instead of launching the camera), so a
+            live-capture input must not also request multi-select. */}
         <input
-          ref={inputRef}
+          ref={cameraInputRef}
           type="file"
           accept="image/*"
           capture="environment"
+          hidden
+          onChange={handlePick}
+        />
+        <input
+          ref={libraryInputRef}
+          type="file"
+          accept="image/*"
           multiple
           hidden
           onChange={handlePick}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Camera, Video, X, AlertTriangle } from "lucide-react";
+import { Camera, Images, Video, X, AlertTriangle } from "lucide-react";
 
 const MAX_IMAGE = 10 * 1024 * 1024; // 10 MB
 const MAX_VIDEO = 50 * 1024 * 1024; // 50 MB
@@ -13,7 +13,8 @@ type Props = {
 };
 
 export function HkMediaPicker({ id, files, onChange }: Props) {
-  const inputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const libraryInputRef = useRef<HTMLInputElement>(null);
   const [previews, setPreviews] = useState<{ url: string; video: boolean }[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -73,18 +74,38 @@ export function HkMediaPicker({ id, files, onChange }: Props) {
         ))}
         <button
           type="button"
-          onClick={() => inputRef.current?.click()}
+          onClick={() => cameraInputRef.current?.click()}
           className="flex h-16 w-16 flex-col items-center justify-center gap-0.5 rounded-md border border-dashed border-slate-300 text-slate-500 hover:border-slate-400 hover:text-slate-700"
-          aria-label={`Add photo or video to ${id}`}
+          aria-label={`Take photo or video for ${id}`}
         >
           <Camera className="h-4 w-4" />
-          <span className="text-[9px]">Photo / video</span>
+          <span className="text-[9px]">Camera</span>
         </button>
+        <button
+          type="button"
+          onClick={() => libraryInputRef.current?.click()}
+          className="flex h-16 w-16 flex-col items-center justify-center gap-0.5 rounded-md border border-dashed border-slate-300 text-slate-500 hover:border-slate-400 hover:text-slate-700"
+          aria-label={`Add photo or video from library to ${id}`}
+        >
+          <Images className="h-4 w-4" />
+          <span className="text-[9px]">Library</span>
+        </button>
+        {/* Separate from the library input below: `capture` + `multiple` together
+            is unreliable on mobile browsers (many ignore `capture` and fall back
+            to the file/library chooser instead of launching the camera), so a
+            live-capture input must not also request multi-select. */}
         <input
-          ref={inputRef}
+          ref={cameraInputRef}
           type="file"
           accept="image/*,video/*"
           capture="environment"
+          hidden
+          onChange={handlePick}
+        />
+        <input
+          ref={libraryInputRef}
+          type="file"
+          accept="image/*,video/*"
           multiple
           hidden
           onChange={handlePick}
