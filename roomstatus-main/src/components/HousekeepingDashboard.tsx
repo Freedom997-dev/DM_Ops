@@ -200,7 +200,7 @@ export function HousekeepingDashboard({
         <Drawer onClose={() => setOpenId(null)} task={openTask}>
           <HkTaskPanel
             task={openTask}
-            caps={{ submit: caps.submit, review: caps.review }}
+            caps={{ submit: caps.submit, review: caps.review, manage: caps.manage }}
             onDone={() => { setOpenId(null); router.refresh(); }}
           />
         </Drawer>
@@ -287,6 +287,11 @@ function TaskTile({
           {task.requestReason && (
             <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500">
               {task.requestReason}
+            </span>
+          )}
+          {task.recurring && (
+            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500">
+              Repeats daily
             </span>
           )}
         </div>
@@ -526,6 +531,7 @@ function NewTaskModal({
   const [title, setTitle] = useState("");
   const [templateId, setTemplateId] = useState<string | null>(null);
   const [assignee, setAssignee] = useState("");
+  const [recurring, setRecurring] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
@@ -533,7 +539,9 @@ function NewTaskModal({
     setError(null);
     if (!title.trim()) { setError("Give the task a title."); return; }
     start(async () => {
-      const res = await createGeneralTask({ title, assignedHousekeeperId: assignee || null, templateId });
+      const res = await createGeneralTask({
+        title, assignedHousekeeperId: assignee || null, templateId, recurring,
+      });
       if (!res.ok) { setError(res.error); return; }
       onDone();
     });
@@ -556,7 +564,7 @@ function NewTaskModal({
               {templates.map((t) => (
                 <button
                   key={t.id}
-                  onClick={() => { setTitle(t.label); setTemplateId(t.id); }}
+                  onClick={() => { setTitle(t.label); setTemplateId(t.id); setRecurring(true); }}
                   className={clsx(
                     "rounded-full border px-2.5 py-1 text-xs",
                     templateId === t.id
@@ -574,6 +582,15 @@ function NewTaskModal({
           <label className="label">Assign to (optional)</label>
           <HousekeeperSelect housekeepers={housekeepers} value={assignee} onChange={setAssignee} />
         </div>
+        <label className="flex items-center gap-2 text-sm text-slate-600">
+          <input
+            type="checkbox"
+            className="h-4 w-4 rounded border-slate-300"
+            checked={recurring}
+            onChange={(e) => setRecurring(e.target.checked)}
+          />
+          Repeats every day — resets to To Do &amp; unassigned each night
+        </label>
         {error && <p className="text-sm text-red-700">{error}</p>}
         <div className="flex justify-end gap-2">
           <button onClick={onClose} className="btn-secondary">Cancel</button>

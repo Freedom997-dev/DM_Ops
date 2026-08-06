@@ -2,13 +2,14 @@
 
 import { useState, useTransition } from "react";
 import {
-  Loader2, Check, X, Send, Play, CheckCircle2, Camera, Clock, ListChecks, Save, Minus,
+  Loader2, Check, X, Send, Play, CheckCircle2, Camera, Clock, ListChecks, Save, Minus, Trash2,
 } from "lucide-react";
 import clsx from "clsx";
 import { HkMediaPicker } from "@/components/HkMediaPicker";
 import { PhotoLightbox } from "@/components/PhotoLightbox";
 import {
   startTask, submitForInspection, completeGeneralTask, reviewTask, saveTaskItems,
+  deleteHousekeepingTask,
 } from "@/lib/actions/housekeeping";
 import { HK_STATUS_META } from "@/lib/housekeeping";
 import { buildTimeline, type HkTaskView, type HkSubtask, type HkSubtaskStatus } from "@/lib/hk-view";
@@ -36,7 +37,7 @@ export function HkTaskPanel({
   onDone,
 }: {
   task: HkTaskView;
-  caps: { submit: boolean; review: boolean };
+  caps: { submit: boolean; review: boolean; manage: boolean };
   onDone: () => void;
 }) {
   const [files, setFiles] = useState<File[]>([]);
@@ -44,6 +45,7 @@ export function HkTaskPanel({
   const [error, setError] = useState<string | null>(null);
   const [lightbox, setLightbox] = useState<number | null>(null);
   const [saved, setSaved] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [pending, start] = useTransition();
 
   // Local subtask edit state (id -> {status, note}).
@@ -82,6 +84,15 @@ export function HkTaskPanel({
     setError(null);
     start(async () => {
       const res = await fn();
+      if (!res.ok) { setError(res.error); return; }
+      onDone();
+    });
+  }
+
+  function doDelete() {
+    setError(null);
+    start(async () => {
+      const res = await deleteHousekeepingTask(task.id);
       if (!res.ok) { setError(res.error); return; }
       onDone();
     });
@@ -205,6 +216,31 @@ export function HkTaskPanel({
               <X className="h-4 w-4" /> Send back
             </button>
           </div>
+        </div>
+      )}
+
+      {caps.manage && (
+        <div className="border-t border-slate-200 pt-3">
+          {confirmDelete ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm text-slate-600">Delete this task permanently?</span>
+              <button type="button" onClick={doDelete} disabled={pending} className="btn-danger">
+                {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                Delete
+              </button>
+              <button type="button" onClick={() => setConfirmDelete(false)} disabled={pending} className="btn-secondary">
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setConfirmDelete(true)}
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-red-600 hover:underline"
+            >
+              <Trash2 className="h-4 w-4" /> Delete task
+            </button>
+          )}
         </div>
       )}
 

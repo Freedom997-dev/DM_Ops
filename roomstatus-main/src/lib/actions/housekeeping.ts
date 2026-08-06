@@ -107,6 +107,7 @@ export async function createGeneralTask(input: {
   title: string;
   assignedHousekeeperId?: string | null;
   templateId?: string | null;
+  recurring?: boolean;
 }): Promise<Result> {
   const user = await requireUser();
   if (!can(user, "housekeeping:tasks:manage")) return { ok: false, error: "Not allowed." };
@@ -115,6 +116,7 @@ export async function createGeneralTask(input: {
   if (!title) return { ok: false, error: "Give the task a title." };
 
   const assignee = input.assignedHousekeeperId || null;
+  const recurring = input.recurring ?? false;
 
   // Snapshot the chosen template's checklist (if any) onto the task.
   const checklist = input.templateId
@@ -129,6 +131,7 @@ export async function createGeneralTask(input: {
     data: {
       kind: "GENERAL",
       title: title.slice(0, 200),
+      recurring,
       status: "TODO",
       createdById: user.id,
       assignedHousekeeperId: assignee,
@@ -142,7 +145,34 @@ export async function createGeneralTask(input: {
     action: "CREATE",
     entity: "HousekeepingTask",
     entityId: task.id,
-    details: { kind: "GENERAL", title, status: "TODO" },
+    details: { kind: "GENERAL", title, status: "TODO", recurring },
+  });
+
+  refresh();
+  return { ok: true };
+}
+
+// --- Delete a task entirely (manager+ only) — cascades photos/checklist items. ---
+export async function deleteHousekeepingTask(taskId: string): Promise<Result> {
+  const user = await requireUser();
+  if (!can(user, "housekeeping:tasks:manage")) return { ok: false, error: "Not allowed." };
+
+  const task = await prisma.housekeepingTask.findUnique({
+    where: { id: taskId },
+    select: { id: true, kind: true, title: true, roomId: true, photos: { select: { storagePath: true } } },
+  });
+  if (!task) return { ok: false, error: "Task not found." };
+
+  if (task.photos.length > 0) {
+    await deleteImages(task.photos.map((p) => p.storagePath));
+  }
+  await prisma.housekeepingTask.delete({ where: { id: taskId } });
+  await logAudit({
+    userId: user.id,
+    action: "DELETE",
+    entity: "HousekeepingTask",
+    entityId: taskId,
+    details: { kind: task.kind, title: task.title },
   });
 
   refresh();

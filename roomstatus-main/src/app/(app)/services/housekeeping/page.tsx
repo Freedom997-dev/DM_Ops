@@ -69,6 +69,7 @@ export default async function HousekeepingPage() {
       id: t.id,
       kind: t.kind as HkKind,
       title: t.title,
+      recurring: t.recurring,
       status: t.status as HkStatus,
       requestReason: t.requestReason,
       roomId: t.roomId,

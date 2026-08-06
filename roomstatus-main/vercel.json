@@ -1,5 +1,6 @@
 {
   "crons": [
-    { "path": "/api/cron/housekeeping-cleanup", "schedule": "0 3 * * *" }
+    { "path": "/api/cron/housekeeping-cleanup", "schedule": "0 3 * * *" },
+    { "path": "/api/cron/housekeeping-daily-reset", "schedule": "0 0 * * *" }
   ]
 }

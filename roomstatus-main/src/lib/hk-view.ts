@@ -20,6 +20,7 @@ export type HkTaskView = {
   id: string;
   kind: HkKind;
   title: string | null;
+  recurring: boolean;
   status: HkStatus;
   requestReason: string | null;
   roomId: string | null;

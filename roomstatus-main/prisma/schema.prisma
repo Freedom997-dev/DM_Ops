@@ -327,6 +327,7 @@ model HousekeepingTask {
   // Flexible: a room clean OR a general daily task.
   kind                  String    @default("ROOM_CLEANING") // ROOM_CLEANING | GENERAL
   title                 String? // set for GENERAL tasks (e.g. "Restock lobby")
+  recurring             Boolean   @default(false) // GENERAL only: reset to TODO + unassigned nightly
   roomId                String? // null for GENERAL tasks
   room                  Room?     @relation(fields: [roomId], references: [id])
 
