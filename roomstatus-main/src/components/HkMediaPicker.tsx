@@ -13,7 +13,8 @@ type Props = {
 };
 
 export function HkMediaPicker({ id, files, onChange }: Props) {
-  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
   const libraryInputRef = useRef<HTMLInputElement>(null);
   const [previews, setPreviews] = useState<{ url: string; video: boolean }[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -74,12 +75,21 @@ export function HkMediaPicker({ id, files, onChange }: Props) {
         ))}
         <button
           type="button"
-          onClick={() => cameraInputRef.current?.click()}
+          onClick={() => photoInputRef.current?.click()}
           className="flex h-16 w-16 flex-col items-center justify-center gap-0.5 rounded-md border border-dashed border-slate-300 text-slate-500 hover:border-slate-400 hover:text-slate-700"
-          aria-label={`Take photo or video for ${id}`}
+          aria-label={`Take photo for ${id}`}
         >
           <Camera className="h-4 w-4" />
-          <span className="text-[9px]">Camera</span>
+          <span className="text-[9px]">Photo</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => videoInputRef.current?.click()}
+          className="flex h-16 w-16 flex-col items-center justify-center gap-0.5 rounded-md border border-dashed border-slate-300 text-slate-500 hover:border-slate-400 hover:text-slate-700"
+          aria-label={`Record video for ${id}`}
+        >
+          <Video className="h-4 w-4" />
+          <span className="text-[9px]">Video</span>
         </button>
         <button
           type="button"
@@ -90,14 +100,26 @@ export function HkMediaPicker({ id, files, onChange }: Props) {
           <Images className="h-4 w-4" />
           <span className="text-[9px]">Library</span>
         </button>
-        {/* Separate from the library input below: `capture` + `multiple` together
-            is unreliable on mobile browsers (many ignore `capture` and fall back
-            to the file/library chooser instead of launching the camera), so a
-            live-capture input must not also request multi-select. */}
+        {/* Three separate single-purpose inputs, not one combined picker:
+            (1) `capture` + `multiple` together is unreliable on mobile browsers
+            (many ignore `capture` and fall back to the file/library chooser), so
+            live-capture inputs must not also request multi-select; and
+            (2) mixing `accept="image/*,video/*"` on a `capture` input leaves the
+            browser unable to pick a capture mode, so it falls back to a chooser
+            (gallery included) instead of launching the camera directly — each
+            capture input must target exactly one media type. */}
         <input
-          ref={cameraInputRef}
+          ref={photoInputRef}
           type="file"
-          accept="image/*,video/*"
+          accept="image/*"
+          capture="environment"
+          hidden
+          onChange={handlePick}
+        />
+        <input
+          ref={videoInputRef}
+          type="file"
+          accept="video/*"
           capture="environment"
           hidden
           onChange={handlePick}
