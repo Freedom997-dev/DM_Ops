@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { requirePermission, can } from "@/lib/session";
 import { getSignedUrl } from "@/lib/storage";
 import { type HkKind, type HkStatus } from "@/lib/housekeeping";
+import { ROLE_KEYS } from "@/lib/roles";
 import type { HkTaskView, HkRoomOption, HkPerson, HkStatusAction, HkTaskTemplate } from "@/lib/hk-view";
 import { HousekeepingDashboard } from "@/components/HousekeepingDashboard";
 
@@ -39,7 +40,9 @@ export default async function HousekeepingPage() {
       select: { id: true, number: true, name: true },
     }),
     prisma.user.findMany({
-      where: { role: "HOUSEKEEPER", active: true },
+      // RBAC-based: User.role is the deprecated legacy column and isn't set
+      // for users assigned roles via Settings -> Roles & permissions.
+      where: { active: true, roles: { some: { role: { key: ROLE_KEYS.HOUSEKEEPER } } } },
       orderBy: { name: "asc" },
       select: { id: true, name: true },
     }),

@@ -5,12 +5,13 @@ build
 *.log
 npm-debug.log*
 
+# TypeScript incremental build cache
+tsconfig.tsbuildinfo
+*.tsbuildinfo
+
 # env
 .env
 .env*.local
-
-# MCP server config (contains PAT — never commit)
-.mcp.json
 
 # prisma / sqlite
 prisma/dev.db
@@ -18,7 +19,18 @@ prisma/dev.db-journal
 *.db
 *.db-journal
 
+# local dev image storage (filesystem storage driver)
+.local-storage/
+
 # misc
 .DS_Store
 .vscode
 next-env.d.ts
+
+# brainstorming companion (local mockups only)
+.superpowers/
+
+# prod data snapshots/backups (contain password hashes — never commit)
+prod_backup_*.json
+prod_backup_*.sql
+.vercel

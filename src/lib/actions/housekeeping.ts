@@ -10,6 +10,7 @@ import {
   hkGeneralPhotoPath,
   isOpenStatus,
 } from "@/lib/housekeeping";
+import { ROLE_KEYS } from "@/lib/roles";
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10 MB
 const MAX_VIDEO_BYTES = 50 * 1024 * 1024; // 50 MB
@@ -230,7 +231,9 @@ export async function autoAssign(
   if (!can(user, "housekeeping:tasks:manage")) return { ok: false, error: "Not allowed." };
 
   const housekeepers = await prisma.user.findMany({
-    where: { role: "HOUSEKEEPER", active: true },
+    // RBAC-based: User.role is the deprecated legacy column and isn't set
+    // for users assigned roles via Settings -> Roles & permissions.
+    where: { active: true, roles: { some: { role: { key: ROLE_KEYS.HOUSEKEEPER } } } },
     select: { id: true },
   });
   if (housekeepers.length === 0) {

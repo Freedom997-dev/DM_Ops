@@ -107,12 +107,12 @@ export function RoomsManager({
           onClose={() => {
             setAdding(false);
             setEditing(null);
-            router.replace("/rooms");
+            router.replace("/services/pm/rooms");
           }}
           onSaved={() => {
             setAdding(false);
             setEditing(null);
-            router.replace("/rooms");
+            router.replace("/services/pm/rooms");
             router.refresh();
           }}
         />
@@ -127,7 +127,7 @@ export function RoomsManager({
               key={room.id}
               className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
             >
-              <Link href={`/rooms/${room.id}`} className="flex items-center gap-3 hover:opacity-80">
+              <Link href={`/services/pm/rooms/${room.id}`} className="flex items-center gap-3 hover:opacity-80">
                 <div className="flex h-11 w-11 flex-col items-center justify-center rounded-xl bg-slate-100 text-sm font-bold text-slate-700">
                   {room.number}
                 </div>
@@ -149,7 +149,7 @@ export function RoomsManager({
               <div className="flex items-center gap-2">
                 <RoomStatusBadge status={room.status} />
                 <Link
-                  href={`/inspect/${room.id}`}
+                  href={`/services/pm/inspect/${room.id}`}
                   className="btn-secondary px-3 py-2"
                   title="Inspect"
                 >

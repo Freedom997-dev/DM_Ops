@@ -16,7 +16,7 @@ export default function LoginPage() {
 function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
-  const callbackUrl = params.get("callbackUrl") || "/dashboard";
+  const callbackUrl = params.get("callbackUrl") || "/services";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -34,7 +34,13 @@ function LoginForm() {
     });
     setLoading(false);
     if (res?.error) {
-      setError("Incorrect email or password.");
+      // "TOO_MANY_ATTEMPTS" is thrown by authorize() in src/lib/auth.ts
+      // (LOCKED_OUT_ERROR) when an email is temporarily locked out.
+      setError(
+        res.error === "TOO_MANY_ATTEMPTS"
+          ? "Too many failed attempts. Please wait a few minutes and try again."
+          : "Incorrect email or password.",
+      );
       return;
     }
     router.push(callbackUrl);
@@ -42,14 +48,14 @@ function LoginForm() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-brand-50 via-slate-50 to-slate-100 px-4 py-10">
+    <main className="flex flex-1 items-center justify-center bg-gradient-to-br from-brand-50 via-slate-50 to-slate-100 px-4 py-10">
       <div className="w-full max-w-md">
         <div className="mb-6 flex flex-col items-center text-center">
           <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-600 text-white shadow-lg shadow-brand-600/20">
             <BedDouble className="h-7 w-7" />
           </div>
           <h1 className="text-2xl font-bold text-slate-900">Divya Motel</h1>
-          <p className="text-sm text-slate-500">Room Condition Program</p>
+          <p className="text-sm text-slate-500">Operations Portal</p>
         </div>
 
         <form onSubmit={onSubmit} className="card space-y-4 p-6">

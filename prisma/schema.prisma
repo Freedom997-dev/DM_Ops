@@ -1,13 +1,12 @@
 // Divya Motel - Room Condition Program
-// Local dev: SQLite. To deploy online, change provider to "postgresql"
-// and point DATABASE_URL at your hosted Postgres database.
+// Deployed on Postgres (Neon). DATABASE_URL points at the hosted database.
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -19,12 +18,82 @@ model User {
   name         String
   email        String   @unique
   passwordHash String
-  role         String   @default("INSPECTOR") // ADMIN | INSPECTOR
+  // DEPRECATED: superseded by RBAC roles (see UserRole). Kept (not dropped) so
+  // the Postgres migration is non-destructive; no longer read by the app.
+  role         String   @default("INSPECTOR")
   active       Boolean  @default(true)
   createdAt    DateTime @default(now())
 
+  roles       UserRole[]
   inspections Inspection[]
   auditLogs   AuditLog[]
+
+  // Foundation: Workflow back-relations
+  workflowSubmissionsCreated WorkflowSubmission[] @relation("WorkflowSubmissionCreated")
+  workflowRowUpdates         WorkflowRow[]        @relation("WorkflowRowUpdated")
+  workflowCellUpdates        WorkflowCell[]       @relation("WorkflowCellUpdated")
+  workflowRowImagesUploaded  WorkflowRowImage[]   @relation("WorkflowRowImageUploaded")
+
+  // Housekeeping (HKT) back-relations
+  hkAssigned       HousekeepingTask[]  @relation("HKAssigned")
+  hkAssignedByMe   HousekeepingTask[]  @relation("HKAssignedBy")
+  hkCreated        HousekeepingTask[]  @relation("HKCreated")
+  hkSubmitted      HousekeepingTask[]  @relation("HKSubmitted")
+  hkReviewed       HousekeepingTask[]  @relation("HKReviewed")
+  hkPhotosUploaded HousekeepingPhoto[] @relation("HKPhotoUploaded")
+}
+
+// ---------------------------------------------------------------------------
+// RBAC: roles + per-role permission grants + user<->role assignments.
+//
+// Valid permission keys are defined in code (src/lib/rbac/catalog.ts) as
+// "app:feature:action" strings. The DB only records which roles are granted
+// which of those keys, so admins create roles and toggle permissions at
+// runtime. Per-service (workflow) access continues to use
+// WorkflowDefinition.rolesAllowed, now referencing these role keys.
+// ---------------------------------------------------------------------------
+model Role {
+  id          String   @id @default(cuid())
+  key         String   @unique // SUPER_ADMIN, ADMIN, MANAGER, INSPECTOR, HOUSEKEEPER, ...
+  label       String
+  description String?
+  isSystem    Boolean  @default(false) // built-in roles cannot be deleted
+  createdAt   DateTime @default(now())
+
+  permissions RolePermission[]
+  users       UserRole[]
+}
+
+model RolePermission {
+  id         String @id @default(cuid())
+  roleId     String
+  role       Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission String // "app:feature:action" — validated against the code catalog
+
+  @@unique([roleId, permission])
+  @@index([roleId])
+}
+
+model UserRole {
+  userId String
+  roleId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@index([roleId])
+}
+
+// Failed-login tracking for rate limiting / lockout (see src/lib/login-attempts.ts).
+// One row per failed sign-in, keyed by the email typed (stored even when no such
+// user exists, so lockout can't probe which emails are real). Cleared on success.
+model LoginAttempt {
+  id        String   @id @default(cuid())
+  email     String
+  ip        String?
+  createdAt DateTime @default(now())
+
+  @@index([email, createdAt])
 }
 
 // ---------------------------------------------------------------------------
@@ -41,6 +110,13 @@ model Room {
   updatedAt DateTime @updatedAt
 
   inspections Inspection[]
+
+  // Foundation: Workflow back-relations
+  workflowRows  WorkflowRow[]
+  workflowCells WorkflowCell[]
+
+  // Housekeeping (HKT) back-relation
+  housekeepingTasks HousekeepingTask[]
 }
 
 // ---------------------------------------------------------------------------
@@ -99,6 +175,22 @@ model InspectionItem {
 
   status String  @default("NA") // OK | NEEDS_REPAIR | REPAIR_COMPLETED | NA
   note   String?
+
+  images InspectionItemImage[]
+}
+
+model InspectionItemImage {
+  id               String         @id @default(cuid())
+  inspectionItemId String
+  inspectionItem   InspectionItem @relation(fields: [inspectionItemId], references: [id], onDelete: Cascade)
+
+  storagePath      String
+  width            Int?
+  height           Int?
+  bytes            Int?
+  createdAt        DateTime       @default(now())
+
+  @@index([inspectionItemId])
 }
 
 // ---------------------------------------------------------------------------
@@ -108,9 +200,247 @@ model AuditLog {
   id        String   @id @default(cuid())
   userId    String?
   user      User?    @relation(fields: [userId], references: [id])
-  action    String // CREATE | UPDATE | ARCHIVE | RESTORE | LOGIN
-  entity    String // Room | Question | Section | User | Inspection
+  action    String // CREATE | UPDATE | DELETE | ARCHIVE | RESTORE | LOGIN
+  entity    String // Room | Question | Section | User | Inspection | InspectionItemImage | WorkflowDefinition | WorkflowItem | WorkflowSubmission | WorkflowRow | WorkflowCell
   entityId  String?
   details   String? // JSON string with context / before-after
   createdAt DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Foundation: generic Workflow* models
+// Used by Daily Cleanliness Inspection (and future workflows). The existing
+// PM Room Condition Inspection keeps its own Section/Question/Inspection/Item
+// tables — parallel models, no migration.
+// ---------------------------------------------------------------------------
+
+model WorkflowDefinition {
+  id           String   @id @default(cuid())
+  slug         String   @unique
+  name         String
+  description  String?
+  shape        String // "MATRIX" (rows = rooms, cols = items). Future shapes may follow.
+  rolesAllowed String // JSON-encoded array of role strings, e.g. '["ADMIN","MANAGER","INSPECTOR"]'
+  archived     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  items       WorkflowItem[]
+  submissions WorkflowSubmission[]
+}
+
+model WorkflowItem {
+  id         String             @id @default(cuid())
+  workflowId String
+  workflow   WorkflowDefinition @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  text       String
+  order      Int                @default(0)
+  archived   Boolean            @default(false)
+  createdAt  DateTime           @default(now())
+
+  cells WorkflowCell[]
+
+  @@index([workflowId])
+}
+
+model WorkflowSubmission {
+  id          String             @id @default(cuid())
+  workflowId  String
+  workflow    WorkflowDefinition @relation(fields: [workflowId], references: [id])
+  date        DateTime // stored as UTC midnight; date component is what matters
+  status      String             @default("IN_PROGRESS") // IN_PROGRESS | COMPLETED
+  createdById String
+  createdBy   User               @relation("WorkflowSubmissionCreated", fields: [createdById], references: [id])
+  completedAt DateTime?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  rows  WorkflowRow[]
+  cells WorkflowCell[]
+
+  @@unique([workflowId, date])
+  @@index([date])
+  @@index([workflowId, status])
+}
+
+model WorkflowRow {
+  id              String             @id @default(cuid())
+  submissionId    String
+  submission      WorkflowSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  roomId          String
+  room            Room               @relation(fields: [roomId], references: [id])
+  note            String?
+  lastUpdatedById String?
+  lastUpdatedBy   User?              @relation("WorkflowRowUpdated", fields: [lastUpdatedById], references: [id])
+  lastUpdatedAt   DateTime?
+
+  images WorkflowRowImage[]
+
+  @@unique([submissionId, roomId])
+  @@index([roomId])
+}
+
+model WorkflowCell {
+  id              String             @id @default(cuid())
+  submissionId    String
+  submission      WorkflowSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  itemId          String
+  item            WorkflowItem       @relation(fields: [itemId], references: [id])
+  roomId          String
+  room            Room               @relation(fields: [roomId], references: [id])
+  itemText        String // snapshot of item.text at time of edit
+  status          String // OK | ISSUE | NA
+  lastUpdatedById String
+  lastUpdatedBy   User               @relation("WorkflowCellUpdated", fields: [lastUpdatedById], references: [id])
+  lastUpdatedAt   DateTime           @default(now())
+
+  @@unique([submissionId, roomId, itemId])
+  @@index([submissionId])
+  @@index([roomId])
+  @@index([itemId])
+}
+
+model WorkflowRowImage {
+  id           String      @id @default(cuid())
+  rowId        String
+  row          WorkflowRow @relation(fields: [rowId], references: [id], onDelete: Cascade)
+  storagePath  String
+  width        Int?
+  height       Int?
+  bytes        Int?
+  uploadedById String
+  uploadedBy   User        @relation("WorkflowRowImageUploaded", fields: [uploadedById], references: [id])
+  createdAt    DateTime    @default(now())
+
+  @@index([rowId])
+}
+
+// ---------------------------------------------------------------------------
+// Housekeeping (HKT) — per-room cleaning status lifecycle
+// READY_TO_CLEAN -> IN_PROGRESS -> READY_FOR_INSPECTION -> READY_TO_RENT
+// (inspector reject loops back to READY_TO_CLEAN). Built-in service, not a
+// WorkflowDefinition. See docs/superpowers/specs/2026-07-14-housekeeping-design.md
+// ---------------------------------------------------------------------------
+model HousekeepingTask {
+  id                    String    @id @default(cuid())
+
+  // Flexible: a room clean OR a general daily task.
+  kind                  String    @default("ROOM_CLEANING") // ROOM_CLEANING | GENERAL
+  title                 String? // set for GENERAL tasks (e.g. "Restock lobby")
+  recurring             Boolean   @default(false) // GENERAL only: reset to TODO + unassigned nightly
+  roomId                String? // null for GENERAL tasks
+  room                  Room?     @relation(fields: [roomId], references: [id])
+
+  // Status set depends on kind:
+  //   ROOM_CLEANING: READY_TO_CLEAN | IN_PROGRESS | READY_FOR_INSPECTION | READY_TO_RENT
+  //   GENERAL:       TODO | IN_PROGRESS | DONE
+  status                String
+  requestReason         String? // which status action triggered it (e.g. "Checkout")
+
+  // Assignment — who is responsible, and who assigned them.
+  assignedHousekeeperId String?
+  assignedHousekeeper   User?     @relation("HKAssigned", fields: [assignedHousekeeperId], references: [id])
+  assignedById          String?
+  assignedBy            User?     @relation("HKAssignedBy", fields: [assignedById], references: [id])
+  assignedAt            DateTime?
+  startedAt             DateTime? // set on -> IN_PROGRESS
+
+  createdById           String // who created / checked the room out
+  createdBy             User      @relation("HKCreated", fields: [createdById], references: [id])
+
+  submittedById         String? // housekeeper who submitted for inspection
+  submittedBy           User?     @relation("HKSubmitted", fields: [submittedById], references: [id])
+  submittedAt           DateTime?
+
+  reviewedById          String?
+  reviewedBy            User?     @relation("HKReviewed", fields: [reviewedById], references: [id])
+  reviewedAt            DateTime?
+  reviewNote            String?
+
+  closedAt              DateTime? // set when -> READY_TO_RENT
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  photos HousekeepingPhoto[]
+  items  HousekeepingTaskItem[]
+
+  @@index([roomId])
+  @@index([status])
+}
+
+// Task media — photos and videos. (Table name kept for migration stability.)
+model HousekeepingPhoto {
+  id           String           @id @default(cuid())
+  taskId       String
+  task         HousekeepingTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  storagePath  String
+  mediaType    String           @default("IMAGE") // IMAGE | VIDEO
+  width        Int?
+  height       Int?
+  bytes        Int?
+  uploadedById String
+  uploadedBy   User             @relation("HKPhotoUploaded", fields: [uploadedById], references: [id])
+  createdAt    DateTime         @default(now())
+
+  @@index([taskId])
+  @@index([createdAt]) // for the retention sweep
+}
+
+model HousekeepingSetting {
+  id               String   @id @default("singleton") // one row only
+  deleteOnApproval Boolean  @default(true)
+  retentionDays    Int      @default(7)
+  instructions     String? // cleaning instructions shown to housekeepers
+  updatedAt        DateTime @updatedAt
+}
+
+// Admin-editable list of "status actions" shown on the check-out panel
+// (e.g. Checkout, Request for cleaning). Applying one creates a Ready-to-Clean
+// room task tagged with the action's label as its requestReason.
+model HousekeepingStatusAction {
+  id        String   @id @default(cuid())
+  label     String
+  order     Int      @default(0)
+  archived  Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+// Admin-editable list of general daily-task templates (the quick-picks in the
+// "New task" panel, e.g. Clean lobby, Laundry, Restock supplies).
+model HousekeepingTaskTemplate {
+  id        String   @id @default(cuid())
+  label     String
+  order     Int      @default(0)
+  archived  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  checklistItems HousekeepingChecklistItem[]
+}
+
+// Admin-defined checklist item (subtask) for a task type.
+// `templateId` null = the room-cleaning checklist; set = a daily-task template's checklist.
+// Items are snapshotted onto each task as HousekeepingTaskItem when the task is created.
+model HousekeepingChecklistItem {
+  id         String                    @id @default(cuid())
+  templateId String? // null = room-cleaning checklist
+  template   HousekeepingTaskTemplate? @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  label      String
+  order      Int                       @default(0)
+  archived   Boolean                   @default(false)
+  createdAt  DateTime                  @default(now())
+
+  @@index([templateId])
+}
+
+// A subtask on a specific task: the housekeeper marks Done / Not Done / N/A + note.
+model HousekeepingTaskItem {
+  id     String           @id @default(cuid())
+  taskId String
+  task   HousekeepingTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  label  String // snapshot of the checklist item at task creation
+  order  Int              @default(0)
+  status String           @default("PENDING") // PENDING | DONE | NOT_DONE | NA
+  note   String?
+
+  @@index([taskId])
 }

@@ -5,48 +5,43 @@ import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { useState } from "react";
 import clsx from "clsx";
-import {
-  BedDouble,
-  LayoutDashboard,
-  DoorOpen,
-  ListChecks,
-  Users,
-  History,
-  LogOut,
-  Menu,
-  X,
-} from "lucide-react";
+import { BedDouble, LayoutGrid, Settings, LogOut, Menu, X } from "lucide-react";
 
-type NavUser = { name?: string | null; role: string };
+type NavUser = {
+  name?: string | null;
+  roleKeys: string[];
+  isSuperAdmin: boolean;
+  canSettings: boolean;
+};
 
-const ICONS = {
-  dashboard: LayoutDashboard,
-  rooms: DoorOpen,
-  questions: ListChecks,
-  users: Users,
-  audit: History,
-} as const;
+function prettyRole(key: string): string {
+  return key
+    .toLowerCase()
+    .split("_")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
 
 export function Nav({ user }: { user: NavUser }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const isAdmin = user.role === "ADMIN";
+  const canSettings = user.canSettings;
+  const roleLabel = user.isSuperAdmin
+    ? "Super Admin"
+    : user.roleKeys.map(prettyRole).join(" · ") || "No role";
 
-  const links: { href: string; label: string; icon: keyof typeof ICONS; admin?: boolean }[] = [
-    { href: "/dashboard", label: "Dashboard", icon: "dashboard" },
-    { href: "/rooms", label: "Rooms", icon: "rooms" },
-    { href: "/admin/questions", label: "Checklist", icon: "questions", admin: true },
-    { href: "/admin/users", label: "Staff", icon: "users", admin: true },
-    { href: "/admin/audit", label: "Activity", icon: "audit", admin: true },
+  const links: { href: string; label: string; icon: typeof LayoutGrid; visible: boolean }[] = [
+    { href: "/services", label: "Services", icon: LayoutGrid, visible: true },
+    { href: "/settings", label: "Settings", icon: Settings, visible: canSettings },
   ];
 
-  const visible = links.filter((l) => !l.admin || isAdmin);
+  const visible = links.filter((l) => l.visible);
 
   function NavLinks({ onClick }: { onClick?: () => void }) {
     return (
       <>
         {visible.map((link) => {
-          const Icon = ICONS[link.icon];
+          const Icon = link.icon;
           const active =
             pathname === link.href || pathname.startsWith(link.href + "/");
           return (
@@ -73,13 +68,13 @@ export function Nav({ user }: { user: NavUser }) {
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-        <Link href="/dashboard" className="flex items-center gap-2">
+        <Link href="/services" className="flex items-center gap-2">
           <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-600 text-white">
             <BedDouble className="h-5 w-5" />
           </span>
           <span className="flex flex-col leading-tight">
             <span className="text-sm font-bold text-slate-900">Divya Motel</span>
-            <span className="text-[11px] text-slate-400">Room Condition</span>
+            <span className="text-[11px] text-slate-400">Operations</span>
           </span>
         </Link>
 
@@ -92,7 +87,7 @@ export function Nav({ user }: { user: NavUser }) {
           <div className="text-right leading-tight">
             <div className="text-sm font-medium text-slate-700">{user.name}</div>
             <div className="text-[11px] uppercase tracking-wide text-slate-400">
-              {user.role}
+              {roleLabel}
             </div>
           </div>
           <button
@@ -124,7 +119,7 @@ export function Nav({ user }: { user: NavUser }) {
             <div className="leading-tight">
               <div className="text-sm font-medium text-slate-700">{user.name}</div>
               <div className="text-[11px] uppercase tracking-wide text-slate-400">
-                {user.role}
+                {roleLabel}
               </div>
             </div>
             <button

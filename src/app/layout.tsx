@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Providers } from "./providers";
+import { Footer } from "@/components/Footer";
 
 export const metadata: Metadata = {
   title: "Divya Motel · Room Condition Program",
@@ -21,7 +22,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <Providers>{children}</Providers>
+        <Providers>
+          <div className="flex min-h-screen flex-col">
+            <div className="flex flex-1 flex-col">{children}</div>
+            <Footer />
+          </div>
+        </Providers>
       </body>
     </html>
   );

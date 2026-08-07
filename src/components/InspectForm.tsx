@@ -1,14 +1,22 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import clsx from "clsx";
-import { Check, Loader2, MessageSquarePlus, Save } from "lucide-react";
+import { AlertTriangle, Loader2, MessageSquarePlus, Save, Wrench } from "lucide-react";
 import { saveInspection } from "@/lib/actions/inspections";
 import { ITEM_STATUS_META, type ItemStatus } from "@/lib/status";
+import { PhotoPicker } from "@/components/PhotoPicker";
+import { useItemSearch } from "@/components/useItemSearch";
+import { InspectSearchBar } from "@/components/InspectSearchBar";
+import { HighlightedText } from "@/components/HighlightedText";
 
 type Question = { id: string; text: string };
 type Section = { id: string; name: string; questions: Question[] };
+type Carried = {
+  status: "NEEDS_REPAIR" | "REPAIR_COMPLETED" | "NA";
+  note: string | null;
+};
 
 const CHOICES: ItemStatus[] = ["OK", "NEEDS_REPAIR", "REPAIR_COMPLETED", "NA"];
 
@@ -16,10 +24,15 @@ export function InspectForm({
   roomId,
   roomNumber,
   sections,
+  carried = {},
+  lastInspectedAt = null,
 }: {
   roomId: string;
   roomNumber: string;
   sections: Section[];
+  /** Unresolved items from the last inspection, keyed by question id. */
+  carried?: Record<string, Carried>;
+  lastInspectedAt?: string | null;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -30,19 +43,54 @@ export function InspectForm({
     [sections],
   );
 
-  // Default every item to OK; inspector flips the exceptions.
+  // "Find on page" search across all 95 items.
+  const search = useItemSearch(allQuestions);
+  const rowRefs = useRef<Map<string, HTMLLIElement>>(new Map());
+
+  // Scroll the active match to the center of the viewport when it changes.
+  useEffect(() => {
+    if (!search.activeId) return;
+    rowRefs.current
+      .get(search.activeId)
+      ?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [search.activeId]);
+
+  // Unresolved items from the last inspection start where they left off; the
+  // rest start at OK. Keeps a known-broken item from silently going green.
   const [statuses, setStatuses] = useState<Record<string, ItemStatus>>(() =>
-    Object.fromEntries(allQuestions.map((q) => [q.id, "OK" as ItemStatus])),
+    Object.fromEntries(
+      allQuestions.map((q) => [q.id, (carried[q.id]?.status ?? "OK") as ItemStatus]),
+    ),
   );
-  const [notes, setNotes] = useState<Record<string, string>>({});
+  const [notes, setNotes] = useState<Record<string, string>>(() =>
+    Object.fromEntries(
+      allQuestions
+        .filter((q) => carried[q.id]?.note)
+        .map((q) => [q.id, carried[q.id]!.note as string]),
+    ),
+  );
   const [openNote, setOpenNote] = useState<Record<string, boolean>>({});
+
+  const carriedRepairCount = allQuestions.filter(
+    (q) => carried[q.id]?.status === "NEEDS_REPAIR",
+  ).length;
+  // Of those, how many the inspector has since resolved (marked Fixed or OK).
+  const stillOpenCount = allQuestions.filter(
+    (q) => carried[q.id]?.status === "NEEDS_REPAIR" && statuses[q.id] === "NEEDS_REPAIR",
+  ).length;
   const [generalNotes, setGeneralNotes] = useState("");
+  const [photos, setPhotos] = useState<Record<string, File[]>>({});
 
   const counts = useMemo(() => {
     const c = { OK: 0, NEEDS_REPAIR: 0, REPAIR_COMPLETED: 0, NA: 0 } as Record<ItemStatus, number>;
     for (const q of allQuestions) c[statuses[q.id]]++;
     return c;
   }, [statuses, allQuestions]);
+
+  const totalPhotos = useMemo(
+    () => Object.values(photos).reduce((n, arr) => n + arr.length, 0),
+    [photos],
+  );
 
   function setStatus(id: string, status: ItemStatus) {
     setStatuses((prev) => ({ ...prev, [id]: status }));
@@ -51,27 +99,65 @@ export function InspectForm({
 
   function submit() {
     setError(null);
-    startTransition(async () => {
-      const res = await saveInspection({
-        roomId,
-        notes: generalNotes || null,
-        responses: allQuestions.map((q) => ({
-          questionId: q.id,
-          status: statuses[q.id],
-          note: notes[q.id] || null,
-        })),
+    const payload = {
+      roomId,
+      notes: generalNotes || null,
+      responses: allQuestions.map((q) => ({
+        questionId: q.id,
+        status: statuses[q.id],
+        note: notes[q.id] || null,
+      })),
+    };
+
+    const form = new FormData();
+    form.set("payload", JSON.stringify(payload));
+    for (const [questionId, files] of Object.entries(photos)) {
+      files.forEach((file, i) => {
+        form.append(`image-${questionId}-${i}`, file, file.name);
       });
+    }
+
+    startTransition(async () => {
+      const res = await saveInspection(form);
       if (!res.ok) {
         setError(res.error ?? "Could not save inspection.");
         return;
       }
-      router.push(`/rooms/${roomId}?saved=1`);
+      router.push(`/services/pm/rooms/${roomId}?saved=1`);
       router.refresh();
     });
   }
 
   return (
     <div className="space-y-5 pb-28">
+      <InspectSearchBar search={search} />
+
+      {carriedRepairCount > 0 && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <div className="flex items-start gap-2.5">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+            <div className="text-sm text-amber-900">
+              <p className="font-semibold">
+                {carriedRepairCount} open repair{carriedRepairCount === 1 ? "" : "s"} carried
+                over from the last inspection
+                {lastInspectedAt && (
+                  <> ({new Date(lastInspectedAt).toLocaleDateString()})</>
+                )}
+                .
+              </p>
+              <p className="mt-0.5 text-amber-800">
+                They stay flagged until you resolve them. Mark each one{" "}
+                <span className="font-semibold">Fixed</span> once repaired, or leave it as{" "}
+                <span className="font-semibold">Repair</span> if it&apos;s still broken.
+                {stillOpenCount !== carriedRepairCount && (
+                  <> · {stillOpenCount} still marked as needing repair.</>
+                )}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {sections.map((section) => (
         <div key={section.id} className="card overflow-hidden">
           <div className="border-b border-slate-100 bg-slate-50 px-4 py-2.5">
@@ -84,9 +170,40 @@ export function InspectForm({
               const current = statuses[q.id];
               const showNote = openNote[q.id];
               return (
-                <li key={q.id} className="px-4 py-3">
+                <li
+                  key={q.id}
+                  ref={(el) => {
+                    const m = rowRefs.current;
+                    if (el) m.set(q.id, el);
+                    else m.delete(q.id);
+                  }}
+                  className={clsx(
+                    "px-4 py-3",
+                    carried[q.id]?.status === "NEEDS_REPAIR" && "bg-amber-50/50",
+                    search.activeId === q.id && "rounded-lg ring-2 ring-inset ring-brand-500",
+                  )}
+                >
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <span className="text-sm text-slate-700">{q.text}</span>
+                    <span className="text-sm text-slate-700">
+                      <HighlightedText text={q.text} query={search.query} />
+                      {carried[q.id]?.status === "NEEDS_REPAIR" && (
+                        <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 align-middle text-[11px] font-semibold text-amber-800">
+                          <AlertTriangle className="h-3 w-3" />
+                          Open from last inspection
+                        </span>
+                      )}
+                      {carried[q.id]?.status === "REPAIR_COMPLETED" && (
+                        <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 align-middle text-[11px] font-semibold text-blue-800">
+                          <Wrench className="h-3 w-3" />
+                          Repaired last inspection
+                        </span>
+                      )}
+                      {carried[q.id]?.status === "NA" && (
+                        <span className="ml-2 align-middle text-[11px] font-medium text-slate-400">
+                          N/A last time
+                        </span>
+                      )}
+                    </span>
                     <div className="flex flex-wrap gap-1.5">
                       {CHOICES.map((choice) => {
                         const meta = ITEM_STATUS_META[choice];
@@ -131,6 +248,14 @@ export function InspectForm({
                       Note
                     </button>
                   )}
+
+                  <PhotoPicker
+                    questionId={q.id}
+                    files={photos[q.id] ?? []}
+                    onChange={(files) =>
+                      setPhotos((p) => ({ ...p, [q.id]: files }))
+                    }
+                  />
                 </li>
               );
             })}
@@ -152,7 +277,6 @@ export function InspectForm({
         <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
       )}
 
-      {/* Sticky save bar */}
       <div className="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-medium">
@@ -168,10 +292,15 @@ export function InspectForm({
             <span className="hidden items-center gap-1 text-slate-500 sm:inline-flex">
               <span className="h-2 w-2 rounded-full bg-slate-300" /> {counts.NA} N/A
             </span>
+            {totalPhotos > 0 && (
+              <span className="inline-flex items-center gap-1 text-slate-600">
+                📷 {totalPhotos}
+              </span>
+            )}
           </div>
           <button onClick={submit} disabled={pending} className="btn-primary">
             {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            Save inspection
+            {pending ? "Saving…" : "Save inspection"}
           </button>
         </div>
       </div>

@@ -1,5 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { DEFAULT_ROLES } from "../src/lib/rbac/defaults";
+import { ROLE_KEYS } from "../src/lib/roles";
 
 const prisma = new PrismaClient();
 
@@ -126,10 +128,51 @@ const SAMPLE_ROOMS = [
 ];
 
 async function main() {
-  // --- Admin user ---
+  // --- Roles + default permission grants ---
+  for (const r of DEFAULT_ROLES) {
+    const existing = await prisma.role.findUnique({ where: { key: r.key } });
+    if (!existing) {
+      await prisma.role.create({
+        data: {
+          key: r.key,
+          label: r.label,
+          description: r.description,
+          isSystem: r.isSystem,
+          permissions: { create: r.permissions.map((permission) => ({ permission })) },
+        },
+      });
+    } else {
+      await prisma.role.update({
+        where: { key: r.key },
+        data: { label: r.label, description: r.description, isSystem: r.isSystem },
+      });
+    }
+  }
+  const roleByKey = Object.fromEntries(
+    (await prisma.role.findMany({ select: { id: true, key: true } })).map((r) => [r.key, r.id]),
+  );
+  console.log(`✓ Ensured ${DEFAULT_ROLES.length} roles`);
+
+  // --- Migrate any existing users' single role string -> UserRole ---
+  const usersToMigrate = await prisma.user.findMany({
+    where: { roles: { none: {} } },
+    select: { id: true, role: true },
+  });
+  for (const u of usersToMigrate) {
+    const roleId = roleByKey[u.role] ?? roleByKey[ROLE_KEYS.INSPECTOR];
+    if (roleId) {
+      await prisma.userRole.create({ data: { userId: u.id, roleId } });
+    }
+  }
+  if (usersToMigrate.length > 0) {
+    console.log(`✓ Migrated ${usersToMigrate.length} existing user(s) to RBAC roles`);
+  }
+
+  // --- Admin user (assigned Super Admin) ---
   const email = (process.env.SEED_ADMIN_EMAIL || "admin@divyamotel.com").toLowerCase();
   const password = process.env.SEED_ADMIN_PASSWORD || "ChangeMe123!";
   const name = process.env.SEED_ADMIN_NAME || "Motel Admin";
+  const superId = roleByKey[ROLE_KEYS.SUPER_ADMIN];
 
   const existingAdmin = await prisma.user.findUnique({ where: { email } });
   if (!existingAdmin) {
@@ -137,12 +180,17 @@ async function main() {
       data: {
         name,
         email,
-        role: "ADMIN",
         passwordHash: await bcrypt.hash(password, 12),
+        roles: superId ? { create: [{ roleId: superId }] } : undefined,
       },
     });
     console.log(`✓ Created admin: ${email} / ${password}`);
-  } else {
+  } else if (superId) {
+    await prisma.userRole.upsert({
+      where: { userId_roleId: { userId: existingAdmin.id, roleId: superId } },
+      create: { userId: existingAdmin.id, roleId: superId },
+      update: {},
+    });
     console.log(`• Admin already exists: ${email}`);
   }
 
