@@ -30,6 +30,9 @@ prisma/dev.db-journal
 .vscode
 next-env.d.ts
 
+# local-only notes / scratch (never committed)
+*.local.md
+
 # brainstorming companion (local mockups only)
 .superpowers/
 
