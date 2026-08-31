@@ -9,9 +9,12 @@ npm-debug.log*
 tsconfig.tsbuildinfo
 *.tsbuildinfo
 
-# env
+# env — never commit any real env file or backup of one
 .env
+.env.*
 .env*.local
+*.env
+!.env.example
 
 # prisma / sqlite
 prisma/dev.db
