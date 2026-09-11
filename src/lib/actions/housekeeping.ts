@@ -194,11 +194,19 @@ export async function assignTasks(
   if (!Array.isArray(taskIds) || taskIds.length === 0) return { ok: false, error: "No tasks selected." };
 
   if (housekeeperId) {
+    // Only users on the housekeeper roster may be assigned cleaning — this
+    // matches the assign dropdown and auto-assign, which both list HOUSEKEEPER
+    // users only. Previously any active user was accepted, contradicting the
+    // UI it feeds (F3).
     const hk = await prisma.user.findFirst({
-      where: { id: housekeeperId, active: true },
+      where: {
+        id: housekeeperId,
+        active: true,
+        roles: { some: { role: { key: ROLE_KEYS.HOUSEKEEPER } } },
+      },
       select: { id: true },
     });
-    if (!hk) return { ok: false, error: "Housekeeper not found." };
+    if (!hk) return { ok: false, error: "That person isn't on the housekeeper roster." };
   }
 
   await prisma.housekeepingTask.updateMany({
@@ -312,8 +320,9 @@ export async function startTask(taskId: string): Promise<Result> {
     return { ok: false, error: "This task can't be started." };
   }
 
-  await prisma.housekeepingTask.update({
-    where: { id: taskId },
+  // Optimistic lock: only transition if the status is still what we read.
+  const started = await prisma.housekeepingTask.updateMany({
+    where: { id: taskId, status: { in: ["READY_TO_CLEAN", "TODO"] } },
     data: {
       status: "IN_PROGRESS",
       startedAt: new Date(),
@@ -322,6 +331,9 @@ export async function startTask(taskId: string): Promise<Result> {
       assignedHousekeeperId: task.assignedHousekeeperId ?? user.id,
     },
   });
+  if (started.count === 0) {
+    return { ok: false, error: "This task just changed — refresh and try again." };
+  }
   await logAudit({
     userId: user.id,
     action: "UPDATE",
@@ -344,12 +356,26 @@ export async function submitForInspection(form: FormData): Promise<Result> {
 
   const task = await prisma.housekeepingTask.findUnique({
     where: { id: taskId },
-    include: { room: { select: { number: true } } },
+    include: {
+      room: { select: { number: true } },
+      items: { select: { status: true } },
+    },
   });
   if (!task) return { ok: false, error: "Task not found." };
   if (task.kind !== "ROOM_CLEANING") return { ok: false, error: "Not a room-cleaning task." };
   if (task.status !== "READY_TO_CLEAN" && task.status !== "IN_PROGRESS") {
     return { ok: false, error: "This room is not being cleaned." };
+  }
+
+  // Quality gate: every checklist item must be resolved (Done or N/A) before a
+  // room can be sent for inspection — an unresolved list makes the checklist
+  // advisory rather than a real gate.
+  const unresolved = task.items.filter((it) => it.status !== "DONE" && it.status !== "NA").length;
+  if (unresolved > 0) {
+    return {
+      ok: false,
+      error: `Finish the checklist first — ${unresolved} item${unresolved === 1 ? "" : "s"} still need Done or N/A.`,
+    };
   }
 
   const staged = stageMedia(form, (ext) => hkPhotoPath(task.room?.number ?? "unknown", ext));
@@ -366,15 +392,21 @@ export async function submitForInspection(form: FormData): Promise<Result> {
           taskId, storagePath: s.storagePath, mediaType: s.mediaType, bytes: s.file.size, uploadedById: user.id,
         })),
       });
-      await tx.housekeepingTask.update({
-        where: { id: taskId },
+      // Optimistic lock on the status; stamp startedAt if the room was submitted
+      // without ever entering In Progress so the timeline stays complete (F2).
+      const moved = await tx.housekeepingTask.updateMany({
+        where: { id: taskId, status: { in: ["READY_TO_CLEAN", "IN_PROGRESS"] } },
         data: {
           status: "READY_FOR_INSPECTION",
           submittedById: user.id,
           submittedAt: new Date(),
+          startedAt: task.startedAt ?? new Date(),
           assignedHousekeeperId: task.assignedHousekeeperId ?? user.id,
         },
       });
+      if (moved.count === 0) {
+        throw new Error("This room just changed — refresh and try again.");
+      }
     });
   } catch (e) {
     await deleteImages(uploaded.paths);
@@ -419,8 +451,8 @@ export async function completeGeneralTask(form: FormData): Promise<Result> {
           })),
         });
       }
-      await tx.housekeepingTask.update({
-        where: { id: taskId },
+      const moved = await tx.housekeepingTask.updateMany({
+        where: { id: taskId, status: { in: ["TODO", "IN_PROGRESS"] } },
         data: {
           status: "DONE",
           submittedById: user.id,
@@ -429,6 +461,9 @@ export async function completeGeneralTask(form: FormData): Promise<Result> {
           assignedHousekeeperId: task.assignedHousekeeperId ?? user.id,
         },
       });
+      if (moved.count === 0) {
+        throw new Error("This task just changed — refresh and try again.");
+      }
     });
   } catch (e) {
     await deleteImages(uploaded.paths);
@@ -470,8 +505,9 @@ export async function reviewTask(
   if (outcome === "REJECT") {
     const trimmed = (note ?? "").trim();
     if (!trimmed) return { ok: false, error: "A note is required when rejecting." };
-    await prisma.housekeepingTask.update({
-      where: { id: taskId },
+    // Optimistic lock: only reject if still awaiting inspection.
+    const rejected = await prisma.housekeepingTask.updateMany({
+      where: { id: taskId, status: "READY_FOR_INSPECTION" },
       data: {
         status: "READY_TO_CLEAN",
         reviewedById: user.id,
@@ -482,6 +518,20 @@ export async function reviewTask(
         submittedAt: null,
       },
     });
+    if (rejected.count === 0) {
+      return { ok: false, error: "This room just changed — refresh and try again." };
+    }
+    // Clear the rejected submission's media so the re-cleaned room starts fresh
+    // and the tile's photo count reflects reality (F6). The reject note carries
+    // the reason forward; new evidence is captured on re-submit.
+    if (task.photos.length > 0) {
+      await deleteImages(task.photos.map((p) => p.storagePath));
+      await prisma.housekeepingPhoto.deleteMany({ where: { taskId } });
+      await logAudit({
+        userId: user.id, action: "DELETE", entity: "HousekeepingPhoto", entityId: taskId,
+        details: { reason: "rejected", count: task.photos.length },
+      });
+    }
     await logAudit({
       userId: user.id, action: "UPDATE", entity: "HousekeepingTask", entityId: taskId,
       details: { roomNumber: task.room?.number, outcome: "REJECTED", note: trimmed.slice(0, 200) },
@@ -494,8 +544,9 @@ export async function reviewTask(
   const setting = await prisma.housekeepingSetting.findUnique({ where: { id: "singleton" } });
   const deleteOnApproval = setting?.deleteOnApproval ?? true;
 
-  await prisma.housekeepingTask.update({
-    where: { id: taskId },
+  // Optimistic lock: only approve if still awaiting inspection.
+  const approved = await prisma.housekeepingTask.updateMany({
+    where: { id: taskId, status: "READY_FOR_INSPECTION" },
     data: {
       status: "READY_TO_RENT",
       reviewedById: user.id,
@@ -504,6 +555,9 @@ export async function reviewTask(
       closedAt: new Date(),
     },
   });
+  if (approved.count === 0) {
+    return { ok: false, error: "This room just changed — refresh and try again." };
+  }
 
   if (deleteOnApproval && task.photos.length > 0) {
     await deleteImages(task.photos.map((p) => p.storagePath));
@@ -527,6 +581,11 @@ export async function bulkReview(
   outcome: "APPROVE" | "REJECT",
   note?: string,
 ): Promise<{ ok: true; count: number } | { ok: false; error: string }> {
+  // Explicit top-level guard so an unauthorized caller gets a clear "Not
+  // allowed" instead of a misleading { ok: true, count: 0 } (F10). Each
+  // per-item reviewTask still re-checks independently.
+  const user = await requireUser();
+  if (!can(user, "housekeeping:cleaning:review")) return { ok: false, error: "Not allowed." };
   if (!Array.isArray(taskIds) || taskIds.length === 0) return { ok: false, error: "No rooms selected." };
   if (outcome === "REJECT" && !(note ?? "").trim()) {
     return { ok: false, error: "A note is required when rejecting." };
@@ -707,6 +766,16 @@ export async function saveTaskItems(
 ): Promise<Result> {
   const user = await requireUser();
   if (!can(user, "housekeeping:tasks:submit")) return { ok: false, error: "Not allowed." };
+
+  // Checklist is only editable while the task is actively being worked — not on
+  // a closed (Ready-to-Rent / Done) or under-inspection task (F4).
+  const parent = await prisma.housekeepingTask.findUnique({
+    where: { id: taskId }, select: { status: true },
+  });
+  if (!parent) return { ok: false, error: "Task not found." };
+  if (!["READY_TO_CLEAN", "IN_PROGRESS", "TODO"].includes(parent.status)) {
+    return { ok: false, error: "This checklist can no longer be edited." };
+  }
 
   const valid = new Set(["PENDING", "DONE", "NOT_DONE", "NA"]);
   // Ensure the items belong to this task.

@@ -70,7 +70,9 @@ export function HousekeepingDashboard({
     };
     for (const t of tasks) {
       if (t.status in c) c[t.status]++;
-      if (t.kind === "GENERAL") c.general++;
+      // Count only open daily tasks, matching the four status cards which all
+      // count open work (not completed) (F7).
+      if (t.kind === "GENERAL" && t.status !== "DONE") c.general++;
     }
     return c;
   }, [tasks]);
@@ -285,12 +287,12 @@ function TaskTile({
             <span className={clsx("h-1.5 w-1.5 rounded-full", meta.dot)} /> {meta.label}
           </span>
           {task.requestReason && (
-            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500">
+            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
               {task.requestReason}
             </span>
           )}
           {task.recurring && (
-            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500">
+            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
               Repeats daily
             </span>
           )}
@@ -299,7 +301,7 @@ function TaskTile({
         <div className="flex items-center justify-between text-xs text-slate-500">
           {task.assignedTo ? (
             <span className="inline-flex items-center gap-1.5">
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand-100 text-[9px] font-bold text-brand-700">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-100 text-[11px] font-bold text-brand-700">
                 {initials(task.assignedTo.name)}
               </span>
               {task.assignedTo.name.split(" ")[0]}
@@ -482,7 +484,7 @@ function CheckoutModal({
                 title={r.busy ? "Already in cleaning" : r.name ?? undefined}
               >
                 {r.number}
-                {r.busy && <span className="block text-[9px] font-medium">busy</span>}
+                {r.busy && <span className="block text-[11px] font-medium">busy</span>}
               </button>
             );
           })}

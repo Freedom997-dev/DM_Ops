@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import {
-  Loader2, Check, X, Send, Play, CheckCircle2, Camera, Clock, ListChecks, Save, Minus, Trash2,
+  Loader2, Check, X, Send, Play, CheckCircle2, Camera, Clock, ListChecks, Save, Minus, Trash2, ImageOff,
 } from "lucide-react";
 import clsx from "clsx";
 import { HkMediaPicker } from "@/components/HkMediaPicker";
@@ -166,8 +166,7 @@ export function HkTaskPanel({
                 onClick={() => setLightbox(images.findIndex((im) => im.id === p.id))}
                 className="h-20 w-20 overflow-hidden rounded-xl border border-slate-200 ring-1 ring-transparent transition hover:ring-brand-300"
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={p.url} alt="" className="h-full w-full object-cover" />
+                <Thumb url={p.url} />
               </button>
             ),
           )}
@@ -277,6 +276,24 @@ export function HkTaskPanel({
         />
       )}
     </div>
+  );
+}
+
+// --- Photo thumbnail with a graceful fallback when the file is missing or a
+//     signed URL has expired (F5) ---
+function Thumb({ url }: { url: string }) {
+  const [broken, setBroken] = useState(false);
+  if (broken) {
+    return (
+      <div className="flex h-full w-full flex-col items-center justify-center gap-1 bg-slate-100 text-slate-400">
+        <ImageOff className="h-5 w-5" />
+        <span className="text-[10px]">Unavailable</span>
+      </div>
+    );
+  }
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={url} alt="" className="h-full w-full object-cover" onError={() => setBroken(true)} />
   );
 }
 

@@ -80,7 +80,7 @@ export function HkMediaPicker({ id, files, onChange }: Props) {
           aria-label={`Take photo for ${id}`}
         >
           <Camera className="h-4 w-4" />
-          <span className="text-[9px]">Photo</span>
+          <span className="text-[11px]">Photo</span>
         </button>
         <button
           type="button"
@@ -89,7 +89,7 @@ export function HkMediaPicker({ id, files, onChange }: Props) {
           aria-label={`Record video for ${id}`}
         >
           <Video className="h-4 w-4" />
-          <span className="text-[9px]">Video</span>
+          <span className="text-[11px]">Video</span>
         </button>
         <button
           type="button"
@@ -98,7 +98,7 @@ export function HkMediaPicker({ id, files, onChange }: Props) {
           aria-label={`Add photo or video from library to ${id}`}
         >
           <Images className="h-4 w-4" />
-          <span className="text-[9px]">Library</span>
+          <span className="text-[11px]">Library</span>
         </button>
         {/* Three separate single-purpose inputs, not one combined picker:
             (1) `capture` + `multiple` together is unreliable on mobile browsers

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { ChevronLeft, ChevronRight, Trash2, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, ImageOff, Trash2, X } from "lucide-react";
 import { deletePhoto } from "@/lib/actions/photos";
 
 export type LightboxImage = {
@@ -21,6 +21,7 @@ type Props = {
 
 export function PhotoLightbox({ images, startIndex, isAdmin, onClose, onDeleted }: Props) {
   const [index, setIndex] = useState(startIndex);
+  const [broken, setBroken] = useState<Set<string>>(new Set());
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -117,12 +118,20 @@ export function PhotoLightbox({ images, startIndex, isAdmin, onClose, onDeleted 
         className="relative max-h-full max-w-full"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={current.url}
-          alt=""
-          className="max-h-[90vh] max-w-[90vw] object-contain"
-        />
+        {broken.has(current.id) ? (
+          <div className="flex h-[60vh] w-[80vw] max-w-md flex-col items-center justify-center gap-3 rounded-xl bg-white/5 text-white/70">
+            <ImageOff className="h-10 w-10" />
+            <p className="text-sm">This photo is no longer available.</p>
+          </div>
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={current.url}
+            alt=""
+            className="max-h-[90vh] max-w-[90vw] object-contain"
+            onError={() => setBroken((b) => new Set(b).add(current.id))}
+          />
+        )}
         <p className="mt-2 text-center text-xs text-white/60">
           {safeIndex + 1} of {images.length}
         </p>

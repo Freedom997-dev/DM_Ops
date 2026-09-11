@@ -11,6 +11,12 @@ import { HousekeepingDashboard } from "@/components/HousekeepingDashboard";
 
 export const dynamic = "force-dynamic";
 
+// Signed-URL lifetime for photo previews. Longer than the default 1h so a
+// drawer left open on a phone doesn't end up showing broken images before the
+// next board refresh (F5). Only affects the Supabase driver; local storage is
+// served by an auth-guarded route with no expiry.
+const PHOTO_URL_TTL = 6 * 60 * 60; // 6 hours
+
 export default async function HousekeepingPage() {
   const user = await requirePermission("housekeeping:board:view");
 
@@ -94,7 +100,7 @@ export default async function HousekeepingPage() {
       photos: await Promise.all(
         t.photos.map(async (p) => ({
           id: p.id,
-          url: await getSignedUrl(p.storagePath, 3600),
+          url: await getSignedUrl(p.storagePath, PHOTO_URL_TTL),
           mediaType: (p.mediaType === "VIDEO" ? "VIDEO" : "IMAGE") as "IMAGE" | "VIDEO",
         })),
       ),

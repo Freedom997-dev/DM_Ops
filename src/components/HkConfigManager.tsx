@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import {
   Loader2, Plus, Trash2, Check, Pencil, X, DoorOpen, ListChecks, Sparkles,
   ClipboardCheck, ChevronDown, ChevronRight,
@@ -39,6 +39,14 @@ export function HkConfigManager({
   retention: { deleteOnApproval: boolean; retentionDays: number; instructions: string };
 }) {
   const [tab, setTab] = useState<TabKey>("checkout");
+  const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+
+  function selectTab(key: TabKey) {
+    setTab(key);
+    // On mobile the tab strip overflows horizontally; bring the chosen tab fully
+    // into view so later tabs aren't left off-screen (F8).
+    tabRefs.current[key]?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+  }
 
   return (
     <div className="space-y-4">
@@ -47,7 +55,8 @@ export function HkConfigManager({
         {TABS.map((t) => (
           <button
             key={t.key}
-            onClick={() => setTab(t.key)}
+            ref={(el) => { tabRefs.current[t.key] = el; }}
+            onClick={() => selectTab(t.key)}
             className={clsx(
               "whitespace-nowrap rounded-lg px-3.5 py-2 text-sm font-semibold transition",
               tab === t.key ? "bg-brand-600 text-white" : "text-slate-600 hover:bg-slate-100",
