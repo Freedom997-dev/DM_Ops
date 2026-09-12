@@ -21,7 +21,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>
+      {/* suppressHydrationWarning: browser extensions (e.g. Grammarly) inject
+          attributes onto <body> before React hydrates, which otherwise trips a
+          dev-only hydration mismatch. This does not mask app-authored markup. */}
+      <body suppressHydrationWarning>
         <Providers>
           <div className="flex min-h-screen flex-col">
             <div className="flex flex-1 flex-col">{children}</div>

@@ -25,8 +25,8 @@
     "cuid": "^3.0.0",
     "exceljs": "^4.4.0",
     "lucide-react": "0.456.0",
-    "next": "14.2.18",
-    "next-auth": "4.24.11",
+    "next": "14.2.35",
+    "next-auth": "4.24.15",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "zod": "3.23.8"
@@ -38,10 +38,13 @@
     "@types/react": "18.3.12",
     "@types/react-dom": "18.3.1",
     "autoprefixer": "10.4.20",
-    "postcss": "8.4.49",
+    "postcss": "8.5.28",
     "prisma": "5.22.0",
     "tailwindcss": "3.4.14",
-    "tsx": "4.19.2",
+    "tsx": "4.23.13",
     "typescript": "5.6.3"
+  },
+  "overrides": {
+    "uuid": "^11.1.1"
   }
 }

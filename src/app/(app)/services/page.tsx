@@ -148,18 +148,20 @@ function ServiceCard({
       {settingsHref && (
         <Link
           href={settingsHref}
-          className="absolute right-3 top-3 rounded-lg p-1.5 text-slate-300 hover:bg-slate-100 hover:text-slate-600"
+          className="absolute right-3 top-3 z-10 rounded-lg p-1.5 text-slate-300 hover:bg-slate-100 hover:text-slate-600"
           aria-label={`${name} settings`}
         >
           <Settings className="h-4 w-4" />
         </Link>
       )}
-      <Link href={href} className="flex items-center gap-3 pr-8">
+      {/* Title is plain text — the stretched "Open" link below makes the whole
+          card clickable, so a nested title anchor would be redundant/invalid. */}
+      <div className="flex items-center gap-3 pr-8">
         <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
           {icon}
         </span>
         <h2 className="text-lg font-bold text-slate-900">{name}</h2>
-      </Link>
+      </div>
 
       {statusLine && (
         <div className="space-y-1 text-xs">
@@ -194,14 +196,18 @@ function ServiceCard({
         {historyHref && (
           <Link
             href={historyHref}
-            className="text-xs font-semibold text-brand-600 hover:underline"
+            className="relative z-10 text-xs font-semibold text-brand-600 hover:underline"
           >
             View history →
           </Link>
         )}
+        {/* Stretched link: after:inset-0 covers the whole card, so tapping
+            anywhere opens the service (mobile-friendly). The gear + "View
+            history" sit above it via z-10 and stay independently tappable. */}
         <Link
           href={href}
-          className="ml-auto inline-flex items-center text-xs font-semibold text-slate-400 group-hover:text-brand-600"
+          aria-label={`Open ${name}`}
+          className="ml-auto inline-flex items-center text-xs font-semibold text-slate-400 group-hover:text-brand-600 after:absolute after:inset-0 after:content-['']"
         >
           Open <ChevronRight className="h-3.5 w-3.5" />
         </Link>
