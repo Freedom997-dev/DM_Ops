@@ -1,0 +1,17 @@
+# Never ship local env files or their backups to a build.
+.env
+.env.*
+*.env
+
+# Local-only artefacts
+.local-storage/
+*.local.md
+prod_backup_*.json
+prod_backup_*.sql
+
+# Build caches / local noise
+.next
+node_modules
+tsconfig.tsbuildinfo
+*.tsbuildinfo
+docker-compose.yml
