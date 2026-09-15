@@ -6,13 +6,15 @@
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
+    "build:deploy": "prisma generate && prisma db push && prisma db seed && tsx scripts/ensure-storage-bucket.ts && next build",
     "start": "next start",
     "lint": "next lint",
     "postinstall": "prisma generate",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
     "db:reset": "prisma db push --force-reset && tsx prisma/seed.ts",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "storage:ensure-bucket": "tsx scripts/ensure-storage-bucket.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
