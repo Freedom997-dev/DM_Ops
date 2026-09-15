@@ -1,13 +1,16 @@
 // Divya Motel - Room Condition Program
-// Deployed on Postgres (Neon). DATABASE_URL points at the hosted database.
+// Deployed on Supabase Postgres. DATABASE_URL is the pooled (pgbouncer)
+// connection used at runtime; DIRECT_URL is the non-pooling connection used
+// for migrations. Locally, set both to the same Docker Postgres URL.
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ---------------------------------------------------------------------------
