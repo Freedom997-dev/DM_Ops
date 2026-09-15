@@ -40,3 +40,4 @@ next-env.d.ts
 prod_backup_*.json
 prod_backup_*.sql
 .vercel
+.env*
