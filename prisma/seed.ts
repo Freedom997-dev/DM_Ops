@@ -169,6 +169,16 @@ async function main() {
   }
 
   // --- Admin user (assigned Super Admin) ---
+  // On a real deployment the placeholder credentials below must never be used:
+  // this seed runs in the Vercel deploy build, so an unset password would
+  // silently publish a live Super Admin with a public default password.
+  if (process.env.VERCEL_ENV === "production" && !process.env.SEED_ADMIN_PASSWORD) {
+    throw new Error(
+      "SEED_ADMIN_PASSWORD must be set for a production deploy. " +
+        "Refusing to seed the admin account with the default password.",
+    );
+  }
+
   const email = (process.env.SEED_ADMIN_EMAIL || "admin@divyamotel.com").toLowerCase();
   const password = process.env.SEED_ADMIN_PASSWORD || "ChangeMe123!";
   const name = process.env.SEED_ADMIN_NAME || "Motel Admin";
@@ -184,7 +194,9 @@ async function main() {
         roles: superId ? { create: [{ roleId: superId }] } : undefined,
       },
     });
-    console.log(`✓ Created admin: ${email} / ${password}`);
+    // Never log the password: this seed runs in the Vercel deploy build and
+    // build logs are readable by anyone with project access.
+    console.log(`✓ Created admin: ${email}`);
   } else if (superId) {
     await prisma.userRole.upsert({
       where: { userId_roleId: { userId: existingAdmin.id, roleId: superId } },

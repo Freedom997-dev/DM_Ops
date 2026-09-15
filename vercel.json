@@ -1,6 +1,6 @@
 {
   "framework": "nextjs",
-  "buildCommand": "npm run build",
+  "buildCommand": "npm run build:deploy",
   "installCommand": "npm install",
   "crons": [
     { "path": "/api/cron/housekeeping-cleanup", "schedule": "0 3 * * *" },
