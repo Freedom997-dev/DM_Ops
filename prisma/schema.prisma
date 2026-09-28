@@ -44,6 +44,9 @@ model User {
   hkSubmitted      HousekeepingTask[]  @relation("HKSubmitted")
   hkReviewed       HousekeepingTask[]  @relation("HKReviewed")
   hkPhotosUploaded HousekeepingPhoto[] @relation("HKPhotoUploaded")
+
+  // PM V2 back-relation
+  pmV2InspectionsUpdated PmV2Inspection[] @relation("PmV2InspUpdated")
 }
 
 // ---------------------------------------------------------------------------
@@ -120,6 +123,9 @@ model Room {
 
   // Housekeeping (HKT) back-relation
   housekeepingTasks HousekeepingTask[]
+
+  // PM V2 back-relation (optional link from a V2 area)
+  pmV2Areas PmV2Area[]
 }
 
 // ---------------------------------------------------------------------------
@@ -446,4 +452,115 @@ model HousekeepingTaskItem {
   note   String?
 
   @@index([taskId])
+}
+
+// ---------------------------------------------------------------------------
+// PM V2 — Room Condition, quarterly model. Runs side by side with PM V1
+// (Section/Question/Inspection) and shares NO tables with it except Room
+// (optional link) and User. One inspection per area per quarter; results are
+// edited in place (auto-save) instead of V1's immutable snapshots.
+// Remove V1 once V2 is proven. See docs/features/pm-v2.md
+// ---------------------------------------------------------------------------
+model PmV2Setting {
+  id        String   @id @default("singleton") // one row only
+  hotelName String   @default("")
+  updatedAt DateTime @updatedAt
+}
+
+// A named checklist (e.g. "Guest room", "Common area"). Areas pick one.
+model PmV2Checklist {
+  id        String   @id @default(cuid())
+  name      String
+  order     Int      @default(0)
+  archived  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  sections PmV2Section[]
+  areas    PmV2Area[]
+}
+
+model PmV2Section {
+  id          String        @id @default(cuid())
+  checklistId String
+  checklist   PmV2Checklist @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+  name        String
+  order       Int           @default(0)
+  archived    Boolean       @default(false)
+
+  items PmV2Item[]
+
+  @@index([checklistId])
+}
+
+// Checklist item. "Removing" archives it so past results keep their label.
+model PmV2Item {
+  id        String      @id @default(cuid())
+  sectionId String
+  section   PmV2Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  label     String
+  order     Int         @default(0)
+  archived  Boolean     @default(false)
+
+  results PmV2Result[]
+
+  @@index([sectionId])
+}
+
+// Anything that gets inspected: a guest room or another area (lobby, pool…).
+// `roomId` optionally links a guest room to the shared Room record so V2 can
+// line up with Housekeeping; V2 never writes to Room.
+model PmV2Area {
+  id          String         @id @default(cuid())
+  name        String
+  group       String         @default("") // e.g. "Floor 2", "Common areas"
+  type        String         @default("ROOM") // ROOM | AREA
+  checklistId String?
+  checklist   PmV2Checklist? @relation(fields: [checklistId], references: [id])
+  roomId      String?
+  room        Room?          @relation(fields: [roomId], references: [id])
+  order       Int            @default(0)
+  archived    Boolean        @default(false)
+  createdAt   DateTime       @default(now())
+
+  inspections PmV2Inspection[]
+}
+
+// One inspection per area per quarter ("2026-Q3"), edited in place.
+model PmV2Inspection {
+  id          String   @id @default(cuid())
+  areaId      String
+  area        PmV2Area @relation(fields: [areaId], references: [id], onDelete: Cascade)
+  quarter     String // "YYYY-Qn"
+  date        String // "YYYY-MM-DD" — walk-through date as entered
+  initials    String   @default("")
+  notes       String   @default("")
+  done        Boolean  @default(false)
+  completedOn String? // "YYYY-MM-DD"
+  updatedById String?
+  updatedBy   User?    @relation("PmV2InspUpdated", fields: [updatedById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  results PmV2Result[]
+
+  @@unique([areaId, quarter])
+  @@index([quarter])
+}
+
+// A result row. Checklist result: itemId set. One-off "added for this room"
+// item: itemId null + label set. status null = not checked yet.
+model PmV2Result {
+  id           String         @id @default(cuid())
+  inspectionId String
+  inspection   PmV2Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  itemId       String?
+  item         PmV2Item?      @relation(fields: [itemId], references: [id])
+  label        String? // extras only
+  status       String? // OK | REPAIR | REPLACE | MISSING | FIXED | NA
+  note         String         @default("")
+  fixedOn      String? // "YYYY-MM-DD"
+  createdAt    DateTime       @default(now())
+
+  @@unique([inspectionId, itemId])
+  @@index([inspectionId])
 }

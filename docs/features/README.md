@@ -16,7 +16,7 @@ Index of shipped features. Each feature has its own doc with purpose, roles, rou
 
 | Feature | Doc | Status |
 |---|---|---|
-| _(none)_ | | |
+| Room Condition V2 (Beta) | [pm-v2.md](pm-v2.md) | On `feature/pm-v2` — quarterly per-area inspections rebuilt from the Claude artifact; runs beside V1 |
 
 ## Backlog (deferred)
 

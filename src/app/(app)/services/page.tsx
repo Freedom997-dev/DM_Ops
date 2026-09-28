@@ -42,6 +42,8 @@ export default async function ServicesIndex() {
 
   // PM is a built-in service (its own tables). Shown to anyone with PM access.
   const showPmCard = canAccessApp(user, "pm");
+  // PM V2 (beta) — separate permission set so it can be trialled by a few users.
+  const showPmV2Card = can(user, "pmv2:board:view");
   const showHkCard = can(user, "housekeeping:board:view");
 
   // Live housekeeping snapshot for the card status line.
@@ -69,7 +71,7 @@ export default async function ServicesIndex() {
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {workflowCards.length === 0 && !showPmCard && !showHkCard && (
+        {workflowCards.length === 0 && !showPmCard && !showPmV2Card && !showHkCard && (
           <div className="card col-span-full p-8 text-center text-slate-500">
             No services assigned to your role. Talk to an admin.
           </div>
@@ -82,6 +84,15 @@ export default async function ServicesIndex() {
             icon={<ClipboardList className="h-5 w-5" />}
             name="Room Condition (PM)"
             settingsHref={can(user, "pm:checklist:view") ? "/services/pm/settings" : undefined}
+          />
+        )}
+
+        {showPmV2Card && (
+          <ServiceCard
+            href="/services/pm-v2"
+            icon={<ClipboardList className="h-5 w-5" />}
+            name="Room Condition V2 (Beta)"
+            settingsHref={can(user, "pmv2:setup:configure") ? "/services/pm-v2/setup" : undefined}
           />
         )}
 

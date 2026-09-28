@@ -1,0 +1,913 @@
+{
+  "hotel": "Divya Motel",
+  "checklists": [
+    {
+      "id": "common",
+      "name": "Common area",
+      "sections": [
+        {
+          "id": "gen",
+          "name": "General condition",
+          "items": [
+            {
+              "id": "cg01",
+              "label": "Doors, frames & hardware"
+            },
+            {
+              "id": "cg02",
+              "label": "Walls (paint, wallcovering, damage)"
+            },
+            {
+              "id": "cg03",
+              "label": "Ceiling condition"
+            },
+            {
+              "id": "cg04",
+              "label": "Floor / carpet condition"
+            },
+            {
+              "id": "cg05",
+              "label": "Lighting fixtures & bulbs"
+            },
+            {
+              "id": "cg06",
+              "label": "Light switches & receptacles"
+            },
+            {
+              "id": "cg07",
+              "label": "Furniture & fixtures"
+            },
+            {
+              "id": "cg08",
+              "label": "Signage legible & secure"
+            },
+            {
+              "id": "cg09",
+              "label": "Overall cleanliness"
+            }
+          ]
+        },
+        {
+          "id": "safe",
+          "name": "Life safety",
+          "items": [
+            {
+              "id": "cs01",
+              "label": "Fire extinguisher present & inspection tag current"
+            },
+            {
+              "id": "cs02",
+              "label": "Exit signs & emergency lighting operational"
+            },
+            {
+              "id": "cs03",
+              "label": "Smoke / heat detectors operational"
+            },
+            {
+              "id": "cs04",
+              "label": "Sprinkler heads unobstructed"
+            },
+            {
+              "id": "cs05",
+              "label": "Evacuation plan posted"
+            },
+            {
+              "id": "cs06",
+              "label": "Exit paths clear"
+            }
+          ]
+        },
+        {
+          "id": "mech",
+          "name": "Mechanical & plumbing",
+          "items": [
+            {
+              "id": "cm01",
+              "label": "HVAC operating / filters clean"
+            },
+            {
+              "id": "cm02",
+              "label": "Plumbing – no leaks, drains clear"
+            },
+            {
+              "id": "cm03",
+              "label": "Water heater / equipment condition"
+            },
+            {
+              "id": "cm04",
+              "label": "Electrical panel clear & labeled"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "guestroom",
+      "name": "Guest room",
+      "sections": [
+        {
+          "id": "hvac",
+          "name": "Heating & cooling system",
+          "items": [
+            {
+              "id": "hv01",
+              "label": "Unit casing / clean / tight"
+            },
+            {
+              "id": "hv02",
+              "label": "Filter condition"
+            },
+            {
+              "id": "hv03",
+              "label": "Blower fan / operational / noisy"
+            },
+            {
+              "id": "hv05",
+              "label": "Instructional label / plate / legible / missing"
+            },
+            {
+              "id": "hv09",
+              "label": "Electrical connections & appliance plugs"
+            },
+            {
+              "id": "hv10",
+              "label": "Radiator element / clean / clear"
+            }
+          ]
+        },
+        {
+          "id": "room",
+          "name": "Guest room",
+          "items": [
+            {
+              "id": "gr01",
+              "label": "Door frame condition"
+            },
+            {
+              "id": "gr02",
+              "label": "Door threshold plate fits properly"
+            },
+            {
+              "id": "gr03",
+              "label": "Door lock & hardware condition"
+            },
+            {
+              "id": "gr04",
+              "label": "Door self-closes and locks (interior corridor only)"
+            },
+            {
+              "id": "gr05",
+              "label": "Secondary locking device secure"
+            },
+            {
+              "id": "gr06",
+              "label": "Door – evacuation plan / emergency / rate card"
+            },
+            {
+              "id": "gr07",
+              "label": "Weather / sound stripping secure"
+            },
+            {
+              "id": "gr08",
+              "label": "180° door viewer in place"
+            },
+            {
+              "id": "gr09",
+              "label": "Iron and board (functional, leaks, stains, damage) if applicable"
+            },
+            {
+              "id": "gr10",
+              "label": "Floor condition"
+            },
+            {
+              "id": "gr11",
+              "label": "Wall condition (paint or wall vinyl peeling)"
+            },
+            {
+              "id": "gr12",
+              "label": "Ceiling condition"
+            },
+            {
+              "id": "gr13",
+              "label": "Ceiling / wall electrical fixtures / shades"
+            },
+            {
+              "id": "gr14",
+              "label": "Lighting switches"
+            },
+            {
+              "id": "gr15",
+              "label": "Electrical receptacles & covers"
+            },
+            {
+              "id": "gr16",
+              "label": "TV & remote condition / operational"
+            },
+            {
+              "id": "gr17",
+              "label": "High speed internet wired / wireless operation if applicable"
+            },
+            {
+              "id": "gr18",
+              "label": "Smoke alarm operational"
+            },
+            {
+              "id": "gr19",
+              "label": "Wall décor missing / damaged"
+            },
+            {
+              "id": "gr20",
+              "label": "Boxspring, mattress, bedframe condition"
+            },
+            {
+              "id": "gr21",
+              "label": "Turn mattress"
+            },
+            {
+              "id": "gr22",
+              "label": "Bedspreads worn / damaged"
+            },
+            {
+              "id": "gr23",
+              "label": "Headboard(s) condition / secure"
+            },
+            {
+              "id": "gr24",
+              "label": "Guest room mirror condition / secure"
+            },
+            {
+              "id": "gr25",
+              "label": "Night stand condition"
+            },
+            {
+              "id": "gr26",
+              "label": "Bed lamps & shades / lighting fixtures / correct wattage"
+            },
+            {
+              "id": "gr27",
+              "label": "Dresser(s) condition / knobs missing"
+            },
+            {
+              "id": "gr28",
+              "label": "Desk unit and chair condition"
+            },
+            {
+              "id": "gr29",
+              "label": "Desk / table lamp & shade condition"
+            },
+            {
+              "id": "gr30",
+              "label": "Clock / radio condition / operational if applicable"
+            },
+            {
+              "id": "gr31",
+              "label": "Telephone condition / operational"
+            },
+            {
+              "id": "gr32",
+              "label": "Telephone dialing instructions / face plate legible and accurate"
+            },
+            {
+              "id": "gr33",
+              "label": "Drapery condition"
+            },
+            {
+              "id": "gr34",
+              "label": "Drapery rod condition / operational"
+            },
+            {
+              "id": "gr35",
+              "label": "Window condition"
+            },
+            {
+              "id": "gr36",
+              "label": "Window locks / tracks operational"
+            },
+            {
+              "id": "gr37",
+              "label": "Overall room cleanliness"
+            }
+          ]
+        },
+        {
+          "id": "bath",
+          "name": "Bathroom & vanity area",
+          "items": [
+            {
+              "id": "ba01",
+              "label": "Door frame condition"
+            },
+            {
+              "id": "ba02",
+              "label": "Door finish condition"
+            },
+            {
+              "id": "ba03",
+              "label": "Door hardware / locking device / stopper"
+            },
+            {
+              "id": "ba04",
+              "label": "Coffee maker condition / operational if applicable"
+            },
+            {
+              "id": "ba05",
+              "label": "Robe hook"
+            },
+            {
+              "id": "ba06",
+              "label": "Towel bars / racks / hooks"
+            },
+            {
+              "id": "ba07",
+              "label": "Wall condition (loose vinyl, mold, needs paint)"
+            },
+            {
+              "id": "ba08",
+              "label": "Ceiling condition"
+            },
+            {
+              "id": "ba09",
+              "label": "Floor condition (loose tiles, etc.)"
+            },
+            {
+              "id": "ba10",
+              "label": "Electrical switches"
+            },
+            {
+              "id": "ba11",
+              "label": "Electrical receptacles – GFI test properly"
+            },
+            {
+              "id": "ba12",
+              "label": "Lighting fixtures"
+            },
+            {
+              "id": "ba13",
+              "label": "Night light condition / operational if applicable"
+            },
+            {
+              "id": "ba14",
+              "label": "Exhaust system operational"
+            },
+            {
+              "id": "ba15",
+              "label": "Facial tissue holder condition"
+            },
+            {
+              "id": "ba16",
+              "label": "Toilet tissue holder / dispenser"
+            },
+            {
+              "id": "ba17",
+              "label": "Handicap equipment secure if applicable"
+            },
+            {
+              "id": "ba18",
+              "label": "Hair dryer condition / operational if applicable"
+            },
+            {
+              "id": "ba19",
+              "label": "Vanity condition"
+            },
+            {
+              "id": "ba20",
+              "label": "Mirror condition (no desilvering)"
+            },
+            {
+              "id": "ba21",
+              "label": "Sink(s) condition"
+            },
+            {
+              "id": "ba22",
+              "label": "Sink faucet condition / operational / hot water temperature"
+            },
+            {
+              "id": "ba23",
+              "label": "Sink stopper condition / operational"
+            },
+            {
+              "id": "ba24",
+              "label": "Commode tight to floor or properly caulked / screw caps"
+            },
+            {
+              "id": "ba25",
+              "label": "Commode seat condition / secure"
+            },
+            {
+              "id": "ba26",
+              "label": "Commode tank / plumbing operational"
+            },
+            {
+              "id": "ba27",
+              "label": "Bathtub / shower enclosure condition"
+            },
+            {
+              "id": "ba28",
+              "label": "Bathtub / shower safety strips"
+            },
+            {
+              "id": "ba29",
+              "label": "Bathtub / shower tile condition"
+            },
+            {
+              "id": "ba30",
+              "label": "Bathtub / shower hand grip or bars"
+            },
+            {
+              "id": "ba31",
+              "label": "Shower curtain rod condition / secure"
+            },
+            {
+              "id": "ba32",
+              "label": "Shower curtain / door condition"
+            },
+            {
+              "id": "ba33",
+              "label": "Bathtub / shower faucets operational / good pressure"
+            },
+            {
+              "id": "ba34",
+              "label": "Bathtub / shower head operational"
+            },
+            {
+              "id": "ba35",
+              "label": "Bathtub / shower drain operational"
+            },
+            {
+              "id": "ba36",
+              "label": "Overall bathroom cleanliness"
+            },
+            {
+              "id": "ba37",
+              "label": "Toiletry set available (towels / shower gel / conditioner / soap etc.)"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "areas": [
+    {
+      "id": "r101",
+      "name": "Room 101",
+      "group": "Floor 1",
+      "type": "ROOM",
+      "checklist": "guestroom"
+    },
+    {
+      "id": "r103",
+      "name": "Room 103",
+      "group": "Floor 1",
+      "type": "ROOM",
+      "checklist": "guestroom"
+    },
+    {
+      "id": "r105",
+      "name": "Room 105",
+      "group": "Floor 1",
+      "type": "ROOM",
+      "checklist": "guestroom"
+    },
+    {
+      "id": "r107",
+      "name": "Room 107",
+      "group": "Floor 1",
+      "type": "ROOM",
+      "checklist": "guestroom"
+    },
+    {
+      "id": "r109",
+      "name": "Room 109",
+      "group": "Floor 1",
+      "type": "ROOM",
+      "checklist": "guestroom"
+    },
+    {
+      "id": "r111",
+      "name": "Room 111",
+      "group": "Floor 1",
+      "type": "ROOM",
+      "checklist": "guestroom"
+    },
+    {
+      "id": "r113",
+      "name": "Room 113",
+      "group": "Floor 1",
+      "type": "ROOM",
+      "checklist": "guestroom"
+    },
+    {
+      "id": "r115",
+      "name": "Room 115",
+      "group": "Floor 1",
+      "type": "ROOM",
+      "checklist": "guestroom"
+    },
+    {
+      "id": "r117",
+      "name": "Room 117",
+      "group": "Floor 1",
+      "type": "ROOM",
+      "checklist": "guestroom"
+    },
+    {
+      "id": "r200",
+      "name": "Room 200",
+      "group": "Floor 2",
+      "type": "ROOM",
+      "checklist": "guestroom"
+    },
+    {
+      "id": "r201",
+      "name": "Room 201",
+      "group": "Floor 2",
+      "type": "ROOM",
+      "checklist": "guestroom"
+    },
+    {
+      "id": "r202",
+      "name": "Room 202",
+      "group": "Floor 2",
+      "type": "ROOM",
+      "checklist": "guestroom"
+    },
+    {
+      "id": "r203",
+      "name": "Room 203",
+      "group": "Floor 2",
+      "type": "ROOM",
+      "checklist": "guestroom"
+    },
+    {
+      "id": "r204",
+      "name": "Room 204",
+      "group": "Floor 2",
+      "type": "ROOM",
+      "checklist": "guestroom"
+    },
+    {
+      "id": "r205",
+      "name": "Room 205",
+      "group": "Floor 2",
+      "type": "ROOM",
+      "checklist": "guestroom"
+    },
+    {
+      "id": "r206",
+      "name": "Room 206",
+      "group": "Floor 2",
+      "type": "ROOM",
+      "checklist": "guestroom"
+    },
+    {
+      "id": "r207",
+      "name": "Room 207",
+      "group": "Floor 2",
+      "type": "ROOM",
+      "checklist": "guestroom"
+    },
+    {
+      "id": "r208",
+      "name": "Room 208",
+      "group": "Floor 2",
+      "type": "ROOM",
+      "checklist": "guestroom"
+    },
+    {
+      "id": "r209",
+      "name": "Room 209",
+      "group": "Floor 2",
+      "type": "ROOM",
+      "checklist": "guestroom"
+    },
+    {
+      "id": "r210",
+      "name": "Room 210",
+      "group": "Floor 2",
+      "type": "ROOM",
+      "checklist": "guestroom"
+    },
+    {
+      "id": "r211",
+      "name": "Room 211",
+      "group": "Floor 2",
+      "type": "ROOM",
+      "checklist": "guestroom"
+    },
+    {
+      "id": "r212",
+      "name": "Room 212",
+      "group": "Floor 2",
+      "type": "ROOM",
+      "checklist": "guestroom"
+    },
+    {
+      "id": "r213",
+      "name": "Room 213",
+      "group": "Floor 2",
+      "type": "ROOM",
+      "checklist": "guestroom"
+    },
+    {
+      "id": "r214",
+      "name": "Room 214",
+      "group": "Floor 2",
+      "type": "ROOM",
+      "checklist": "guestroom"
+    },
+    {
+      "id": "r215",
+      "name": "Room 215",
+      "group": "Floor 2",
+      "type": "ROOM",
+      "checklist": "guestroom"
+    },
+    {
+      "id": "r216",
+      "name": "Room 216",
+      "group": "Floor 2",
+      "type": "ROOM",
+      "checklist": "guestroom"
+    },
+    {
+      "id": "r217",
+      "name": "Room 217",
+      "group": "Floor 2",
+      "type": "ROOM",
+      "checklist": "guestroom"
+    },
+    {
+      "id": "r218",
+      "name": "Room 218",
+      "group": "Floor 2",
+      "type": "ROOM",
+      "checklist": "guestroom"
+    },
+    {
+      "id": "r219",
+      "name": "Room 219",
+      "group": "Floor 2",
+      "type": "ROOM",
+      "checklist": "guestroom"
+    },
+    {
+      "id": "r220",
+      "name": "Room 220",
+      "group": "Floor 2",
+      "type": "ROOM",
+      "checklist": "guestroom"
+    },
+    {
+      "id": "r221",
+      "name": "Room 221",
+      "group": "Floor 2",
+      "type": "ROOM",
+      "checklist": "guestroom"
+    },
+    {
+      "id": "r222",
+      "name": "Room 222",
+      "group": "Floor 2",
+      "type": "ROOM",
+      "checklist": "guestroom"
+    },
+    {
+      "id": "r300",
+      "name": "Room 300",
+      "group": "Floor 3",
+      "type": "ROOM",
+      "checklist": "guestroom"
+    },
+    {
+      "id": "r301",
+      "name": "Room 301",
+      "group": "Floor 3",
+      "type": "ROOM",
+      "checklist": "guestroom"
+    },
+    {
+      "id": "r302",
+      "name": "Room 302",
+      "group": "Floor 3",
+      "type": "ROOM",
+      "checklist": "guestroom"
+    },
+    {
+      "id": "r303",
+      "name": "Room 303",
+      "group": "Floor 3",
+      "type": "ROOM",
+      "checklist": "guestroom"
+    },
+    {
+      "id": "r304",
+      "name": "Room 304",
+      "group": "Floor 3",
+      "type": "ROOM",
+      "checklist": "guestroom"
+    },
+    {
+      "id": "r305",
+      "name": "Room 305",
+      "group": "Floor 3",
+      "type": "ROOM",
+      "checklist": "guestroom"
+    },
+    {
+      "id": "r306",
+      "name": "Room 306",
+      "group": "Floor 3",
+      "type": "ROOM",
+      "checklist": "guestroom"
+    },
+    {
+      "id": "r307",
+      "name": "Room 307",
+      "group": "Floor 3",
+      "type": "ROOM",
+      "checklist": "guestroom"
+    },
+    {
+      "id": "r308",
+      "name": "Room 308",
+      "group": "Floor 3",
+      "type": "ROOM",
+      "checklist": "guestroom"
+    },
+    {
+      "id": "r309",
+      "name": "Room 309",
+      "group": "Floor 3",
+      "type": "ROOM",
+      "checklist": "guestroom"
+    },
+    {
+      "id": "r310",
+      "name": "Room 310",
+      "group": "Floor 3",
+      "type": "ROOM",
+      "checklist": "guestroom"
+    },
+    {
+      "id": "r311",
+      "name": "Room 311",
+      "group": "Floor 3",
+      "type": "ROOM",
+      "checklist": "guestroom"
+    },
+    {
+      "id": "r312",
+      "name": "Room 312",
+      "group": "Floor 3",
+      "type": "ROOM",
+      "checklist": "guestroom"
+    },
+    {
+      "id": "r313",
+      "name": "Room 313",
+      "group": "Floor 3",
+      "type": "ROOM",
+      "checklist": "guestroom"
+    },
+    {
+      "id": "r314",
+      "name": "Room 314",
+      "group": "Floor 3",
+      "type": "ROOM",
+      "checklist": "guestroom"
+    },
+    {
+      "id": "r315",
+      "name": "Room 315",
+      "group": "Floor 3",
+      "type": "ROOM",
+      "checklist": "guestroom"
+    },
+    {
+      "id": "r316",
+      "name": "Room 316",
+      "group": "Floor 3",
+      "type": "ROOM",
+      "checklist": "guestroom"
+    },
+    {
+      "id": "r317",
+      "name": "Room 317",
+      "group": "Floor 3",
+      "type": "ROOM",
+      "checklist": "guestroom"
+    },
+    {
+      "id": "r318",
+      "name": "Room 318",
+      "group": "Floor 3",
+      "type": "ROOM",
+      "checklist": "guestroom"
+    },
+    {
+      "id": "r319",
+      "name": "Room 319",
+      "group": "Floor 3",
+      "type": "ROOM",
+      "checklist": "guestroom"
+    },
+    {
+      "id": "r320",
+      "name": "Room 320",
+      "group": "Floor 3",
+      "type": "ROOM",
+      "checklist": "guestroom"
+    },
+    {
+      "id": "r321",
+      "name": "Room 321",
+      "group": "Floor 3",
+      "type": "ROOM",
+      "checklist": "guestroom"
+    },
+    {
+      "id": "r322",
+      "name": "Room 322",
+      "group": "Floor 3",
+      "type": "ROOM",
+      "checklist": "guestroom"
+    },
+    {
+      "id": "r001",
+      "name": "Kitchen",
+      "group": "Common areas",
+      "type": "AREA",
+      "checklist": "common"
+    },
+    {
+      "id": "a01",
+      "name": "Lobby & front desk",
+      "group": "Common areas",
+      "type": "AREA",
+      "checklist": "common"
+    },
+    {
+      "id": "a02",
+      "name": "Corridors & stairwells",
+      "group": "Common areas",
+      "type": "AREA",
+      "checklist": "common"
+    },
+    {
+      "id": "a03",
+      "name": "Elevator",
+      "group": "Common areas",
+      "type": "AREA",
+      "checklist": "common"
+    },
+    {
+      "id": "a04",
+      "name": "Breakfast area",
+      "group": "Common areas",
+      "type": "AREA",
+      "checklist": "common"
+    },
+    {
+      "id": "a05",
+      "name": "Laundry room",
+      "group": "Common areas",
+      "type": "AREA",
+      "checklist": "common"
+    },
+    {
+      "id": "a06",
+      "name": "Fitness room",
+      "group": "Common areas",
+      "type": "AREA",
+      "checklist": "common"
+    },
+    {
+      "id": "a07",
+      "name": "Pool",
+      "group": "Common areas",
+      "type": "AREA",
+      "checklist": "common"
+    },
+    {
+      "id": "a08",
+      "name": "Parking & exterior",
+      "group": "Common areas",
+      "type": "AREA",
+      "checklist": "common"
+    },
+    {
+      "id": "a09",
+      "name": "Mechanical / boiler room",
+      "group": "Common areas",
+      "type": "AREA",
+      "checklist": "common"
+    },
+    {
+      "id": "a10",
+      "name": "Roof",
+      "group": "Common areas",
+      "type": "AREA",
+      "checklist": "common"
+    }
+  ]
+}

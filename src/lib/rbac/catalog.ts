@@ -11,7 +11,7 @@
 //
 // NOTE: dynamic workflow "services" are NOT in this catalog — their access is
 // governed per-record by WorkflowDefinition.rolesAllowed (see src/lib/permissions.ts).
-// This catalog covers the fixed apps: PM, Housekeeping, and Administration.
+// This catalog covers the fixed apps: PM, PM V2, Housekeeping, and Administration.
 // ---------------------------------------------------------------------------
 
 export type ActionDef = { key: string; label: string };
@@ -49,6 +49,20 @@ export const APPS: AppDef[] = [
       { key: "rooms", label: "Rooms", actions: [A.view, A.add, A.update, A.delete] },
       { key: "checklist", label: "Checklist", actions: [A.view, A.add, A.update, A.delete] },
       { key: "inspections", label: "Inspections", actions: [A.view, A.add, A.update, A.delete] },
+    ],
+  },
+  {
+    // PM V2 — quarterly room condition (beta, runs beside PM V1). Kept as a
+    // separate app so it can be granted/tested without touching V1 access.
+    key: "pmv2",
+    label: "Room Condition V2",
+    description: "Quarterly room & area inspections (beta)",
+    icon: "ClipboardCheck",
+    features: [
+      { key: "board", label: "Rooms board", actions: [A.view] },
+      { key: "inspections", label: "Inspections", actions: [A.submit] },
+      { key: "reports", label: "Reports", actions: [A.view] },
+      { key: "setup", label: "Setup", actions: [A.configure] },
     ],
   },
   {

@@ -2,6 +2,8 @@ import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { DEFAULT_ROLES } from "../src/lib/rbac/defaults";
 import { ROLE_KEYS } from "../src/lib/roles";
+import { importPmV2Config } from "./pmv2Import";
+import pmv2Seed from "./pmv2-seed.json";
 
 const prisma = new PrismaClient();
 
@@ -235,6 +237,15 @@ async function main() {
     console.log(`✓ Created ${SAMPLE_ROOMS.length} sample rooms`);
   } else {
     console.log(`• ${roomCount} rooms already exist`);
+  }
+
+  // --- PM V2 checklists + rooms/areas (only if V2 is empty) ---
+  const pmv2Count = await prisma.pmV2Checklist.count();
+  if (pmv2Count === 0) {
+    await importPmV2Config(prisma, pmv2Seed as Parameters<typeof importPmV2Config>[1]);
+    console.log(`✓ Created PM V2 config (${pmv2Seed.checklists.length} checklists, ${pmv2Seed.areas.length} areas)`);
+  } else {
+    console.log(`• PM V2 already has ${pmv2Count} checklist(s)`);
   }
 }
 

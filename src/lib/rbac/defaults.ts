@@ -29,6 +29,7 @@ export const DEFAULT_ROLES: RoleSeed[] = [
     isSystem: true,
     permissions: [
       ...permissionsForApp("pm"),
+      ...permissionsForApp("pmv2"),
       ...permissionsForApp("housekeeping"),
       "admin:staff:view",
       "admin:staff:add",
@@ -68,6 +69,9 @@ export const DEFAULT_ROLES: RoleSeed[] = [
       "pm:rooms:view",
       "pm:inspections:view",
       "pm:inspections:add",
+      "pmv2:board:view",
+      "pmv2:inspections:submit",
+      "pmv2:reports:view",
       "housekeeping:board:view",
       "housekeeping:cleaning:review",
     ],

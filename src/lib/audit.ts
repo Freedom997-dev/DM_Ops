@@ -19,7 +19,13 @@ type AuditInput = {
     | "HousekeepingPhoto"
     | "HousekeepingSetting"
     | "Role"
-    | "UserRole";
+    | "UserRole"
+    | "PmV2Setting"
+    | "PmV2Checklist"
+    | "PmV2Section"
+    | "PmV2Item"
+    | "PmV2Area"
+    | "PmV2Inspection";
   entityId?: string | null;
   details?: Record<string, unknown> | string | null;
 };
