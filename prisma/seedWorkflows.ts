@@ -1,15 +1,14 @@
 /**
  * Seeds the Daily Cleanliness Inspection workflow + its 18 items.
  *
- * For local dev only. Production seeding happens via the manual SQL migration
- * at prisma/manual-migrations/2026-06-30-seed-daily-cleanliness.sql, applied
- * via Supabase MCP in a Supabase-management chat.
+ * Idempotent (skips if the slug exists). Called from prisma/seed.ts, so every
+ * production deploy (`prisma db seed`) ensures the service exists. The older
+ * manual SQL (prisma/manual-migrations/2026-06-30-seed-daily-cleanliness.sql)
+ * was never applied to the Supabase database, which is why prod lacked it.
  *
- * Run: `npx tsx prisma/seedWorkflows.ts`
+ * Standalone: `npx tsx prisma/seedWorkflows.ts`
  */
 import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
 
 const ITEMS = [
   "Window & Glass",
@@ -32,7 +31,7 @@ const ITEMS = [
   "Floor",
 ];
 
-async function main() {
+export async function seedDailyCleanliness(prisma: PrismaClient) {
   const slug = "daily-cleanliness";
   const existing = await prisma.workflowDefinition.findUnique({ where: { slug } });
   if (existing) {
@@ -58,10 +57,14 @@ async function main() {
   console.log(`✓ Created ${ITEMS.length} WorkflowItem rows`);
 }
 
-main()
-  .then(() => prisma.$disconnect())
-  .catch(async (e) => {
-    console.error(e);
-    await prisma.$disconnect();
-    process.exit(1);
-  });
+// Standalone run.
+if (require.main === module) {
+  const prisma = new PrismaClient();
+  seedDailyCleanliness(prisma)
+    .then(() => prisma.$disconnect())
+    .catch(async (e) => {
+      console.error(e);
+      await prisma.$disconnect();
+      process.exit(1);
+    });
+}

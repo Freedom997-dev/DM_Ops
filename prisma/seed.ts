@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { DEFAULT_ROLES } from "../src/lib/rbac/defaults";
 import { ROLE_KEYS } from "../src/lib/roles";
 import { importPmV2Config } from "./pmv2Import";
+import { seedDailyCleanliness } from "./seedWorkflows";
 import pmv2Seed from "./pmv2-seed.json";
 
 const prisma = new PrismaClient();
@@ -238,6 +239,9 @@ async function main() {
   } else {
     console.log(`• ${roomCount} rooms already exist`);
   }
+
+  // --- Daily Cleanliness Inspection workflow service (only if missing) ---
+  await seedDailyCleanliness(prisma);
 
   // --- PM V2 checklists + rooms/areas (only if V2 is empty) ---
   const pmv2Count = await prisma.pmV2Checklist.count();
