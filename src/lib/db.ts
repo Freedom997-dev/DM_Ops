@@ -15,12 +15,17 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
+// Only override the datasource URL when DATABASE_URL is actually set. Passing
+// `{ url: undefined }` explicitly makes the PrismaClient constructor throw,
+// which breaks `next build` page-data collection on environments without the
+// DB env (e.g. preview deploys). Omitting the override lets Prisma fall back to
+// the schema's env("DATABASE_URL") and defers any failure to real query time.
+const datasourceUrl = withPoolerParams(process.env.DATABASE_URL);
+
 export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({
-    datasources: {
-      db: { url: withPoolerParams(process.env.DATABASE_URL) },
-    },
+    ...(datasourceUrl ? { datasources: { db: { url: datasourceUrl } } } : {}),
     log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
   });
 
