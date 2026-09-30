@@ -48,6 +48,7 @@ export async function createRoom(
 
   revalidatePath("/services/pm");
   revalidatePath("/services/pm/rooms");
+  revalidatePath("/settings/rooms");
   return { ok: true, message: `Room ${room.number} added.` };
 }
 
@@ -86,6 +87,7 @@ export async function updateRoom(
 
   revalidatePath("/services/pm");
   revalidatePath("/services/pm/rooms");
+  revalidatePath("/settings/rooms");
   revalidatePath(`/services/pm/rooms/${id}`);
   return { ok: true, message: "Room updated." };
 }
@@ -102,4 +104,5 @@ export async function setRoomArchived(id: string, archived: boolean) {
   });
   revalidatePath("/services/pm");
   revalidatePath("/services/pm/rooms");
+  revalidatePath("/settings/rooms");
 }

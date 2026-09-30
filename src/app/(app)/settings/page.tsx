@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, ChevronRight, Users, History, LayoutGrid, ShieldCheck } from "lucide-react";
+import { ArrowLeft, ChevronRight, Users, History, LayoutGrid, ShieldCheck, DoorOpen } from "lucide-react";
 import { requireManager, can } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -27,6 +27,13 @@ export default async function SettingsIndex() {
       title: "Roles & permissions",
       description: "Create roles and control what each can see and do across every app.",
       visible: can(user, "admin:roles:view"),
+    },
+    {
+      href: "/settings/rooms",
+      icon: <DoorOpen className="h-5 w-5" />,
+      title: "Rooms",
+      description: "Add, rename and archive the rooms used by Daily Cleanliness and Housekeeping.",
+      visible: can(user, "pm:rooms:view"),
     },
     {
       href: "/settings/services",

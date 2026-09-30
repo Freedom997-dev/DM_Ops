@@ -26,8 +26,8 @@ type Room = {
   floor: string | null;
   notes: string | null;
   archived: boolean;
-  status: RoomStatus;
-  lastInspected: string | null;
+  status?: RoomStatus; // PM V1 only
+  lastInspected?: string | null; // PM V1 only
 };
 
 const EMPTY: ActionState = { ok: false };
@@ -37,11 +37,17 @@ export function RoomsManager({
   isAdmin,
   initialAdd,
   initialEditId,
+  basePath = "/services/pm/rooms",
+  pmLinks = true,
 }: {
   rooms: Room[];
   isAdmin: boolean;
   initialAdd: boolean;
   initialEditId: string | null;
+  /** Page this manager lives on (PM V1 rooms, or the shared Settings → Rooms). */
+  basePath?: string;
+  /** Show PM V1 status badge, last-inspected line and inspect/detail links. */
+  pmLinks?: boolean;
 }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
@@ -107,12 +113,12 @@ export function RoomsManager({
           onClose={() => {
             setAdding(false);
             setEditing(null);
-            router.replace("/services/pm/rooms");
+            router.replace(basePath);
           }}
           onSaved={() => {
             setAdding(false);
             setEditing(null);
-            router.replace("/services/pm/rooms");
+            router.replace(basePath);
             router.refresh();
           }}
         />
@@ -127,7 +133,7 @@ export function RoomsManager({
               key={room.id}
               className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
             >
-              <Link href={`/services/pm/rooms/${room.id}`} className="flex items-center gap-3 hover:opacity-80">
+              <MaybeLink href={pmLinks ? `/services/pm/rooms/${room.id}` : null}>
                 <div className="flex h-11 w-11 flex-col items-center justify-center rounded-xl bg-slate-100 text-sm font-bold text-slate-700">
                   {room.number}
                 </div>
@@ -139,22 +145,28 @@ export function RoomsManager({
                     )}
                   </div>
                   <div className="text-xs text-slate-400">
-                    {room.lastInspected
-                      ? `Last inspected ${new Date(room.lastInspected).toLocaleDateString()}`
-                      : "Never inspected"}
+                    {pmLinks
+                      ? room.lastInspected
+                        ? `Last inspected ${new Date(room.lastInspected).toLocaleDateString()}`
+                        : "Never inspected"
+                      : [room.floor && `Floor ${room.floor}`, room.notes].filter(Boolean).join(" · ")}
                   </div>
                 </div>
-              </Link>
+              </MaybeLink>
 
               <div className="flex items-center gap-2">
-                <RoomStatusBadge status={room.status} />
-                <Link
-                  href={`/services/pm/inspect/${room.id}`}
-                  className="btn-secondary px-3 py-2"
-                  title="Inspect"
-                >
-                  <ClipboardCheck className="h-4 w-4" />
-                </Link>
+                {pmLinks && room.status && (
+                  <>
+                    <RoomStatusBadge status={room.status} />
+                    <Link
+                      href={`/services/pm/inspect/${room.id}`}
+                      className="btn-secondary px-3 py-2"
+                      title="Inspect"
+                    >
+                      <ClipboardCheck className="h-4 w-4" />
+                    </Link>
+                  </>
+                )}
                 {isAdmin && (
                   <>
                     <button
@@ -173,6 +185,17 @@ export function RoomsManager({
         )}
       </div>
     </div>
+  );
+}
+
+function MaybeLink({ href, children }: { href: string | null; children: React.ReactNode }) {
+  const cls = "flex items-center gap-3";
+  return href ? (
+    <Link href={href} className={`${cls} hover:opacity-80`}>
+      {children}
+    </Link>
+  ) : (
+    <div className={cls}>{children}</div>
   );
 }
 

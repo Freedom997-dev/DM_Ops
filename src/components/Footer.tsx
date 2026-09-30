@@ -1,6 +1,6 @@
 /**
  * Formal site footer. Shown on every route (app pages + login) via the root
- * layout's sticky-footer wrapper. Left: product name. Right: firm + credit.
+ * layout's sticky-footer wrapper. Left: product name. Right: firm.
  */
 export function Footer() {
   return (
@@ -9,8 +9,6 @@ export function Footer() {
         <p className="text-xs text-slate-400">Divya Motel · Room Condition Program</p>
         <p className="text-xs text-slate-400">
           Powered by <span className="font-semibold text-slate-600">FCG Solutions</span>
-          <span className="mx-1.5 text-slate-300">·</span>
-          Engineered by <span className="font-medium text-slate-500">Dharmik</span>
         </p>
       </div>
     </footer>

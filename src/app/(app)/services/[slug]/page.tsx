@@ -1,8 +1,8 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Clock } from "lucide-react";
+import { ArrowLeft, Clock, DoorOpen } from "lucide-react";
 import { prisma } from "@/lib/db";
-import { requireWorkflowAccess, isAdmin, isManager } from "@/lib/session";
+import { requireWorkflowAccess, isAdmin, isManager, can } from "@/lib/session";
 import { getSignedUrl } from "@/lib/storage";
 import { WorkflowMatrix, type MatrixCellSeed, type MatrixRowSeed } from "@/components/WorkflowMatrix";
 import type { CellStatus } from "@/components/WorkflowCellButton";
@@ -94,13 +94,24 @@ export default async function WorkflowSubmissionPage({
           <ArrowLeft className="h-4 w-4" />
           Back to services
         </Link>
-        <Link
-          href={`/services/${workflow.slug}/history`}
-          className="inline-flex items-center gap-1 text-sm font-semibold text-brand-600 hover:underline"
-        >
-          <Clock className="h-4 w-4" />
-          History
-        </Link>
+        <div className="flex items-center gap-4">
+          {can(user, "pm:rooms:add") && (
+            <Link
+              href="/settings/rooms?add=1"
+              className="inline-flex items-center gap-1 text-sm font-semibold text-brand-600 hover:underline"
+            >
+              <DoorOpen className="h-4 w-4" />
+              Rooms
+            </Link>
+          )}
+          <Link
+            href={`/services/${workflow.slug}/history`}
+            className="inline-flex items-center gap-1 text-sm font-semibold text-brand-600 hover:underline"
+          >
+            <Clock className="h-4 w-4" />
+            History
+          </Link>
+        </div>
       </div>
 
       {!isToday && (
