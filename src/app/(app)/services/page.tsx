@@ -41,7 +41,10 @@ export default async function ServicesIndex() {
   );
 
   // PM is a built-in service (its own tables). Shown to anyone with PM access.
-  const showPmCard = canAccessApp(user, "pm");
+  // PM V1 is retired from the portal in favour of PM V2. Its code, routes and
+  // tables are kept (reachable at /services/pm); flip this to show it again.
+  const PM_V1_ON_PORTAL = false;
+  const showPmCard = PM_V1_ON_PORTAL && canAccessApp(user, "pm");
   // PM V2 (beta) — separate permission set so it can be trialled by a few users.
   const showPmV2Card = can(user, "pmv2:board:view");
   const showHkCard = can(user, "housekeeping:board:view");
