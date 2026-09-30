@@ -8,12 +8,12 @@ import { WorkflowDefinitionEditor } from "@/components/WorkflowDefinitionEditor"
 
 export const dynamic = "force-dynamic";
 
-export default async function ServiceSettingsPage({ params }: { params: { slug: string } }) {
+export default async function ServiceSettingsPage({ params }: { params: Promise<{ slug: string }> }) {
   await requirePermission("admin:services:manage");
 
   const [workflow, roles] = await Promise.all([
     prisma.workflowDefinition.findUnique({
-      where: { slug: params.slug },
+      where: { slug: (await params).slug },
       include: { items: { orderBy: { order: "asc" } } },
     }),
     prisma.role.findMany({

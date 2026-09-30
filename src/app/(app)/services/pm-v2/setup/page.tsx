@@ -11,11 +11,12 @@ export const dynamic = "force-dynamic";
 export default async function PmV2Setup({
   searchParams,
 }: {
-  searchParams: { [key: string]: string | string[] | undefined };
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
+  const sp = await searchParams;
   await requirePermission("pmv2:setup:configure");
-  const q = quarterFromParams(searchParams.q);
-  const tab = searchParams.tab === "areas" ? "areas" : "checklists";
+  const q = quarterFromParams(sp.q);
+  const tab = sp.tab === "areas" ? "areas" : "checklists";
   const [checklists, areas, hotel] = await Promise.all([getChecklists(), getAreas(), getHotelName()]);
 
   const lists = checklists.map((c) => ({
@@ -28,7 +29,7 @@ export default async function PmV2Setup({
       items: s.items.map((i) => ({ id: i.id, label: i.label })),
     })),
   }));
-  const listParam = typeof searchParams.list === "string" ? searchParams.list : undefined;
+  const listParam = typeof sp.list === "string" ? sp.list : undefined;
   const selected = lists.find((l) => l.id === listParam)?.id ?? lists[0]?.id ?? null;
 
   const tabLink = (k: string, label: string) => (

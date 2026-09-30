@@ -43,7 +43,7 @@ the per-feature helpers in `src/lib/housekeeping.ts`.
 
 ## How it's enforced (defense in depth)
 
-1. **`middleware.ts`** — blocks unauthenticated navigation to `/services|/settings`.
+1. **`proxy.ts`** — blocks unauthenticated navigation to `/services|/settings`.
 2. **`requireUser()`** — re-checks the session server-side on every protected page render.
 3. **`requireManager()` / `requireAdmin()` / `requireWorkflowAccess(slug)`** — role gates
    inside pages and at the top of every mutating server action.

@@ -26,13 +26,13 @@ export default async function WorkflowSubmissionPage({
   params,
   searchParams,
 }: {
-  params: { slug: string };
-  searchParams: { date?: string };
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ date?: string }>;
 }) {
-  const { user, workflow } = await requireWorkflowAccess(params.slug);
+  const { user, workflow } = await requireWorkflowAccess((await params).slug);
   if (workflow.shape !== "MATRIX") notFound();
 
-  const targetDate = parseDateParam(searchParams.date);
+  const targetDate = parseDateParam((await searchParams).date);
   const isToday = targetDate.getTime() === todayMidnightUTC().getTime();
 
   const [items, rooms, submission] = await Promise.all([

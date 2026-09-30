@@ -21,7 +21,7 @@ const CONTENT_TYPES: Record<string, string> = {
  */
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { path: string[] } },
+  { params }: { params: Promise<{ path: string[] }> },
 ) {
   if (!isLocalStorage) {
     return new Response("Not found", { status: 404 });
@@ -31,7 +31,7 @@ export async function GET(
   // check below (the prefix check is a string match on attacker-controlled
   // input, so a segment like ".." or one containing "/" could otherwise be
   // used to misclassify which domain a path belongs to).
-  const decodedSegments = params.path.map(decodeURIComponent);
+  const decodedSegments = (await params).path.map(decodeURIComponent);
   for (const seg of decodedSegments) {
     if (seg === "" || seg === "." || seg === ".." || seg.includes("/") || seg.includes("\\")) {
       return new Response("Not found", { status: 404 });

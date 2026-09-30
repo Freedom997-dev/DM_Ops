@@ -13,12 +13,13 @@ type Filter = "open" | "fixed" | "all";
 export default async function PmV2Issues({
   searchParams,
 }: {
-  searchParams: { [key: string]: string | string[] | undefined };
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
+  const sp = await searchParams;
   const user = await requirePermission("pmv2:board:view");
   const canFix = can(user, "pmv2:inspections:submit");
-  const q = quarterFromParams(searchParams.q);
-  const f: Filter = searchParams.f === "fixed" || searchParams.f === "all" ? searchParams.f : "open";
+  const q = quarterFromParams(sp.q);
+  const f: Filter = sp.f === "fixed" || sp.f === "all" ? sp.f : "open";
 
   const data = await loadQuarter(q);
   const lines = issueLines(data);

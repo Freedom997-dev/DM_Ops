@@ -42,7 +42,7 @@
 ## Key architectural patterns
 
 ### Three-layer auth defense
-1. `middleware.ts` blocks unauthenticated browser navigation to `/services|/settings`.
+1. `proxy.ts` blocks unauthenticated browser navigation to `/services|/settings`.
 2. `requireUser()` in route group layouts re-checks server-side on every page render.
 3. `requireManager()` / `requireAdmin()` / `requireWorkflowAccess(slug)` are called inside pages and server actions for role-gated logic.
 
@@ -103,7 +103,7 @@ roomstatus-main/
 │   │   ├── db.ts              # Prisma singleton
 │   │   └── status.ts          # status color/label tables, summary derivation
 │   └── types/                 # TypeScript declaration extensions
-├── middleware.ts              # route-level auth gate (/services, /settings)
+├── proxy.ts                   # route-level auth gate (/services, /settings)
 ├── next.config.mjs
 ├── tailwind.config.ts
 ├── tsconfig.json

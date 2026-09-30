@@ -8,10 +8,11 @@ export const dynamic = "force-dynamic";
 export default async function PmV2ReportPage({
   searchParams,
 }: {
-  searchParams: { [key: string]: string | string[] | undefined };
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
+  const sp = await searchParams;
   await requirePermission("pmv2:reports:view");
-  const q = quarterFromParams(searchParams.q);
+  const q = quarterFromParams(sp.q);
   const report = await buildReport(q);
   return <PmV2Report report={toDTO(report)} />;
 }

@@ -8,9 +8,10 @@ export const dynamic = "force-dynamic";
 export default async function RoomsPage({
   searchParams,
 }: {
-  searchParams: { add?: string; edit?: string };
+  searchParams: Promise<{ add?: string; edit?: string }>;
 }) {
   const user = await requirePermission("pm:rooms:view");
+  const sp = await searchParams;
   const isAdmin = can(user, "pm:rooms:update");
 
   const rooms = await prisma.room.findMany({
@@ -54,8 +55,8 @@ export default async function RoomsPage({
     <RoomsManager
       rooms={data}
       isAdmin={isAdmin}
-      initialAdd={searchParams.add === "1"}
-      initialEditId={searchParams.edit ?? null}
+      initialAdd={sp.add === "1"}
+      initialEditId={sp.edit ?? null}
     />
   );
 }

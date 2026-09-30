@@ -11,16 +11,17 @@ export default async function PmV2InspectPage({
   params,
   searchParams,
 }: {
-  params: { areaId: string };
-  searchParams: { [key: string]: string | string[] | undefined };
+  params: Promise<{ areaId: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
+  const [{ areaId }, sp] = await Promise.all([params, searchParams]);
   const user = await requirePermission("pmv2:board:view");
-  const q = quarterFromParams(searchParams.q);
+  const q = quarterFromParams(sp.q);
 
   const [areas, area] = await Promise.all([
     getAreas(),
     prisma.pmV2Area.findUnique({
-      where: { id: params.areaId },
+      where: { id: areaId },
       include: {
         checklist: {
           include: {

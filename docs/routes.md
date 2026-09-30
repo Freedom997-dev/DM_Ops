@@ -1,7 +1,7 @@
 # Routes reference
 
 Every page and API route in the app. All `/services/*` and `/settings/*` pages require
-a signed-in user (enforced by `middleware.ts` + server-side `requireUser()`); most also
+a signed-in user (enforced by `proxy.ts` + server-side `requireUser()`); most also
 re-check role. See [roles-and-permissions.md](roles-and-permissions.md).
 
 ## Pages

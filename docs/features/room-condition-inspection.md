@@ -62,7 +62,7 @@ See [`docs/data-model.md`](../data-model.md) for full schema.
 
 ## Auth gates
 
-1. `middleware.ts` matches `/services|/settings` and redirects unauthenticated users to `/login`.
+1. `proxy.ts` matches `/services|/settings` and redirects unauthenticated users to `/login`.
 2. `(app)/layout.tsx` calls `requireUser()` — re-checks server-side.
 3. PM settings pages and admin server actions call `requireAdmin()` for role enforcement.
 

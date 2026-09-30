@@ -13,13 +13,13 @@ export const dynamic = "force-dynamic";
 export default async function RoomDetailPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
   const user = await requirePermission("pm:rooms:view");
   const isAdmin = can(user, "pm:rooms:update");
 
   const room = await prisma.room.findUnique({
-    where: { id: params.id },
+    where: { id: (await params).id },
     include: {
       inspections: {
         orderBy: [{ completedAt: "desc" }, { startedAt: "desc" }],

@@ -13,11 +13,12 @@ type Kind = "all" | "room" | "area";
 export default async function PmV2Board({
   searchParams,
 }: {
-  searchParams: { [key: string]: string | string[] | undefined };
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
+  const sp = await searchParams;
   const user = await requirePermission("pmv2:board:view");
-  const q = quarterFromParams(searchParams.q);
-  const kind: Kind = searchParams.kind === "room" || searchParams.kind === "area" ? searchParams.kind : "all";
+  const q = quarterFromParams(sp.q);
+  const kind: Kind = sp.kind === "room" || sp.kind === "area" ? sp.kind : "all";
   const { rows } = await loadQuarter(q);
 
   if (!rows.length) {

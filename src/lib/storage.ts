@@ -21,12 +21,14 @@ const useSupabase =
 // Local filesystem driver (dev only)
 // ---------------------------------------------------------------------------
 const LOCAL_DIR =
-  process.env.LOCAL_STORAGE_DIR || path.join(process.cwd(), ".local-storage", BUCKET);
+  process.env.LOCAL_STORAGE_DIR || path.join(/*turbopackIgnore: true*/ process.cwd(), ".local-storage", BUCKET);
 
 function resolveLocal(storagePath: string) {
   // Guard against path traversal: the resolved file must stay under LOCAL_DIR.
-  const full = path.resolve(LOCAL_DIR, storagePath);
-  const base = path.resolve(LOCAL_DIR);
+  // turbopackIgnore: local-disk storage is dev-only; without the hints Next 16's
+  // file tracer bundles the entire project into every server function.
+  const full = path.resolve(/*turbopackIgnore: true*/ LOCAL_DIR, storagePath);
+  const base = path.resolve(/*turbopackIgnore: true*/ LOCAL_DIR);
   if (full !== base && !full.startsWith(base + path.sep)) {
     throw new Error(`Illegal storage path: ${storagePath}`);
   }
@@ -60,9 +62,9 @@ export async function uploadImage(
 
   // Local filesystem
   const full = resolveLocal(storagePath);
-  await fs.mkdir(path.dirname(full), { recursive: true });
+  await fs.mkdir(/*turbopackIgnore: true*/ path.dirname(full), { recursive: true });
   const data = file instanceof Buffer ? file : Buffer.from(await file.arrayBuffer());
-  await fs.writeFile(full, data);
+  await fs.writeFile(/*turbopackIgnore: true*/ full, data);
 }
 
 export async function getSignedUrl(storagePath: string, expiresInSeconds = 3600) {
@@ -98,7 +100,7 @@ export async function deleteImages(paths: string[]) {
   await Promise.all(
     paths.map(async (p) => {
       try {
-        await fs.unlink(resolveLocal(p));
+        await fs.unlink(/*turbopackIgnore: true*/ resolveLocal(p));
       } catch (e) {
         if ((e as NodeJS.ErrnoException).code !== "ENOENT") {
           console.error("Local storage delete failed:", (e as Error).message, p);
@@ -110,7 +112,7 @@ export async function deleteImages(paths: string[]) {
 
 /** Reads a locally-stored image. Used by the dev-only image API route. */
 export async function readLocalImage(storagePath: string): Promise<Buffer> {
-  return fs.readFile(resolveLocal(storagePath));
+  return fs.readFile(/*turbopackIgnore: true*/ resolveLocal(storagePath));
 }
 
 /** True when running against the local filesystem driver (no Supabase). */

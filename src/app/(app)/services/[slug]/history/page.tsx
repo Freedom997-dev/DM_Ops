@@ -7,8 +7,8 @@ import { WorkflowHistory, type HistorySubmission, type RoomHistoryEntry } from "
 
 export const dynamic = "force-dynamic";
 
-export default async function WorkflowHistoryPage({ params }: { params: { slug: string } }) {
-  const { workflow } = await requireWorkflowAccess(params.slug);
+export default async function WorkflowHistoryPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { workflow } = await requireWorkflowAccess((await params).slug);
   if (workflow.shape !== "MATRIX") notFound();
 
   const [submissions, rooms] = await Promise.all([

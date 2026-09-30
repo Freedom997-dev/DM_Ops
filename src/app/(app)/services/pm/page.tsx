@@ -48,11 +48,11 @@ function parseView(raw: string | string[] | undefined): ViewKey {
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: { [key: string]: string | string[] | undefined };
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const user = await requirePermission("pm:dashboard:view");
   const isAdmin = can(user, "pm:rooms:update");
-  const view = parseView(searchParams?.view);
+  const view = parseView((await searchParams)?.view);
 
   const rooms = await prisma.room.findMany({
     where: { archived: false },

@@ -77,7 +77,7 @@ See [`docs/data-model.md`](../data-model.md) for full schema of the new tables.
 - `src/lib/actions/users.ts` — role enum widened to `ADMIN | MANAGER | INSPECTOR | HOUSEKEEPER`
 - `src/components/Nav.tsx` — Okta-style top bar: **Services** + **Settings** (admin/manager) only
 - `src/components/UsersManager.tsx` — role badge + dropdown cover all four roles
-- `middleware.ts` — protected matcher includes `/services` and `/settings`
+- `proxy.ts` — protected matcher includes `/services` and `/settings`
 - `src/app/page.tsx` — landing redirect sends authenticated users to `/services`
 - All PM pages moved from `/dashboard`, `/rooms`, `/inspect`, `/admin/questions` into `/services/pm/*` and `/services/pm/settings/checklist`; all links/redirects/`revalidatePath`s updated
 
@@ -103,7 +103,7 @@ See [`docs/data-model.md`](../data-model.md) for full schema of the new tables.
 
 ## Auth gates
 
-- `middleware.ts` requires authentication for `/services/*` and `/settings/*`.
+- `proxy.ts` requires authentication for `/services/*` and `/settings/*`.
 - `(app)/layout.tsx` `requireUser()` re-checks server-side.
 - `requireWorkflowAccess(slug)` in every action that mutates a submission: checks the workflow's `rolesAllowed` against the current user's role.
 - `requireManager()` gates `/settings`, `/settings/staff`, `/settings/activity` (ADMIN or MANAGER).

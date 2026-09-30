@@ -10,11 +10,11 @@ export const dynamic = "force-dynamic";
 export default async function InspectPage({
   params,
 }: {
-  params: { roomId: string };
+  params: Promise<{ roomId: string }>;
 }) {
   await requirePermission("pm:inspections:view");
 
-  const room = await prisma.room.findUnique({ where: { id: params.roomId } });
+  const room = await prisma.room.findUnique({ where: { id: (await params).roomId } });
   if (!room) notFound();
 
   const sections = await prisma.section.findMany({
