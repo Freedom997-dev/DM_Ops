@@ -209,6 +209,7 @@ export function HousekeepingDashboard({
             task={openTask}
             caps={{ submit: caps.submit, review: caps.review, manage: caps.manage }}
             onDone={() => { setOpenId(null); router.refresh(); }}
+            onChanged={() => router.refresh()}
           />
         </Drawer>
       )}

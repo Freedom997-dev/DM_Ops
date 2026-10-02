@@ -37,10 +37,13 @@ export function HkTaskPanel({
   task,
   caps,
   onDone,
+  onChanged,
 }: {
   task: HkTaskView;
   caps: { submit: boolean; review: boolean; manage: boolean };
   onDone: () => void;
+  /** Task changed but the panel should stay open (refresh data only). */
+  onChanged: () => void;
 }) {
   const [files, setFiles] = useState<File[]>([]);
   const [note, setNote] = useState("");
@@ -114,6 +117,17 @@ export function HkTaskPanel({
       const res = await persistSubtasks();
       if (!res.ok) { setError(res.error); return; }
       setSaved(true);
+    });
+  }
+
+  // Starting keeps the panel open (the board refreshes underneath) so the
+  // housekeeper can go straight on to the checklist and photos.
+  function doStart() {
+    setError(null);
+    start(async () => {
+      const res = await startTask(task.id);
+      if (!res.ok) { setError(res.error); return; }
+      onChanged();
     });
   }
 
@@ -199,6 +213,14 @@ export function HkTaskPanel({
 
   return (
     <div className="space-y-4 rounded-b-2xl border-x border-b border-slate-200 bg-slate-50/70 p-4">
+      {/* Start first, so it's the first thing a housekeeper sees */}
+      {caps.submit && (task.status === "READY_TO_CLEAN" || task.status === "TODO") && (
+        <button type="button" onClick={doStart} disabled={pending} className="btn-primary w-full">
+          {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+          {isRoom ? "Start cleaning" : "Start task"}
+        </button>
+      )}
+
       {task.reviewNote && task.status === "READY_TO_CLEAN" && (
         <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
           <span className="font-semibold">Sent back:</span> {task.reviewNote}
@@ -260,15 +282,6 @@ export function HkTaskPanel({
       )}
 
       {/* --- Actions --- */}
-      {caps.submit && (task.status === "READY_TO_CLEAN" || task.status === "TODO") && (
-        <div className="flex flex-wrap items-center gap-2">
-          <button type="button" onClick={() => act(() => startTask(task.id))} disabled={pending} className="btn-primary">
-            {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-            {isRoom ? "Start cleaning" : "Start task"}
-          </button>
-        </div>
-      )}
-
       {caps.submit && (task.status === "IN_PROGRESS" || task.status === "READY_TO_CLEAN" || task.status === "TODO") && (
         <div className="space-y-2 border-t border-slate-200 pt-3">
           <div className="flex items-center gap-1.5 text-xs font-medium text-slate-500">
