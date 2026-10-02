@@ -136,6 +136,7 @@ export default async function WorkflowSubmissionPage({
         isAdmin={isAdmin(user)}
         canMarkComplete={isManager(user)}
         printDateLabel={targetDate.toLocaleDateString(undefined, { dateStyle: "full" })}
+        printFileDate={targetDate.toISOString().slice(0, 10)}
       />
     </div>
   );

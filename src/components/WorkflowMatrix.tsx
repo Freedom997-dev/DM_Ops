@@ -37,6 +37,7 @@ type Props = {
   isAdmin: boolean;
   canMarkComplete: boolean;
   printDateLabel: string;
+  printFileDate: string; // YYYY-MM-DD, used in the saved PDF's file name
 };
 
 export function WorkflowMatrix({
@@ -51,6 +52,7 @@ export function WorkflowMatrix({
   isAdmin,
   canMarkComplete,
   printDateLabel,
+  printFileDate,
 }: Props) {
   const router = useRouter();
   const [submissionId, setSubmissionId] = useState<string | null>(initialSubmissionId);
@@ -61,6 +63,8 @@ export function WorkflowMatrix({
   const [pending, startTransition] = useTransition();
   const [creating, startCreate] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  // Notes saved since the last server refresh, so the printed notes are current
+  const [savedNotes, setSavedNotes] = useState<Record<string, string>>({});
 
   const completed = submissionStatus === "COMPLETED";
 
@@ -76,6 +80,14 @@ export function WorkflowMatrix({
     for (const r of seedRows) m.set(r.roomId, r);
     return m;
   }, [seedRows]);
+
+  const printNotes = useMemo(
+    () =>
+      rooms
+        .map((room) => ({ room, note: (savedNotes[room.id] ?? rowMap.get(room.id)?.note ?? "").trim() }))
+        .filter((n) => n.note),
+    [rooms, rowMap, savedNotes],
+  );
 
   const counts = useMemo(() => {
     let ok = 0,
@@ -145,6 +157,10 @@ export function WorkflowMatrix({
   }
 
   function handlePrint() {
+    // Browsers use document.title as the default "Save as PDF" file name
+    const originalTitle = document.title;
+    document.title = `Daily room inspection report ${printFileDate}`;
+    window.addEventListener("afterprint", () => (document.title = originalTitle), { once: true });
     window.print();
   }
 
@@ -152,7 +168,7 @@ export function WorkflowMatrix({
     <div className="space-y-4 print-area">
       {/* Print-only header (hidden on screen, shown on the printed PDF) */}
       <div className="print-only mb-3">
-        <h1 className="text-lg font-bold">{workflowName} — Divya Motel</h1>
+        <h1 className="text-lg font-bold">Daily Room Inspection Report — Divya Motel</h1>
         <p className="text-sm">
           {printDateLabel} · {counts.ok} OK · {counts.issue} Issue · {counts.blank} blank/N/A ·{" "}
           {completed ? "Completed" : "In progress"}
@@ -268,7 +284,7 @@ export function WorkflowMatrix({
                 </th>
               ))}
               <th
-                className="sticky top-0 z-20 border-b border-l-2 border-slate-200 bg-slate-50 px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-slate-600"
+                className="no-print sticky top-0 z-20 border-b border-l-2 border-slate-200 bg-slate-50 px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-slate-600"
                 style={{ minWidth: 220, width: 220 }}
               >
                 Notes
@@ -296,7 +312,7 @@ export function WorkflowMatrix({
                         }}
                         className="block w-full text-left"
                       >
-                        <div className="text-sm font-bold text-slate-900">Room {room.number}</div>
+                        <div className="text-sm font-bold text-slate-900">{room.number}</div>
                         {room.name && <div className="text-[11px] text-slate-500">{room.name}</div>}
                       </button>
                     </th>
@@ -318,7 +334,7 @@ export function WorkflowMatrix({
                     })}
                     <td
                       className={clsx(
-                        "border-b border-l-2 border-slate-200 p-1 align-top",
+                        "no-print border-b border-l-2 border-slate-200 p-1 align-top",
                         isOpen ? "bg-amber-50" : "bg-white",
                       )}
                       style={{ minWidth: 220, width: 220 }}
@@ -329,6 +345,7 @@ export function WorkflowMatrix({
                         roomId={room.id}
                         initialNote={row?.note ?? null}
                         disabled={completed}
+                        onSaved={(note) => setSavedNotes((cur) => ({ ...cur, [room.id]: note }))}
                       />
                     </td>
                   </tr>
@@ -357,6 +374,25 @@ export function WorkflowMatrix({
           </tbody>
         </table>
       </div>
+
+      {/* Print-only notes list — replaces the Notes column on the PDF */}
+      {printNotes.length > 0 && (
+        <div className="print-only print-notes mt-4">
+          <h2 className="mb-1 text-sm font-bold">Notes</h2>
+          <table className="w-full border-collapse text-xs">
+            <tbody>
+              {printNotes.map(({ room, note }) => (
+                <tr key={room.id}>
+                  <th className="w-16 border border-slate-300 px-2 py-1 text-left align-top font-bold">
+                    {room.number}
+                  </th>
+                  <td className="whitespace-pre-wrap border border-slate-300 px-2 py-1">{note}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

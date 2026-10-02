@@ -11,6 +11,7 @@ type Props = {
   roomId: string;
   initialNote: string | null;
   disabled?: boolean;
+  onSaved?: (note: string) => void;
 };
 
 export function WorkflowNoteCell({
@@ -19,6 +20,7 @@ export function WorkflowNoteCell({
   roomId,
   initialNote,
   disabled,
+  onSaved,
 }: Props) {
   const [note, setNote] = useState(initialNote ?? "");
   const [saved, setSaved] = useState(false);
@@ -45,6 +47,7 @@ export function WorkflowNoteCell({
         return;
       }
       setSaved(true);
+      onSaved?.(note.trim());
       setTimeout(() => setSaved(false), 1500);
     });
   }

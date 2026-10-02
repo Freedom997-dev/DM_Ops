@@ -83,6 +83,10 @@ body {
   .matrix-scroll tr {
     break-inside: avoid;
   }
+  /* Notes list at the bottom of the report */
+  .print-notes tr {
+    break-inside: avoid;
+  }
   /* Notes textareas print as plain text */
   .matrix-scroll textarea {
     border: none !important;
