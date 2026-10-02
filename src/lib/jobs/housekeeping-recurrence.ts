@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/db";
 
-// Plain module (no "use server") — see housekeeping-sweep.ts for why.
-// Only src/app/api/cron/housekeeping-daily-reset/route.ts (CRON_SECRET
+// Plain module (no "use server") — Server Actions are auto-exposed as
+// callable endpoints to any client, so this must not live in an actions
+// file. Only src/app/api/cron/housekeeping-daily-reset/route.ts (CRON_SECRET
 // gated) may call this.
 //
 // Nightly: recurring GENERAL tasks (e.g. "Clean lobby") go back to TODO,

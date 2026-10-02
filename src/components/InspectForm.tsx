@@ -10,6 +10,7 @@ import { PhotoPicker } from "@/components/PhotoPicker";
 import { useItemSearch } from "@/components/useItemSearch";
 import { InspectSearchBar } from "@/components/InspectSearchBar";
 import { HighlightedText } from "@/components/HighlightedText";
+import { uploadTooLargeError, UPLOAD_FAILED_MESSAGE } from "@/lib/upload-limits";
 
 type Question = { id: string; text: string };
 type Section = { id: string; name: string; questions: Question[] };
@@ -109,6 +110,11 @@ export function InspectForm({
       })),
     };
 
+    const tooLarge = uploadTooLargeError(Object.values(photos).flat());
+    if (tooLarge) {
+      setError(tooLarge);
+      return;
+    }
     const form = new FormData();
     form.set("payload", JSON.stringify(payload));
     for (const [questionId, files] of Object.entries(photos)) {
@@ -118,7 +124,13 @@ export function InspectForm({
     }
 
     startTransition(async () => {
-      const res = await saveInspection(form);
+      let res: Awaited<ReturnType<typeof saveInspection>>;
+      try {
+        res = await saveInspection(form);
+      } catch {
+        setError(UPLOAD_FAILED_MESSAGE);
+        return;
+      }
       if (!res.ok) {
         setError(res.error ?? "Could not save inspection.");
         return;

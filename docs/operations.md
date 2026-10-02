@@ -31,13 +31,12 @@ existing email it re-attaches Super Admin but does **not** reset the password.)
 
 | Job | Code | What it does | If it doesn't run |
 |---|---|---|---|
-| Media retention sweep | `src/lib/jobs/housekeeping-sweep.ts` | Deletes `HousekeepingPhoto` rows + storage objects older than `retentionDays` (default 7) | Storage grows; nothing breaks |
 | Daily task reset | `src/lib/jobs/housekeeping-recurrence.ts` | `recurring` GENERAL tasks not in TODO → TODO, unassigned, all stamps cleared, checklist → PENDING | Yesterday's recurring tasks stay "Done" |
 
 Check them in Vercel → Project → Cron Jobs (last run, status). Trigger manually:
 
 ```bash
-curl -H "Authorization: Bearer $CRON_SECRET" https://dm-ops-production.vercel.app/api/cron/housekeeping-cleanup
+curl -H "Authorization: Bearer $CRON_SECRET" https://dm-ops-production.vercel.app/api/cron/housekeeping-daily-reset
 ```
 
 Both return JSON (`{ ok, deleted }` / `{ ok, reset }`); 401 means `CRON_SECRET` is
@@ -47,10 +46,9 @@ missing or wrong.
 
 - Single private bucket `inspection-photos`; prefixes: `inspections/`,
   `workflows/`, `housekeeping/` (see [architecture.md](architecture.md#6-pluggable-storage-driver)).
-- Housekeeping media is **transient by design**: deleted on approval
-  (`deleteOnApproval`), on rejection, and by the nightly sweep.
-- PM V1 inspection photos and workflow row photos are **permanent** (deleted only
-  by an admin action). Watch Supabase Storage usage on the free tier (1 GB).
+- All media is **kept until someone deletes it** (housekeeping too, since
+  2026-10-02 — it backs the room history). Watch Supabase Storage usage: the Free
+  plan has 1 GB, and housekeeping videos can be up to 50 MB each.
 - PM V2 has no photos.
 - Orphans: storage deletes are best-effort (logged, not thrown). Rare orphans can
   be cleaned by listing the bucket against `storagePath` columns.
@@ -91,7 +89,7 @@ There is no external error tracker or uptime monitor yet.
 | "prepared statement already exists" (42P05) | Pooler URL without pgbouncer params | `db.ts` adds them — check `DATABASE_URL` points to the pooler |
 | Deploy fails at `prisma db push` | Non-additive schema change, or `DIRECT_URL` missing | Make the change additive / set `DIRECT_URL` |
 | Deploy fails at seed | `SEED_ADMIN_PASSWORD` not set in Production | Set it |
-| Photos don't upload from phones | Large file vs. Vercel's ~4.5 MB body cap; HEIC not in bucket allow-list | See known-issues P1/HEIC |
+| Photos don't upload from phones | Housekeeping uploads go direct to Supabase: check the bucket exists and its size limit/allow-list (synced on deploy). Other forms: Vercel's ~4.5 MB cap | See features/housekeeping.md → Media |
 | Images broken on the board | Signed URL expired (board open > 6 h) or object swept | Refresh; check retention days |
 | A role can't see a service | Role lacks the catalog key (e.g. `pmv2:*` on older DBs) or not in `rolesAllowed` | Grant in Roles & permissions / service settings |
 | Can't assign a person to cleaning | They don't hold the HOUSEKEEPER role or are inactive | Add role in Staff |

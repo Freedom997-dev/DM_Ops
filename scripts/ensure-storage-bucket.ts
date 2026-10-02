@@ -10,16 +10,20 @@
  * the same condition storage.ts uses to fall back to its filesystem driver.
  */
 import { createClient } from "@supabase/supabase-js";
+import { MAX_IMAGE_BYTES, MAX_VIDEO_BYTES } from "../src/lib/upload-limits";
 
 const BUCKET = "inspection-photos";
 
-// Mirrors the per-upload limits enforced in src/lib/actions/*.ts.
-// 50 MB is the video ceiling; images are additionally capped at 10 MB there.
-const FILE_SIZE_LIMIT = 50 * 1024 * 1024;
+// Per-object ceiling = the larger of the app's image/video limits
+// (src/lib/upload-limits.ts). Browsers upload straight to this bucket, so the
+// bucket itself is what enforces the cap.
+const FILE_SIZE_LIMIT = Math.max(MAX_IMAGE_BYTES, MAX_VIDEO_BYTES);
 const ALLOWED_MIME = [
   "image/jpeg",
   "image/png",
   "image/webp",
+  "image/heic",
+  "image/heif",
   "video/mp4",
   "video/webm",
   "video/quicktime",
@@ -42,7 +46,14 @@ async function main() {
   if (listError) throw new Error(`Could not list buckets: ${listError.message}`);
 
   if (buckets?.some((b) => b.name === BUCKET)) {
-    console.log(`[storage] Bucket "${BUCKET}" already exists.`);
+    // Keep limits in sync with the app on every deploy (they only applied at creation before).
+    const { error: updateError } = await supabase.storage.updateBucket(BUCKET, {
+      public: false,
+      fileSizeLimit: FILE_SIZE_LIMIT,
+      allowedMimeTypes: ALLOWED_MIME,
+    });
+    if (updateError) throw new Error(`Could not update bucket "${BUCKET}": ${updateError.message}`);
+    console.log(`[storage] Bucket "${BUCKET}" exists — limits synced.`);
     return;
   }
 

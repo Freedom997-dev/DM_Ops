@@ -167,7 +167,7 @@ with permission keys `app:feature:action`. Production = Vercel + Supabase
 | `Cannot read properties of undefined (reading 'findMany')` after schema change | Dev server kept the old PrismaClient on `globalThis` | Restart dev server |
 | Feature works as admin, broken for staff | Super Admin bypasses `can()` | Test as a real role |
 | New user sees nothing / can't be assigned cleaning | Code reads `UserRole`, not deprecated `User.role` | Assign roles via Settings → Staff |
-| Upload silently fails | Server Action body limit (set to 55 MB in `next.config.mjs`) or Vercel 4.5 MB cap | See known-issues P1 |
+| Upload fails / "This page couldn't load" on submit | Housekeeping: signed upload URL or ticket problem (check browser network tab for the PUT). Other forms: Vercel 4.5 MB cap | See features/housekeeping.md → Media, known-issues P1 |
 | Preview deploy 500s | Previews have no DB env vars by design | Use previews for build validation only |
 | `next lint` errors | `next lint` was removed in Next 16 | See known-issues |
 | Hydration warning overlay in dev | Browser extensions (Grammarly) mutate `<body>` | Already suppressed; test in incognito |

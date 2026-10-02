@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import {
   Loader2, Check, X, Send, Play, CheckCircle2, Camera, Clock, ListChecks, Save, Minus, Trash2, ImageOff,
 } from "lucide-react";
@@ -9,10 +9,12 @@ import { HkMediaPicker } from "@/components/HkMediaPicker";
 import { PhotoLightbox } from "@/components/PhotoLightbox";
 import {
   startTask, submitForInspection, completeGeneralTask, reviewTask, saveTaskItems,
-  deleteHousekeepingTask,
+  deleteHousekeepingTask, requestHkMediaUploads,
 } from "@/lib/actions/housekeeping";
 import { HK_STATUS_META } from "@/lib/housekeeping";
-import { buildTimeline, type HkTaskView, type HkSubtask, type HkSubtaskStatus } from "@/lib/hk-view";
+import { buildTimeline, type HkTaskView, type HkSubtask, type HkSubtaskStatus, type HkPhotoView } from "@/lib/hk-view";
+import { UPLOAD_FAILED_MESSAGE } from "@/lib/upload-limits";
+import { uploadToSignedUrl } from "@/lib/direct-upload";
 
 const DOT_TONE: Record<string, string> = {
   slate: "bg-slate-400", amber: "bg-amber-500", sky: "bg-sky-500",
@@ -47,6 +49,10 @@ export function HkTaskPanel({
   const [saved, setSaved] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [pending, start] = useTransition();
+  const [uploadStatus, setUploadStatus] = useState<string | null>(null);
+  // Files already sent to storage -> their {storagePath, ticket}, so a retry
+  // after a failed submit (e.g. checklist not finished) doesn't re-upload them.
+  const uploadedRef = useRef(new Map<File, { storagePath: string; ticket: string }>());
 
   // Local subtask edit state (id -> {status, note}).
   const [subs, setSubs] = useState<Record<string, { status: HkSubtaskStatus; note: string | null }>>(
@@ -58,6 +64,37 @@ export function HkTaskPanel({
   const editable =
     caps.submit && (task.status === "READY_TO_CLEAN" || task.status === "IN_PROGRESS" || task.status === "TODO");
   const images = task.photos.filter((p) => p.mediaType === "IMAGE");
+
+  // Media is only added on submit. While a task is open again, everything
+  // attached came from an earlier round (a sent-back room, or a recurring daily
+  // task from a previous day); after a submit, anything older than that submit
+  // (minus clock slack) is from an earlier round.
+  const reopened = task.status === "READY_TO_CLEAN" || task.status === "IN_PROGRESS" || task.status === "TODO";
+  const submitCutoff = task.submittedAt ? new Date(task.submittedAt).getTime() - 60_000 : null;
+  const isEarlier = (p: HkPhotoView) =>
+    reopened || (submitCutoff !== null && new Date(p.createdAt).getTime() < submitCutoff);
+  // Newest first, capped: recurring daily tasks collect photos every day.
+  const EARLIER_SHOWN = 12;
+  const earlierAll = task.photos
+    .filter(isEarlier)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const earlierMedia = earlierAll.slice(0, EARLIER_SHOWN);
+  const currentMedia = task.photos.filter((p) => !isEarlier(p));
+
+  function renderMedia(p: HkPhotoView) {
+    return p.mediaType === "VIDEO" ? (
+      <video key={p.id} src={p.url} controls className="h-24 w-32 rounded-xl border border-slate-200 bg-black object-cover" />
+    ) : (
+      <button
+        key={p.id}
+        type="button"
+        onClick={() => setLightbox(images.findIndex((im) => im.id === p.id))}
+        className="h-20 w-20 overflow-hidden rounded-xl border border-slate-200 ring-1 ring-transparent transition hover:ring-brand-300"
+      >
+        <Thumb url={p.url} />
+      </button>
+    );
+  }
 
   function setSub(id: string, patch: Partial<{ status: HkSubtaskStatus; note: string | null }>) {
     setSubs((p) => ({ ...p, [id]: { ...p[id], ...patch } }));
@@ -101,19 +138,63 @@ export function HkTaskPanel({
   function doSubmit() {
     setError(null);
     if (isRoom && files.length === 0) { setError("Add at least one photo or video of the cleaned room."); return; }
-    const form = new FormData();
-    form.set("taskId", task.id);
-    files.forEach((f, i) => form.append(`media-${i}`, f, f.name));
     start(async () => {
-      // Persist checklist first, then submit/complete.
-      if (task.subtasks.length > 0) {
-        const s = await persistSubtasks();
-        if (!s.ok) { setError(s.error); return; }
+      try {
+        // Persist checklist first, then upload media, then submit/complete.
+        if (task.subtasks.length > 0) {
+          const s = await persistSubtasks();
+          if (!s.ok) { setError(s.error); return; }
+        }
+
+        const uploaded = await uploadMedia();
+        if (!uploaded.ok) { setError(uploaded.error); return; }
+
+        const form = new FormData();
+        form.set("taskId", task.id);
+        form.set("media", JSON.stringify(files.map((f) => uploadedRef.current.get(f))));
+        const res = isRoom ? await submitForInspection(form) : await completeGeneralTask(form);
+        if (!res.ok) { setError(res.error); return; }
+        uploadedRef.current.clear();
+        onDone();
+      } catch {
+        setError(UPLOAD_FAILED_MESSAGE);
+      } finally {
+        setUploadStatus(null);
       }
-      const res = isRoom ? await submitForInspection(form) : await completeGeneralTask(form);
-      if (!res.ok) { setError(res.error); return; }
-      onDone();
     });
+  }
+
+  // Photos/videos go straight from the phone to storage (not through the app
+  // server, which is capped at ~4.5 MB per request), one file at a time.
+  async function uploadMedia(): Promise<{ ok: true } | { ok: false; error: string }> {
+    const todo = files.filter((f) => !uploadedRef.current.has(f));
+    if (todo.length === 0) return { ok: true };
+
+    const targets = await requestHkMediaUploads(
+      task.id,
+      todo.map((f) => ({ name: f.name, type: f.type, size: f.size })),
+    );
+    if (!targets.ok) return targets;
+
+    const totalBytes = todo.reduce((sum, f) => sum + f.size, 0);
+    let doneBytes = 0;
+    for (let i = 0; i < todo.length; i++) {
+      const file = todo[i];
+      const target = targets.uploads[i];
+      const show = (loaded: number) =>
+        setUploadStatus(
+          `Uploading ${i + 1} of ${todo.length} · ${Math.round(((doneBytes + loaded) / totalBytes) * 100)}%`,
+        );
+      show(0);
+      try {
+        await uploadToSignedUrl(target.uploadUrl, file, show);
+      } catch (e) {
+        return { ok: false, error: e instanceof Error ? e.message : UPLOAD_FAILED_MESSAGE };
+      }
+      doneBytes += file.size;
+      uploadedRef.current.set(file, { storagePath: target.storagePath, ticket: target.ticket });
+    }
+    return { ok: true };
   }
 
   return (
@@ -153,23 +234,28 @@ export function HkTaskPanel({
         </div>
       )}
 
-      {/* --- Media (photos + videos) --- */}
-      {task.photos.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {task.photos.map((p) =>
-            p.mediaType === "VIDEO" ? (
-              <video key={p.id} src={p.url} controls className="h-24 w-32 rounded-xl border border-slate-200 bg-black object-cover" />
-            ) : (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => setLightbox(images.findIndex((im) => im.id === p.id))}
-                className="h-20 w-20 overflow-hidden rounded-xl border border-slate-200 ring-1 ring-transparent transition hover:ring-brand-300"
-              >
-                <Thumb url={p.url} />
-              </button>
-            ),
+      {/* --- Media (photos + videos) ---
+          Media is never auto-deleted, so a room that was sent back keeps its
+          earlier submission's photos; show them separately from the current one. */}
+      {earlierMedia.length > 0 && (
+        <div>
+          <div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">
+            {isRoom ? "Earlier submission (sent back)" : "Earlier days"}
+            {earlierAll.length > EARLIER_SHOWN && ` · latest ${EARLIER_SHOWN} of ${earlierAll.length}`}
+          </div>
+          <div className="flex flex-wrap gap-2 opacity-70">
+            {earlierMedia.map((p) => renderMedia(p))}
+          </div>
+        </div>
+      )}
+      {currentMedia.length > 0 && (
+        <div>
+          {earlierMedia.length > 0 && (
+            <div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">Latest submission</div>
           )}
+          <div className="flex flex-wrap gap-2">
+            {currentMedia.map((p) => renderMedia(p))}
+          </div>
         </div>
       )}
 
@@ -192,7 +278,7 @@ export function HkTaskPanel({
           <HkMediaPicker id={task.id} files={files} onChange={setFiles} />
           <button type="button" onClick={doSubmit} disabled={pending} className="btn-primary">
             {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : isRoom ? <Send className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
-            {isRoom ? "Submit for inspection" : "Mark done"}
+            {uploadStatus ?? (isRoom ? "Submit for inspection" : "Mark done")}
           </button>
         </div>
       )}

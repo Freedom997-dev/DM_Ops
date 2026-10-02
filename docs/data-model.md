@@ -189,12 +189,13 @@ requires every item `DONE` or `NA`.
 ### HousekeepingPhoto
 Task media (images **and** videos — table name kept for stability). `mediaType` =
 `IMAGE | VIDEO`, `storagePath`, dims/bytes, `uploadedById`. Cascade from task.
-Index on `createdAt` for the retention sweep. Deleted on approval (if enabled), on
-reject, and by the nightly sweep after `retentionDays`.
+Kept until a manager deletes it (single photo or whole task) — never auto-deleted
+since 2026-10-02, so it stays in the room history. `createdAt` also separates a
+sent-back submission's media from the latest one in the task panel.
 
 ### HousekeepingSetting (singleton, `id = "singleton"`)
-`deleteOnApproval` (default true), `retentionDays` (default 7), `instructions?`.
-Code falls back to defaults if the row is missing.
+`instructions?`. `deleteOnApproval` and `retentionDays` still exist as columns but
+are **unused** since 2026-10-02 (media is kept until deleted).
 
 ### HousekeepingStatusAction
 Check-out panel options: `label`, `order`, `archived`. At least one must remain active.

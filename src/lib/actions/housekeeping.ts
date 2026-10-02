@@ -4,16 +4,15 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireUser, can } from "@/lib/session";
 import { logAudit } from "@/lib/audit";
-import { uploadImage, deleteImages } from "@/lib/storage";
+import { deleteImages, createUploadUrl, getObjectInfo } from "@/lib/storage";
+import { signUploadTicket, verifyUploadTicket } from "@/lib/upload-ticket";
+import { MAX_IMAGE_BYTES, MAX_VIDEO_BYTES, MAX_FILES_PER_SUBMIT, formatMB } from "@/lib/upload-limits";
 import {
   hkPhotoPath,
   hkGeneralPhotoPath,
   isOpenStatus,
 } from "@/lib/housekeeping";
 import { ROLE_KEYS } from "@/lib/roles";
-
-const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10 MB
-const MAX_VIDEO_BYTES = 50 * 1024 * 1024; // 50 MB
 
 type Result = { ok: true } | { ok: false; error: string };
 
@@ -160,7 +159,11 @@ export async function deleteHousekeepingTask(taskId: string): Promise<Result> {
 
   const task = await prisma.housekeepingTask.findUnique({
     where: { id: taskId },
-    select: { id: true, kind: true, title: true, roomId: true, photos: { select: { storagePath: true } } },
+    select: {
+      id: true, kind: true, title: true, roomId: true,
+      room: { select: { number: true } },
+      photos: { select: { storagePath: true } },
+    },
   });
   if (!task) return { ok: false, error: "Task not found." };
 
@@ -173,7 +176,7 @@ export async function deleteHousekeepingTask(taskId: string): Promise<Result> {
     action: "DELETE",
     entity: "HousekeepingTask",
     entityId: taskId,
-    details: { kind: task.kind, title: task.title },
+    details: { kind: task.kind, title: task.title, roomId: task.roomId, roomNumber: task.room?.number ?? null },
   });
 
   refresh();
@@ -346,6 +349,55 @@ export async function startTask(taskId: string): Promise<Result> {
   return { ok: true };
 }
 
+// --- Direct uploads: issue signed upload URLs for a task's photos/videos ---
+// Media goes browser -> storage (Vercel caps function bodies at ~4.5 MB). The
+// browser asks for one URL per file, uploads, then sends only the returned
+// {storagePath, ticket} pairs with submitForInspection / completeGeneralTask.
+export type MediaUploadTarget = { storagePath: string; uploadUrl: string; ticket: string };
+
+export async function requestHkMediaUploads(
+  taskId: string,
+  files: { name: string; type: string; size: number }[],
+): Promise<{ ok: true; uploads: MediaUploadTarget[] } | { ok: false; error: string }> {
+  const user = await requireUser();
+  if (!can(user, "housekeeping:tasks:submit")) return { ok: false, error: "Not allowed." };
+  if (!Array.isArray(files) || files.length === 0) return { ok: false, error: "No files to upload." };
+  if (files.length > MAX_FILES_PER_SUBMIT) {
+    return { ok: false, error: `Too many files — up to ${MAX_FILES_PER_SUBMIT} per submit.` };
+  }
+
+  const task = await prisma.housekeepingTask.findUnique({
+    where: { id: taskId },
+    select: { kind: true, status: true, room: { select: { number: true } } },
+  });
+  if (!task) return { ok: false, error: "Task not found." };
+  const open = task.kind === "ROOM_CLEANING"
+    ? task.status === "READY_TO_CLEAN" || task.status === "IN_PROGRESS"
+    : task.status === "TODO" || task.status === "IN_PROGRESS";
+  if (!open) return { ok: false, error: "This task can't take new photos right now." };
+
+  for (const f of files) {
+    const err = mediaLimitError(f.name, f.type, f.size);
+    if (err) return { ok: false, error: err };
+  }
+
+  try {
+    const uploads = await Promise.all(
+      files.map(async (f) => {
+        const ext = extFromMime(f.type);
+        const storagePath = task.kind === "ROOM_CLEANING"
+          ? hkPhotoPath(task.room?.number ?? "unknown", ext)
+          : hkGeneralPhotoPath(ext);
+        const uploadUrl = await createUploadUrl(storagePath, signUploadTicket("local-upload", storagePath));
+        return { storagePath, uploadUrl, ticket: signUploadTicket(`hk-task:${taskId}`, storagePath) };
+      }),
+    );
+    return { ok: true, uploads };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Could not prepare the upload." };
+  }
+}
+
 // --- Housekeeper submits a cleaned ROOM for inspection (photos required) ---
 export async function submitForInspection(form: FormData): Promise<Result> {
   const user = await requireUser();
@@ -378,19 +430,15 @@ export async function submitForInspection(form: FormData): Promise<Result> {
     };
   }
 
-  const staged = stageMedia(form, (ext) => hkPhotoPath(task.room?.number ?? "unknown", ext));
-  if (!staged.ok) return { ok: false, error: staged.error };
-  if (staged.files.length === 0) return { ok: false, error: "Add at least one photo or video before submitting." };
-
-  const uploaded = await uploadStaged(staged.files);
-  if (!uploaded.ok) return { ok: false, error: uploaded.error };
+  const media = await collectUploadedMedia(form, taskId);
+  if (!media.ok) return { ok: false, error: media.error };
+  if (media.files.length === 0) return { ok: false, error: "Add at least one photo or video before submitting." };
+  const uploaded = { paths: media.files.map((m) => m.storagePath) };
 
   try {
     await prisma.$transaction(async (tx) => {
       await tx.housekeepingPhoto.createMany({
-        data: staged.files.map((s) => ({
-          taskId, storagePath: s.storagePath, mediaType: s.mediaType, bytes: s.file.size, uploadedById: user.id,
-        })),
+        data: media.files.map((m) => ({ taskId, ...m, uploadedById: user.id })),
       });
       // Optimistic lock on the status; stamp startedAt if the room was submitted
       // without ever entering In Progress so the timeline stays complete (F2).
@@ -436,19 +484,15 @@ export async function completeGeneralTask(form: FormData): Promise<Result> {
     return { ok: false, error: "This task is already done." };
   }
 
-  const staged = stageMedia(form, (ext) => hkGeneralPhotoPath(ext));
-  if (!staged.ok) return { ok: false, error: staged.error };
-
-  const uploaded = await uploadStaged(staged.files);
-  if (!uploaded.ok) return { ok: false, error: uploaded.error };
+  const media = await collectUploadedMedia(form, taskId);
+  if (!media.ok) return { ok: false, error: media.error };
+  const uploaded = { paths: media.files.map((m) => m.storagePath) };
 
   try {
     await prisma.$transaction(async (tx) => {
-      if (staged.files.length > 0) {
+      if (media.files.length > 0) {
         await tx.housekeepingPhoto.createMany({
-          data: staged.files.map((s) => ({
-            taskId, storagePath: s.storagePath, mediaType: s.mediaType, bytes: s.file.size, uploadedById: user.id,
-          })),
+          data: media.files.map((m) => ({ taskId, ...m, uploadedById: user.id })),
         });
       }
       const moved = await tx.housekeepingTask.updateMany({
@@ -492,10 +536,7 @@ export async function reviewTask(
 
   const task = await prisma.housekeepingTask.findUnique({
     where: { id: taskId },
-    include: {
-      room: { select: { number: true } },
-      photos: { select: { id: true, storagePath: true } },
-    },
+    include: { room: { select: { number: true } } },
   });
   if (!task) return { ok: false, error: "Task not found." };
   if (task.status !== "READY_FOR_INSPECTION") {
@@ -521,17 +562,8 @@ export async function reviewTask(
     if (rejected.count === 0) {
       return { ok: false, error: "This room just changed — refresh and try again." };
     }
-    // Clear the rejected submission's media so the re-cleaned room starts fresh
-    // and the tile's photo count reflects reality (F6). The reject note carries
-    // the reason forward; new evidence is captured on re-submit.
-    if (task.photos.length > 0) {
-      await deleteImages(task.photos.map((p) => p.storagePath));
-      await prisma.housekeepingPhoto.deleteMany({ where: { taskId } });
-      await logAudit({
-        userId: user.id, action: "DELETE", entity: "HousekeepingPhoto", entityId: taskId,
-        details: { reason: "rejected", count: task.photos.length },
-      });
-    }
+    // Media is kept (room history): the panel shows the rejected submission's
+    // photos as "Earlier submission" once the room is re-cleaned.
     await logAudit({
       userId: user.id, action: "UPDATE", entity: "HousekeepingTask", entityId: taskId,
       details: { roomNumber: task.room?.number, outcome: "REJECTED", note: trimmed.slice(0, 200) },
@@ -540,10 +572,7 @@ export async function reviewTask(
     return { ok: true };
   }
 
-  // APPROVE
-  const setting = await prisma.housekeepingSetting.findUnique({ where: { id: "singleton" } });
-  const deleteOnApproval = setting?.deleteOnApproval ?? true;
-
+  // APPROVE — media is kept until a manager deletes it (room history).
   // Optimistic lock: only approve if still awaiting inspection.
   const approved = await prisma.housekeepingTask.updateMany({
     where: { id: taskId, status: "READY_FOR_INSPECTION" },
@@ -557,15 +586,6 @@ export async function reviewTask(
   });
   if (approved.count === 0) {
     return { ok: false, error: "This room just changed — refresh and try again." };
-  }
-
-  if (deleteOnApproval && task.photos.length > 0) {
-    await deleteImages(task.photos.map((p) => p.storagePath));
-    await prisma.housekeepingPhoto.deleteMany({ where: { taskId } });
-    await logAudit({
-      userId: user.id, action: "DELETE", entity: "HousekeepingPhoto", entityId: taskId,
-      details: { reason: "deleteOnApproval", count: task.photos.length },
-    });
   }
 
   await logAudit({
@@ -599,7 +619,7 @@ export async function bulkReview(
 }
 
 // ===========================================================================
-// Admin — delete photo, settings, retention sweep
+// Admin — delete photo, settings
 // ===========================================================================
 
 export async function deleteHousekeepingPhoto(photoId: string): Promise<Result> {
@@ -620,28 +640,20 @@ export async function deleteHousekeepingPhoto(photoId: string): Promise<Result> 
 }
 
 export async function updateHousekeepingSettings(input: {
-  deleteOnApproval: boolean;
-  retentionDays: number;
   instructions: string;
 }): Promise<Result> {
   const user = await requireUser();
   if (!can(user, "housekeeping:settings:configure")) return { ok: false, error: "Not allowed." };
 
-  const days = Math.min(365, Math.max(1, Math.round(input.retentionDays)));
+  const instructions = input.instructions.trim().slice(0, 2000) || null;
   await prisma.housekeepingSetting.upsert({
     where: { id: "singleton" },
-    create: {
-      id: "singleton", deleteOnApproval: input.deleteOnApproval, retentionDays: days,
-      instructions: input.instructions.trim().slice(0, 2000) || null,
-    },
-    update: {
-      deleteOnApproval: input.deleteOnApproval, retentionDays: days,
-      instructions: input.instructions.trim().slice(0, 2000) || null,
-    },
+    create: { id: "singleton", instructions },
+    update: { instructions },
   });
   await logAudit({
     userId: user.id, action: "UPDATE", entity: "HousekeepingSetting", entityId: "singleton",
-    details: { deleteOnApproval: input.deleteOnApproval, retentionDays: days },
+    details: { instructions: !!instructions },
   });
   revalidatePath("/services/housekeeping");
   revalidatePath("/services/housekeeping/settings");
@@ -824,44 +836,59 @@ export async function hkCreateRoom(input: { number: string; name?: string }): Pr
 // Internal helpers
 // ===========================================================================
 
-type StagedFile = { file: File; storagePath: string; mediaType: "IMAGE" | "VIDEO" };
-
-// Validates media-* / image-* form entries (photos and videos) and builds a
-// storage path per file. `pathFor(ext)` returns the full storage path.
-function stageMedia(
-  form: FormData,
-  pathFor: (ext: string) => string,
-): { ok: true; files: StagedFile[] } | { ok: false; error: string } {
-  const files: StagedFile[] = [];
-  for (const [key, value] of form.entries()) {
-    if (!key.startsWith("media-") && !key.startsWith("image-")) continue;
-    if (!(value instanceof File)) continue;
-    const isImage = value.type.startsWith("image/");
-    const isVideo = value.type.startsWith("video/");
-    if (!isImage && !isVideo) return { ok: false, error: `Unsupported file: ${value.name}` };
-    if (isImage && value.size > MAX_IMAGE_BYTES) return { ok: false, error: `${value.name} exceeds 10 MB.` };
-    if (isVideo && value.size > MAX_VIDEO_BYTES) return { ok: false, error: `${value.name} exceeds 50 MB.` };
-    files.push({
-      file: value,
-      storagePath: pathFor(extFromMime(value.type)),
-      mediaType: isVideo ? "VIDEO" : "IMAGE",
-    });
-  }
-  return { ok: true, files };
+function mediaLimitError(name: string, type: string, size: number): string | null {
+  const isImage = type.startsWith("image/");
+  const isVideo = type.startsWith("video/");
+  if (!isImage && !isVideo) return `Unsupported file: ${name}`;
+  if (isImage && size > MAX_IMAGE_BYTES) return `${name} is over ${formatMB(MAX_IMAGE_BYTES)}.`;
+  if (isVideo && size > MAX_VIDEO_BYTES) return `${name} is over ${formatMB(MAX_VIDEO_BYTES)}.`;
+  return null;
 }
 
-async function uploadStaged(
-  files: StagedFile[],
-): Promise<{ ok: true; paths: string[] } | { ok: false; error: string }> {
-  const paths: string[] = [];
-  try {
-    for (const s of files) {
-      await uploadImage(s.storagePath, s.file, s.file.type);
-      paths.push(s.storagePath);
+type UploadedMedia = { storagePath: string; mediaType: "IMAGE" | "VIDEO"; bytes: number };
+
+// Reads the `media` JSON ([{storagePath, ticket}]) sent on submit, checks each
+// ticket was issued for this task, and confirms the object really landed in
+// storage. Size and type come from storage, not from the client. Objects that
+// fail the limits are deleted so they don't linger in the bucket.
+async function collectUploadedMedia(
+  form: FormData,
+  taskId: string,
+): Promise<{ ok: true; files: UploadedMedia[] } | { ok: false; error: string }> {
+  const raw = form.get("media");
+  let entries: { storagePath?: unknown; ticket?: unknown }[] = [];
+  if (typeof raw === "string" && raw) {
+    try {
+      entries = JSON.parse(raw);
+    } catch {
+      return { ok: false, error: "Invalid upload data." };
     }
-    return { ok: true, paths };
-  } catch (e) {
-    await deleteImages(paths);
-    return { ok: false, error: e instanceof Error ? e.message : "Upload failed." };
   }
+  if (!Array.isArray(entries)) return { ok: false, error: "Invalid upload data." };
+  if (entries.length > MAX_FILES_PER_SUBMIT) return { ok: false, error: "Too many files." };
+
+  const paths = new Set<string>();
+  for (const e of entries) {
+    if (typeof e.storagePath !== "string" || typeof e.ticket !== "string") {
+      return { ok: false, error: "Invalid upload data." };
+    }
+    if (!verifyUploadTicket(`hk-task:${taskId}`, e.storagePath, e.ticket)) {
+      return { ok: false, error: "Upload expired — remove the photos, add them again and resubmit." };
+    }
+    paths.add(e.storagePath);
+  }
+
+  const files: UploadedMedia[] = [];
+  for (const storagePath of paths) {
+    const info = await getObjectInfo(storagePath);
+    if (!info) return { ok: false, error: "A photo didn't finish uploading — please submit again." };
+    const type = info.contentType ?? "";
+    const err = mediaLimitError(storagePath.split("/").pop() ?? "file", type, info.size);
+    if (err) {
+      await deleteImages([storagePath]);
+      return { ok: false, error: err };
+    }
+    files.push({ storagePath, mediaType: type.startsWith("video/") ? "VIDEO" : "IMAGE", bytes: info.size });
+  }
+  return { ok: true, files };
 }

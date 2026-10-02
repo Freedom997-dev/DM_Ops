@@ -110,6 +110,52 @@ export async function deleteImages(paths: string[]) {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Direct (browser -> storage) uploads
+// ---------------------------------------------------------------------------
+// Large photos/videos can't pass through a Vercel function (~4.5 MB body cap),
+// so the browser uploads them straight to storage with a short-lived URL.
+
+/**
+ * Returns a URL the browser can PUT a multipart body (one file field) to.
+ * Supabase: a signed upload URL (valid 2 h, single object, no overwrite).
+ * Local: the dev-only /api/local-uploads route, authorised by `localToken`.
+ */
+export async function createUploadUrl(storagePath: string, localToken: string): Promise<string> {
+  if (supabase) {
+    const { data, error } = await supabase.storage.from(BUCKET).createSignedUploadUrl(storagePath);
+    if (error || !data?.signedUrl) {
+      throw new Error(`Could not create upload URL: ${error?.message ?? "no URL"}`);
+    }
+    return data.signedUrl;
+  }
+  const encoded = storagePath.split("/").map(encodeURIComponent).join("/");
+  return `/api/local-uploads/${encoded}?token=${encodeURIComponent(localToken)}`;
+}
+
+const MIME_BY_EXT: Record<string, string> = {
+  jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp",
+  heic: "image/heic", mp4: "video/mp4", webm: "video/webm", mov: "video/quicktime",
+};
+
+/** Size + type of a stored object, or null if it doesn't exist. */
+export async function getObjectInfo(
+  storagePath: string,
+): Promise<{ size: number; contentType: string | null } | null> {
+  if (supabase) {
+    const { data, error } = await supabase.storage.from(BUCKET).info(storagePath);
+    if (error || !data) return null;
+    return { size: Number(data.size ?? 0), contentType: data.contentType ?? null };
+  }
+  try {
+    const stat = await fs.stat(/*turbopackIgnore: true*/ resolveLocal(storagePath));
+    const ext = storagePath.split(".").pop()?.toLowerCase() ?? "";
+    return { size: stat.size, contentType: MIME_BY_EXT[ext] ?? null };
+  } catch {
+    return null;
+  }
+}
+
 /** Reads a locally-stored image. Used by the dev-only image API route. */
 export async function readLocalImage(storagePath: string): Promise<Buffer> {
   return fs.readFile(/*turbopackIgnore: true*/ resolveLocal(storagePath));

@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Camera, Images, Video, X, AlertTriangle } from "lucide-react";
+import { Camera, Images, Video, X, AlertTriangle, Loader2 } from "lucide-react";
+import { compressImage, formatMB, MAX_IMAGE_BYTES, MAX_VIDEO_BYTES } from "@/lib/upload-limits";
 
-const MAX_IMAGE = 10 * 1024 * 1024; // 10 MB
-const MAX_VIDEO = 50 * 1024 * 1024; // 50 MB
+// Media uploads go straight to storage, so these are per-file storage limits
+const MAX_IMAGE = MAX_IMAGE_BYTES;
+const MAX_VIDEO = MAX_VIDEO_BYTES;
 
 type Props = {
   id: string;
@@ -18,6 +20,7 @@ export function HkMediaPicker({ id, files, onChange }: Props) {
   const libraryInputRef = useRef<HTMLInputElement>(null);
   const [previews, setPreviews] = useState<{ url: string; video: boolean }[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [preparing, setPreparing] = useState(false);
 
   useEffect(() => {
     const items = files.map((f) => ({ url: URL.createObjectURL(f), video: f.type.startsWith("video/") }));
@@ -25,20 +28,27 @@ export function HkMediaPicker({ id, files, onChange }: Props) {
     return () => items.forEach((i) => URL.revokeObjectURL(i.url));
   }, [files]);
 
-  function handlePick(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handlePick(e: React.ChangeEvent<HTMLInputElement>) {
     setError(null);
-    const picked = Array.from(e.target.files ?? []);
+    const raw = Array.from(e.target.files ?? []);
+    e.target.value = "";
+    if (raw.length === 0) return;
+
+    // Shrink camera photos before they're queued, so the upload fits Vercel's cap
+    setPreparing(true);
+    const picked = await Promise.all(raw.map(compressImage));
+    setPreparing(false);
+
     const accepted: File[] = [];
     for (const f of picked) {
       const isImage = f.type.startsWith("image/");
       const isVideo = f.type.startsWith("video/");
       if (!isImage && !isVideo) { setError(`Skipped ${f.name}: not a photo or video.`); continue; }
-      if (isImage && f.size > MAX_IMAGE) { setError(`Skipped ${f.name}: over 10 MB.`); continue; }
-      if (isVideo && f.size > MAX_VIDEO) { setError(`Skipped ${f.name}: over 50 MB.`); continue; }
+      if (isImage && f.size > MAX_IMAGE) { setError(`Skipped ${f.name}: over ${formatMB(MAX_IMAGE)}.`); continue; }
+      if (isVideo && f.size > MAX_VIDEO) { setError(`Skipped ${f.name}: videos must be under ${formatMB(MAX_VIDEO)} — record a shorter clip.`); continue; }
       accepted.push(f);
     }
     onChange([...files, ...accepted]);
-    e.target.value = "";
   }
 
   function remove(index: number) {
@@ -132,7 +142,11 @@ export function HkMediaPicker({ id, files, onChange }: Props) {
           hidden
           onChange={handlePick}
         />
-        {files.length > 0 && (
+        {preparing ? (
+          <span className="inline-flex items-center gap-1 text-xs text-slate-500">
+            <Loader2 className="h-3 w-3 animate-spin" /> Preparing…
+          </span>
+        ) : files.length > 0 && (
           <span className="text-xs text-slate-500">{files.length} file{files.length === 1 ? "" : "s"}</span>
         )}
       </div>

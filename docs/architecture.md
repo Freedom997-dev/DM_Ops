@@ -206,7 +206,7 @@ GitHub main ──push──► Vercel build (npm run build:deploy)
                         └─ next build
                       ► Serverless functions ──► Supabase Postgres (pooled DATABASE_URL)
                                             └──► Supabase Storage (service-role key)
-Vercel Cron ──► /api/cron/housekeeping-cleanup, /api/cron/housekeeping-daily-reset
+Vercel Cron ──► /api/cron/housekeeping-daily-reset
 ```
 
 Details: [deployment.md](deployment.md).

@@ -6,7 +6,7 @@ import type { HkKind, HkStatus } from "@/lib/housekeeping";
 export type HkPerson = { id: string; name: string };
 
 export type HkMediaType = "IMAGE" | "VIDEO";
-export type HkPhotoView = { id: string; url: string; mediaType: HkMediaType };
+export type HkPhotoView = { id: string; url: string; mediaType: HkMediaType; createdAt: string };
 
 export type HkSubtaskStatus = "PENDING" | "DONE" | "NOT_DONE" | "NA";
 export type HkSubtask = {
@@ -59,6 +59,7 @@ export type HkCaps = {
   submit: boolean; // start / submit / complete
   review: boolean; // approve / reject
   admin: boolean; // settings, delete photos
+  history: boolean; // room history page (managers and above)
 };
 
 export type TimelineEvent = {
@@ -102,7 +103,7 @@ export function buildTimeline(t: HkTaskView): TimelineEvent[] {
     const rejected = t.status === "READY_TO_CLEAN" && !!t.reviewNote;
     ev.push({
       at: t.reviewedAt,
-      label: rejected ? "Sent back to clean" : "Approved — Ready to Rent",
+      label: rejected ? "Sent back to clean" : "Approved — Cleaned",
       who: t.reviewedByName,
       tone: rejected ? "red" : "emerald",
     });

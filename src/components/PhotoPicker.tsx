@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Camera, Images, X, AlertTriangle } from "lucide-react";
+import { Camera, Images, X, AlertTriangle, Loader2 } from "lucide-react";
+import { compressImage } from "@/lib/upload-limits";
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 const SOFT_WARN_AT = 20;
@@ -17,6 +18,7 @@ export function PhotoPicker({ questionId, files, onChange }: Props) {
   const libraryInputRef = useRef<HTMLInputElement>(null);
   const [previews, setPreviews] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [preparing, setPreparing] = useState(false);
 
   useEffect(() => {
     const urls = files.map((f) => URL.createObjectURL(f));
@@ -24,10 +26,16 @@ export function PhotoPicker({ questionId, files, onChange }: Props) {
     return () => urls.forEach((u) => URL.revokeObjectURL(u));
   }, [files]);
 
-  function handlePick(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handlePick(e: React.ChangeEvent<HTMLInputElement>) {
     setError(null);
-    const picked = Array.from(e.target.files ?? []);
-    if (picked.length === 0) return;
+    const raw = Array.from(e.target.files ?? []);
+    e.target.value = "";
+    if (raw.length === 0) return;
+
+    // Shrink camera photos before they're queued, so the upload fits Vercel's cap
+    setPreparing(true);
+    const picked = await Promise.all(raw.map(compressImage));
+    setPreparing(false);
 
     const accepted: File[] = [];
     for (const f of picked) {
@@ -42,7 +50,6 @@ export function PhotoPicker({ questionId, files, onChange }: Props) {
       accepted.push(f);
     }
     onChange([...files, ...accepted]);
-    e.target.value = "";
   }
 
   function remove(index: number) {
@@ -106,7 +113,11 @@ export function PhotoPicker({ questionId, files, onChange }: Props) {
           hidden
           onChange={handlePick}
         />
-        {files.length > 0 && (
+        {preparing ? (
+          <span className="inline-flex items-center gap-1 text-xs text-slate-500">
+            <Loader2 className="h-3 w-3 animate-spin" /> Preparing…
+          </span>
+        ) : files.length > 0 && (
           <span className="text-xs text-slate-500">{files.length} photo{files.length === 1 ? "" : "s"}</span>
         )}
       </div>

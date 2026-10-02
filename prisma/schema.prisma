@@ -397,6 +397,8 @@ model HousekeepingPhoto {
 
 model HousekeepingSetting {
   id               String   @id @default("singleton") // one row only
+  // Unused since 2026-10-02: media is kept until a manager deletes it (room
+  // history). Columns left in place so no migration is needed.
   deleteOnApproval Boolean  @default(true)
   retentionDays    Int      @default(7)
   instructions     String? // cleaning instructions shown to housekeepers

@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { Loader2, Save, X } from "lucide-react";
 import { PhotoPicker } from "@/components/PhotoPicker";
 import { saveRow, deleteRowImage } from "@/lib/actions/workflows";
+import { uploadTooLargeError, UPLOAD_FAILED_MESSAGE } from "@/lib/upload-limits";
 
 export type RowImage = {
   id: string;
@@ -45,6 +46,11 @@ export function WorkflowMatrixRowPanel({
       onClose();
       return;
     }
+    const tooLarge = uploadTooLargeError(files);
+    if (tooLarge) {
+      setError(tooLarge);
+      return;
+    }
     const form = new FormData();
     form.set("submissionId", submissionId);
     form.set("roomId", roomId);
@@ -54,7 +60,13 @@ export function WorkflowMatrixRowPanel({
     });
 
     startTransition(async () => {
-      const res = await saveRow(form);
+      let res: Awaited<ReturnType<typeof saveRow>>;
+      try {
+        res = await saveRow(form);
+      } catch {
+        setError(UPLOAD_FAILED_MESSAGE);
+        return;
+      }
       if (!res.ok) {
         setError(res.error);
         return;

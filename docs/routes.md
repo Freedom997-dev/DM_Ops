@@ -38,6 +38,7 @@ All `/services/*` and `/settings/*` pages also pass `proxy.ts` (signed in) and
 | `/settings/access` | Roles & permissions matrix; create/delete roles | `admin:roles:view` (+ add/update/delete) |
 | `/settings/rooms` | Shared room management (used by HK, workflows, V1) | `pm:rooms:view` (edit: `pm:rooms:update`) |
 | `/settings/services` | Workflow service catalog admin | `isAdmin` |
+| `/settings/rooms/[id]` | **Room history** — one timeline per room: cleanings (every round from the audit log, photos), Daily Cleanliness results, Room Condition findings, room edits, deleted tasks. Filters: type + period | `isManager` |
 | `/settings/activity` | Audit log viewer | `isManager` |
 
 Static segments `pm`, `pm-v2`, `housekeeping` take precedence over `[slug]`, so a
@@ -52,8 +53,8 @@ workflow must never use those slugs.
 | `/api/exports/repairs` | GET | PM V1 open repairs `.xlsx` | `pm:inspections:view` |
 | `/api/exports/status-report` | GET | PM V1 full status workbook (Summary, Rooms, Repairs, Awaiting verification) | `pm:inspections:view` |
 | `/api/local-images/[...path]` | GET | Dev-only file server for the FS storage driver; **404 when Supabase is configured** | `housekeeping:board:view` for `housekeeping/*`, else `pm:inspections:view`; 404 on deny |
-| `/api/cron/housekeeping-cleanup` | GET | Delete HK media older than `retentionDays` | `Bearer CRON_SECRET` (401 otherwise) |
-| `/api/cron/housekeeping-daily-reset` | GET | Reset recurring GENERAL tasks to TODO/unassigned | `Bearer CRON_SECRET` |
+| `/api/cron/housekeeping-daily-reset` | GET | Reset recurring GENERAL tasks to TODO/unassigned | `Bearer CRON_SECRET` (401 otherwise) |
+| `/api/local-uploads/[...path]` | PUT | Dev-only stand-in for a Supabase signed upload URL (direct uploads); **404 when Supabase is configured** | signed-in + valid upload token |
 
 Cron schedules live in `vercel.json` (UTC): cleanup `0 3 * * *`, reset `0 8 * * *`.
 
@@ -90,7 +91,8 @@ All are `"use server"`. Each re-checks auth itself. Return shape is
 | `reviewTask(id, APPROVE\|REJECT, note?)` | `housekeeping:cleaning:review` | Reject needs note, deletes media; approve may delete media |
 | `bulkReview(ids, outcome, note?)` | review | Loops `reviewTask` |
 | `deleteHousekeepingPhoto` | `housekeeping:settings:configure` | |
-| `updateHousekeepingSettings` | configure | deleteOnApproval, retentionDays, instructions |
+| `updateHousekeepingSettings` | configure | instructions |
+| `requestHkMediaUploads(taskId, files)` | `housekeeping:tasks:submit` | Signed upload URLs + tickets for direct-to-storage media |
 | `create/rename/archiveStatusAction` | configure | Keeps ≥1 active |
 | `create/rename/archiveTaskTemplate` | configure | |
 | `create/rename/archiveChecklistItem(templateId\|null, …)` | configure | null = room checklist |

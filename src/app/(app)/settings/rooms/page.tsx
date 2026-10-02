@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { prisma } from "@/lib/db";
-import { requirePermission, can } from "@/lib/session";
+import { requirePermission, can, isManager } from "@/lib/session";
 import { RoomsManager } from "@/components/RoomsManager";
 
 export const dynamic = "force-dynamic";
@@ -37,6 +37,7 @@ export default async function SettingsRoomsPage({
         initialEditId={sp.edit ?? null}
         basePath="/settings/rooms"
         pmLinks={false}
+        historyLinks={isManager(user)}
       />
     </div>
   );

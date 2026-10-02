@@ -1,16 +1,14 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Loader2, Save } from "lucide-react";
+import { Loader2, Save, ShieldCheck } from "lucide-react";
 import { updateHousekeepingSettings } from "@/lib/actions/housekeeping";
 
 export function HousekeepingSettingsForm({
   initial,
 }: {
-  initial: { deleteOnApproval: boolean; retentionDays: number; instructions: string };
+  initial: { instructions: string };
 }) {
-  const [deleteOnApproval, setDeleteOnApproval] = useState(initial.deleteOnApproval);
-  const [retentionDays, setRetentionDays] = useState(String(initial.retentionDays));
   const [instructions, setInstructions] = useState(initial.instructions);
   const [msg, setMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -19,11 +17,7 @@ export function HousekeepingSettingsForm({
   function save() {
     setError(null); setMsg(null);
     start(async () => {
-      const res = await updateHousekeepingSettings({
-        deleteOnApproval,
-        retentionDays: parseInt(retentionDays, 10) || 7,
-        instructions,
-      });
+      const res = await updateHousekeepingSettings({ instructions });
       if (!res.ok) { setError(res.error); return; }
       setMsg("Saved.");
     });
@@ -31,30 +25,15 @@ export function HousekeepingSettingsForm({
 
   return (
     <div className="card space-y-5 p-6">
-      <label className="flex items-start gap-3">
-        <input
-          type="checkbox"
-          checked={deleteOnApproval}
-          onChange={(e) => setDeleteOnApproval(e.target.checked)}
-          className="mt-0.5 h-4 w-4 rounded border-slate-300"
-        />
-        <span className="text-sm text-slate-700">
-          <span className="font-semibold">Delete photos on approval</span>
-          <span className="block text-slate-500">
-            Remove a room&rsquo;s photos as soon as it&rsquo;s approved (Ready to Rent). Keeps storage on the free tier.
+      <div className="flex items-start gap-3 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+        <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
+        <span>
+          <span className="font-semibold">Photos and videos are kept until someone deletes them.</span>
+          <span className="block text-emerald-800">
+            They stay with each room&rsquo;s history (approved or sent back). An admin can delete a single
+            photo from its viewer, or a manager can delete a whole task.
           </span>
         </span>
-      </label>
-
-      <div>
-        <label className="label">Delete photos older than (days)</label>
-        <input
-          type="number" min={1} max={365} className="input w-32"
-          value={retentionDays} onChange={(e) => setRetentionDays(e.target.value)}
-        />
-        <p className="mt-1 text-xs text-slate-500">
-          Safety sweep: photos past this age are removed daily, even if not yet approved.
-        </p>
       </div>
 
       <div>

@@ -5,7 +5,8 @@
 // against the live production Supabase database, and they don't carry the
 // production DB env vars anyway. So we gate the provisioning on VERCEL_ENV.
 //
-//   VERCEL_ENV=production  -> push schema, seed, ensure storage bucket
+//   VERCEL_ENV=production  -> push schema, seed (core + housekeeping defaults),
+//                             ensure storage bucket
 //   anything else          -> skip; the build continues with `next build`
 //
 // Runs during `vercel build` on Linux; kept dependency-free (Node built-ins).
@@ -20,9 +21,13 @@ if (env !== "production") {
 
 console.log("[provision-db] Production deploy — provisioning database…");
 try {
-  execSync("prisma db push && prisma db seed && tsx scripts/ensure-storage-bucket.ts", {
-    stdio: "inherit",
-  });
+  // seedHousekeeping only inserts defaults into empty tables, so it is safe on every deploy.
+  execSync(
+    "prisma db push && prisma db seed && tsx prisma/seedHousekeeping.ts && tsx scripts/ensure-storage-bucket.ts",
+    {
+      stdio: "inherit",
+    },
+  );
 } catch (err) {
   console.error("[provision-db] Provisioning failed.");
   process.exit(1);

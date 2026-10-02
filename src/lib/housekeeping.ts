@@ -51,7 +51,7 @@ export const HK_STATUS_META: Record<
     dot: "bg-violet-500", bar: "bg-violet-500", tone: "violet",
   },
   READY_TO_RENT: {
-    label: "Ready to Rent", short: "Ready",
+    label: "Cleaned", short: "Cleaned",
     chip: "bg-emerald-100 text-emerald-800 border-emerald-200",
     dot: "bg-emerald-500", bar: "bg-emerald-500", tone: "emerald",
   },

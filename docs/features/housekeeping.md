@@ -16,7 +16,7 @@ Built-in service (own tables, RBAC app `housekeeping`) — not a `WorkflowDefini
 | **Design spec** | [`superpowers/specs/2026-07-14-housekeeping-design.md`](../superpowers/specs/2026-07-14-housekeeping-design.md) (frozen) |
 | **Plan** | [`superpowers/plans/2026-07-14-housekeeping.md`](../superpowers/plans/2026-07-14-housekeeping.md) (frozen) |
 | **QA record** | [`history/2026-09-housekeeping-qa-status.md`](../history/2026-09-housekeeping-qa-status.md) |
-| **Routes** | `/services/housekeeping`, `/services/housekeeping/settings`, `/api/cron/housekeeping-cleanup`, `/api/cron/housekeeping-daily-reset` |
+| **Routes** | `/services/housekeeping`, `/services/housekeeping/settings`, `/settings/rooms/[id]` (room history), `/api/cron/housekeeping-daily-reset` |
 
 ## Task kinds & lifecycles
 
@@ -36,7 +36,12 @@ no inspection. If `recurring`, the nightly job resets it to `TODO`, unassigned,
 with its checklist back to `PENDING`.
 
 "Open" = any status other than `READY_TO_RENT` / `DONE`. A room can have only one
-open cleaning task (check-out skips busy rooms).
+open cleaning task (check-out skips busy rooms). `READY_TO_RENT` is shown to users as
+**"Cleaned"** (renamed 2026-10-02; the enum value is unchanged).
+
+**One card per room:** closed tasks stay on the board for 24 h, but a room's
+"Cleaned" card is hidden as soon as a newer task exists for that room (latest by
+`createdAt`), so a re-checked-out room never appears twice (housekeeping `page.tsx`).
 
 ## Permissions
 
@@ -95,16 +100,31 @@ Rules:
 
 ## Media (photos & videos)
 
-- `HousekeepingPhoto` with `mediaType` IMAGE | VIDEO. Images ≤ 10 MB, videos ≤ 50 MB
-  (server-validated; `media-*`/`image-*` FormData keys).
+- `HousekeepingPhoto` with `mediaType` IMAGE | VIDEO. Images ≤ 20 MB, videos ≤ 50 MB
+  (`src/lib/upload-limits.ts`; the bucket's `fileSizeLimit` is synced to match).
+- **Direct-to-storage upload** (media never passes through a Vercel function):
+  1. The picker compresses photos in the browser (≤ 1920px JPEG, `compressImage`).
+  2. On submit, `requestHkMediaUploads(taskId, files)` checks permission + task state and
+     returns per file a signed upload URL (`createUploadUrl` → Supabase
+     `createSignedUploadUrl`; locally `/api/local-uploads`) and an HMAC **ticket**
+     binding the path to the task (`src/lib/upload-ticket.ts`, 3 h TTL).
+  3. The browser PUTs each file (`src/lib/direct-upload.ts`, with progress), then calls
+     `submitForInspection` / `completeGeneralTask` with only `media` = `[{storagePath, ticket}]`.
+  4. The server verifies every ticket for that task and reads size/type from storage
+     (`getObjectInfo`) — client-reported sizes are never trusted.
+  Uploaded files are remembered client-side, so a retry (e.g. checklist not finished)
+  doesn't upload them again.
 - Paths: `housekeeping/<YYYY-MM>/<YYYY-MM-DD>/room-<n>/<cuid>.<ext>` or `…/task/<cuid>.<ext>`.
 - Upload-then-transact with rollback; transition uses an optimistic status lock.
-- Lifecycle — media is evidence, not an archive:
-  - **Reject** → the submission's media is deleted (fresh evidence on re-submit) (F6).
-  - **Approve** → deleted if `deleteOnApproval` (default on).
-  - **Nightly sweep** → anything older than `retentionDays` (default 7).
-  - Admin can delete a single item from the lightbox.
-- Production limit: Vercel's ~4.5 MB request cap — see known-issues **P1**.
+- Lifecycle — **kept until deleted** (since 2026-10-02; it feeds the room history):
+  - **Reject** → media is kept; the panel shows it as "Earlier submission (sent back)"
+    (photos older than the latest submit, or everything while the room is re-cleaned).
+    Replaces F6's delete-on-reject.
+  - **Approve** → media is kept. The old `deleteOnApproval` / retention sweep is gone.
+  - Admin can delete a single item from the lightbox; a manager deleting a task
+    deletes its media (the audit entry keeps the room id/number).
+  - Recurring daily tasks keep photos from earlier days ("Earlier days", latest 12 shown).
+- Supabase Free plan caps a single object at 50 MB; raise `MAX_VIDEO_BYTES` only on a paid plan.
 
 ## Assignment
 
@@ -131,7 +151,7 @@ Tabs (admin only):
 | Room checklist | Room-cleaning checklist items |
 | Templates | Daily-task templates and each template's checklist |
 | Rooms | Add a room (shared `Room` table) |
-| Retention | `deleteOnApproval`, `retentionDays`, cleaning **instructions** shown to housekeepers |
+| Photos & instructions | Note that media is kept until deleted; cleaning **instructions** shown to housekeepers |
 
 The tab strip scrolls horizontally on mobile with the active tab scrolled into view (F8).
 
@@ -139,7 +159,6 @@ The tab strip scrolls horizontally on mobile with the active tab scrolled into v
 
 | Route | UTC | Job module |
 |---|---|---|
-| `/api/cron/housekeeping-cleanup` | `0 3 * * *` | `src/lib/jobs/housekeeping-sweep.ts` |
 | `/api/cron/housekeeping-daily-reset` | `0 8 * * *` (~3–4 AM Eastern) | `src/lib/jobs/housekeeping-recurrence.ts` |
 
 Both require `Authorization: Bearer $CRON_SECRET`. Job code is deliberately *not*
@@ -173,7 +192,7 @@ seed** — see known-issues **HK-SEED**.
 ## Out of scope / ideas
 
 Booking/PMS-driven checkouts, notifications, SLA/overdue timers, per-housekeeper
-zones, long-term photo archive, CSV export, direct-to-storage upload (P1).
+zones, long-term photo archive, CSV export, resumable (TUS) uploads for very large videos.
 
 ## Change log
 
@@ -182,3 +201,6 @@ zones, long-term photo archive, CSV export, direct-to-storage upload (P1).
 - **2026-08-05** · Permissions moved to RBAC (`housekeeping:*`); sweep moved to `src/lib/jobs`.
 - **2026-08-06** · Recurring daily tasks + nightly reset; separate photo/video/library inputs.
 - **2026-09-11** · QA fixes F1–F11 (checklist gate, roster-only assignment, edit window, image fallbacks, reject clears media, daily-task count, mobile tabs, optimistic locks, bulk-review guard, larger labels); upload body limit; reset cron → 08:00 UTC.
+- **2026-10-02** · Photos/videos upload directly to Supabase via signed URLs (fixes production upload crash, P1); client-side photo compression; deploy now seeds housekeeping defaults; bucket limits + HEIC synced on deploy.
+- **2026-10-02** · Media kept until deleted (no delete on approve/reject, retention sweep + cron removed); **Room history** page `/settings/rooms/[id]` (managers+), linked from Settings → Rooms and the task drawer.
+- **2026-10-02** · "Ready to Rent" renamed "Cleaned" in the UI; board shows one card per room (old Cleaned card hidden once the room is re-checked-out).

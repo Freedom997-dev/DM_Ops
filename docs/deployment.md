@@ -85,7 +85,6 @@ vercel env add <NAME> production --sensitive   # sensitive values can't be read 
 
 | Path | Schedule | Local time (US Eastern) | Job |
 |---|---|---|---|
-| `/api/cron/housekeeping-cleanup` | `0 3 * * *` | ~11 PM / 10 PM | Delete HK media older than `retentionDays` |
 | `/api/cron/housekeeping-daily-reset` | `0 8 * * *` | ~4 AM / 3 AM | Reset recurring daily tasks to TODO, unassigned |
 
 Hobby-plan crons may fire any time within the scheduled hour.

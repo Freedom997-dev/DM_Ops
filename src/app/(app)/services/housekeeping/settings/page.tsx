@@ -50,18 +50,14 @@ export default async function HousekeepingSettingsPage() {
       </Link>
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Housekeeping — Settings</h1>
-        <p className="text-sm text-slate-500">Photo retention and cleaning instructions.</p>
+        <p className="text-sm text-slate-500">Check-out actions, checklists, rooms and cleaning instructions.</p>
       </div>
       <HkConfigManager
         statusActions={actions}
         taskTemplates={templates}
         roomChecklist={roomList}
         roomCount={roomCount}
-        retention={{
-          deleteOnApproval: setting?.deleteOnApproval ?? true,
-          retentionDays: setting?.retentionDays ?? 7,
-          instructions: setting?.instructions ?? "",
-        }}
+        retention={{ instructions: setting?.instructions ?? "" }}
       />
     </div>
   );

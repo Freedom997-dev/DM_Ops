@@ -121,7 +121,6 @@ route. Upload, preview and delete all work exactly as in production.
 ## Testing the cron jobs locally
 
 ```bash
-curl -H "Authorization: Bearer devsecret" http://localhost:3001/api/cron/housekeeping-cleanup
 curl -H "Authorization: Bearer devsecret" http://localhost:3001/api/cron/housekeeping-daily-reset
 ```
 

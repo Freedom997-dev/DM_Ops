@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowLeft, Settings, Sparkles } from "lucide-react";
 import { prisma } from "@/lib/db";
-import { requirePermission, can } from "@/lib/session";
+import { requirePermission, can, isManager } from "@/lib/session";
 import { getSignedUrl } from "@/lib/storage";
 import { type HkKind, type HkStatus } from "@/lib/housekeeping";
 import { ROLE_KEYS } from "@/lib/roles";
@@ -22,7 +22,7 @@ export default async function HousekeepingPage() {
 
   const [tasks, rooms, housekeepers, setting, statusActions, taskTemplates] = await Promise.all([
     prisma.housekeepingTask.findMany({
-      // Open tasks + anything closed today (so "Ready to Rent" / "Done" stay visible briefly).
+      // Open tasks + anything closed today (so "Cleaned" / "Done" stay visible briefly).
       where: {
         OR: [
           { status: { notIn: ["READY_TO_RENT", "DONE"] } },
@@ -36,7 +36,7 @@ export default async function HousekeepingPage() {
         createdBy: { select: { name: true } },
         submittedBy: { select: { name: true } },
         reviewedBy: { select: { name: true } },
-        photos: { select: { id: true, storagePath: true, mediaType: true } },
+        photos: { select: { id: true, storagePath: true, mediaType: true, createdAt: true } },
         items: { orderBy: { order: "asc" }, select: { id: true, label: true, status: true, note: true } },
       },
     }),
@@ -73,8 +73,22 @@ export default async function HousekeepingPage() {
     id: r.id, number: r.number, name: r.name, busy: openRoomIds.has(r.id),
   }));
 
+  // One card per room: a room's finished ("Cleaned") task is only shown while it
+  // is that room's latest task. Once the room is sent for cleaning again, the
+  // old finished card is hidden so the same room never appears twice.
+  // "Latest" = most recently created, not most recently updated.
+  const latestByRoom = new Map<string, (typeof tasks)[number]>();
+  for (const t of tasks) {
+    if (t.kind !== "ROOM_CLEANING" || !t.roomId) continue;
+    const cur = latestByRoom.get(t.roomId);
+    if (!cur || t.createdAt > cur.createdAt) latestByRoom.set(t.roomId, t);
+  }
+  const boardTasks = tasks.filter(
+    (t) => t.kind !== "ROOM_CLEANING" || t.status !== "READY_TO_RENT" || !t.roomId || latestByRoom.get(t.roomId) === t,
+  );
+
   const taskViews: HkTaskView[] = await Promise.all(
-    tasks.map(async (t) => ({
+    boardTasks.map(async (t) => ({
       id: t.id,
       kind: t.kind as HkKind,
       title: t.title,
@@ -102,6 +116,7 @@ export default async function HousekeepingPage() {
           id: p.id,
           url: await getSignedUrl(p.storagePath, PHOTO_URL_TTL),
           mediaType: (p.mediaType === "VIDEO" ? "VIDEO" : "IMAGE") as "IMAGE" | "VIDEO",
+          createdAt: p.createdAt.toISOString(),
         })),
       ),
       subtasks: t.items.map((it) => ({
@@ -160,6 +175,7 @@ export default async function HousekeepingPage() {
           submit: can(user, "housekeeping:tasks:submit"),
           review: can(user, "housekeeping:cleaning:review"),
           admin: can(user, "housekeeping:settings:configure"),
+          history: isManager(user),
         }}
         currentUserId={user.id}
       />

@@ -22,7 +22,7 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: "roomChecklist", label: "Room checklist" },
   { key: "templates", label: "Task templates" },
   { key: "rooms", label: "Rooms" },
-  { key: "retention", label: "Retention" },
+  { key: "retention", label: "Photos & instructions" },
 ];
 
 export function HkConfigManager({
@@ -36,7 +36,7 @@ export function HkConfigManager({
   taskTemplates: HkTemplateWithChecklist[];
   roomChecklist: HkChecklistItem[];
   roomCount: number;
-  retention: { deleteOnApproval: boolean; retentionDays: number; instructions: string };
+  retention: { instructions: string };
 }) {
   const [tab, setTab] = useState<TabKey>("checkout");
   const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});

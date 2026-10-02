@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import clsx from "clsx";
 import {
   BedDouble, Sparkles, DoorOpen, Plus, Wand2, UserPlus, X, Loader2,
-  CheckCircle2, Clock3, ClipboardCheck, ShieldCheck, Users, Check,
+  CheckCircle2, Clock3, ClipboardCheck, ShieldCheck, Users, Check, History,
 } from "lucide-react";
 import { HK_STATUS_META, taskLabel, type HkStatus } from "@/lib/housekeeping";
 import type { HkTaskView, HkRoomOption, HkPerson, HkCaps, HkStatusAction, HkTaskTemplate } from "@/lib/hk-view";
@@ -23,7 +24,7 @@ const SUMMARY: { key: Filter; label: string; icon: React.ReactNode; tone: string
   { key: "READY_TO_CLEAN", label: "To Clean", icon: <DoorOpen className="h-5 w-5" />, tone: "amber" },
   { key: "IN_PROGRESS", label: "In Progress", icon: <Clock3 className="h-5 w-5" />, tone: "sky" },
   { key: "READY_FOR_INSPECTION", label: "For Inspection", icon: <ClipboardCheck className="h-5 w-5" />, tone: "violet" },
-  { key: "READY_TO_RENT", label: "Ready to Rent", icon: <ShieldCheck className="h-5 w-5" />, tone: "emerald" },
+  { key: "READY_TO_RENT", label: "Cleaned", icon: <ShieldCheck className="h-5 w-5" />, tone: "emerald" },
   { key: "general", label: "Daily Tasks", icon: <Sparkles className="h-5 w-5" />, tone: "slate" },
 ];
 
@@ -199,7 +200,11 @@ export function HousekeepingDashboard({
 
       {/* ---- Drawer: task detail + actions + timeline ---- */}
       {openTask && (
-        <Drawer onClose={() => setOpenId(null)} task={openTask}>
+        <Drawer
+          onClose={() => setOpenId(null)}
+          task={openTask}
+          historyHref={caps.history && openTask.roomId ? `/settings/rooms/${openTask.roomId}` : null}
+        >
           <HkTaskPanel
             task={openTask}
             caps={{ submit: caps.submit, review: caps.review, manage: caps.manage }}
@@ -214,6 +219,7 @@ export function HousekeepingDashboard({
           rooms={rooms}
           housekeepers={housekeepers}
           statusActions={statusActions}
+          canConfigure={caps.admin}
           onClose={() => setModal(null)}
           onDone={() => { setModal(null); router.refresh(); }}
         />
@@ -320,10 +326,11 @@ function TaskTile({
 // Drawer
 // ===========================================================================
 function Drawer({
-  task, onClose, children,
+  task, onClose, historyHref, children,
 }: {
   task: HkTaskView;
   onClose: () => void;
+  historyHref: string | null;
   children: React.ReactNode;
 }) {
   const meta = HK_STATUS_META[task.status];
@@ -339,6 +346,14 @@ function Drawer({
             <div className="text-lg font-bold">{taskLabel(task)}</div>
             <div className="text-xs font-semibold opacity-80">{meta.label}</div>
           </div>
+          {historyHref && (
+            <Link
+              href={historyHref}
+              className="ml-auto mr-2 inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold hover:bg-black/10"
+            >
+              <History className="h-4 w-4" /> Room history
+            </Link>
+          )}
           <button onClick={onClose} className="rounded-lg p-1.5 hover:bg-black/10" aria-label="Close">
             <X className="h-5 w-5" />
           </button>
@@ -416,11 +431,12 @@ function HousekeeperSelect({
 // Modals
 // ===========================================================================
 function CheckoutModal({
-  rooms, housekeepers, statusActions, onClose, onDone,
+  rooms, housekeepers, statusActions, canConfigure, onClose, onDone,
 }: {
   rooms: HkRoomOption[];
   housekeepers: HkPerson[];
   statusActions: HkStatusAction[];
+  canConfigure: boolean;
   onClose: () => void;
   onDone: () => void;
 }) {
@@ -502,6 +518,12 @@ function CheckoutModal({
           <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
             Update status {sel.size > 0 && `· ${sel.size} room${sel.size === 1 ? "" : "s"}`}
           </div>
+          {statusActions.length === 0 && (
+            <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
+              No status actions are set up yet, so rooms can&apos;t be sent for cleaning.{" "}
+              {canConfigure ? "Add one (e.g. “Checkout”) in Housekeeping settings." : "Ask an admin to add one in Housekeeping settings."}
+            </p>
+          )}
           <div className="flex flex-wrap gap-2">
             {statusActions.map((a, i) => (
               <button
@@ -515,7 +537,17 @@ function CheckoutModal({
               </button>
             ))}
           </div>
-          <p className="mt-2 text-xs text-slate-400">Manage this list &amp; add rooms in Housekeeping settings.</p>
+          <p className="mt-2 text-xs text-slate-400">
+            Manage this list &amp; add rooms in{" "}
+            {canConfigure ? (
+              <Link href="/services/housekeeping/settings" className="font-semibold text-brand-600 hover:underline">
+                Housekeeping settings
+              </Link>
+            ) : (
+              "Housekeeping settings"
+            )}
+            .
+          </p>
         </div>
       </div>
     </ModalShell>

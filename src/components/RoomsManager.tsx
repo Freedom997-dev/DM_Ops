@@ -9,6 +9,7 @@ import {
   Archive,
   ArchiveRestore,
   ClipboardCheck,
+  History,
   Pencil,
   Plus,
   Search,
@@ -39,6 +40,7 @@ export function RoomsManager({
   initialEditId,
   basePath = "/services/pm/rooms",
   pmLinks = true,
+  historyLinks = false,
 }: {
   rooms: Room[];
   isAdmin: boolean;
@@ -48,6 +50,8 @@ export function RoomsManager({
   basePath?: string;
   /** Show PM V1 status badge, last-inspected line and inspect/detail links. */
   pmLinks?: boolean;
+  /** Link each room to its history timeline (managers and above). */
+  historyLinks?: boolean;
 }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
@@ -133,7 +137,9 @@ export function RoomsManager({
               key={room.id}
               className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
             >
-              <MaybeLink href={pmLinks ? `/services/pm/rooms/${room.id}` : null}>
+              <MaybeLink
+                href={pmLinks ? `/services/pm/rooms/${room.id}` : historyLinks ? `/settings/rooms/${room.id}` : null}
+              >
                 <div className="flex h-11 w-11 flex-col items-center justify-center rounded-xl bg-slate-100 text-sm font-bold text-slate-700">
                   {room.number}
                 </div>
@@ -155,6 +161,15 @@ export function RoomsManager({
               </MaybeLink>
 
               <div className="flex items-center gap-2">
+                {historyLinks && (
+                  <Link
+                    href={`/settings/rooms/${room.id}`}
+                    className="btn-secondary px-3 py-2"
+                    title="Room history"
+                  >
+                    <History className="h-4 w-4" />
+                  </Link>
+                )}
                 {pmLinks && room.status && (
                   <>
                     <RoomStatusBadge status={room.status} />
