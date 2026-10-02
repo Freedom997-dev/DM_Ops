@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { Fragment, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import clsx from "clsx";
-import { Check, Loader2, LockOpen, Printer, RefreshCw } from "lucide-react";
+import { Check, ChevronDown, Loader2, LockOpen, Printer, RefreshCw } from "lucide-react";
 import { WorkflowCellButton, type CellStatus } from "@/components/WorkflowCellButton";
 import { WorkflowNoteCell } from "@/components/WorkflowNoteCell";
 import { WorkflowMatrixRowPanel, type RowImage } from "@/components/WorkflowMatrixRowPanel";
@@ -264,7 +264,7 @@ export function WorkflowMatrix({
         <table className="border-separate border-spacing-0">
           <thead>
             <tr>
-              <th className="sticky left-0 top-0 z-30 min-w-[100px] border-b border-r border-slate-200 bg-slate-50 px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-slate-600">
+              <th className="sticky left-0 top-0 z-30 w-14 min-w-[56px] border-b border-r border-slate-200 bg-slate-50 px-1 py-2 text-center text-[11px] font-bold uppercase text-slate-600">
                 Room
               </th>
               {items.map((item) => (
@@ -296,11 +296,11 @@ export function WorkflowMatrix({
               const isOpen = openRoomId === room.id;
               const row = rowMap.get(room.id);
               return (
-                <>
-                  <tr key={room.id} className={clsx(isOpen && "bg-amber-50")}>
+                <Fragment key={room.id}>
+                  <tr className={clsx(isOpen && "bg-amber-50")}>
                     <th
                       className={clsx(
-                        "sticky left-0 z-10 border-b border-r border-slate-200 px-3 py-2 text-left",
+                        "sticky left-0 z-10 w-14 min-w-[56px] border-b border-r border-slate-200 px-1 py-2 text-center",
                         isOpen ? "bg-amber-50" : "bg-white",
                       )}
                     >
@@ -310,10 +310,20 @@ export function WorkflowMatrix({
                           await ensureSubmission();
                           handleOpenRoom(room.id);
                         }}
-                        className="block w-full text-left"
+                        className="flex w-full flex-col items-center"
+                        title={room.name ?? undefined}
+                        aria-expanded={isOpen}
+                        aria-label={`Room ${room.number} photos`}
                       >
-                        <div className="text-sm font-bold text-slate-900">{room.number}</div>
-                        {room.name && <div className="text-[11px] text-slate-500">{room.name}</div>}
+                        <span className="text-sm font-bold text-slate-900">{room.number}</span>
+                        <ChevronDown
+                          className={clsx(
+                            "no-print mt-0.5 h-5 w-5 rounded-md border p-0.5 transition-transform",
+                            isOpen
+                              ? "rotate-180 border-amber-300 bg-amber-100 text-amber-700"
+                              : "border-slate-200 text-slate-400",
+                          )}
+                        />
                       </button>
                     </th>
                     {items.map((item) => {
@@ -368,7 +378,7 @@ export function WorkflowMatrix({
                       </td>
                     </tr>
                   )}
-                </>
+                </Fragment>
               );
             })}
           </tbody>
