@@ -1,32 +1,38 @@
 # Features
 
-Index of shipped features. Each feature has its own doc with purpose, roles, routes, data model touchpoints, key files, and behavior notes.
+One living doc per feature: purpose, permissions, routes, data touchpoints, key
+files, behaviour notes and a change log.
 
-## Shipped (Live in production)
-
-| Feature | Doc | Status |
-|---|---|---|
-| Room Condition Inspection | [room-condition-inspection.md](room-condition-inspection.md) | Live (now under `/services/pm/*`) |
-| Inspection Photo Evidence | [inspection-photos.md](inspection-photos.md) | Live |
-| Platform Foundation + Daily Cleanliness | [platform-foundation.md](platform-foundation.md) | Live — Okta-style `/services` + `/settings`, matrix, RBAC, reopen, print-to-PDF |
-| PM Inspect — Item Search | [pm-item-search.md](pm-item-search.md) | Live — Ctrl+F "find on page" for the 95-item inspect form |
-| Housekeeping Tracking (HKT) | [housekeeping.md](housekeeping.md) | Built on `HKT` — flexible room + daily tasks, assignment (manual + auto), photo/inspection flow, activity timeline, configurable status actions + task templates, retention |
-
-## In development
+## Live
 
 | Feature | Doc | Status |
 |---|---|---|
-| Room Condition V2 (Beta) | [pm-v2.md](pm-v2.md) | On `feature/pm-v2` — quarterly per-area inspections rebuilt from the Claude artifact; runs beside V1 |
+| Room Condition V2 (Beta) | [pm-v2.md](pm-v2.md) | Live on portal — current PM tool |
+| Housekeeping (HKT) | [housekeeping.md](housekeeping.md) | Live |
+| Platform Foundation + Daily Cleanliness | [platform-foundation.md](platform-foundation.md) | Live — `/services`, `/settings`, workflow matrix |
+| RBAC & Security | [rbac-and-security.md](rbac-and-security.md) | Live |
 
-## Backlog (deferred)
+## Retained but hidden (PM V1)
 
-- **Per-room status timeline** — append-only, tamper-evident log of every room status transition (SHA-256 hash chaining). Would consume the chatty `WorkflowCell` audit entries.
-- **CSV/Excel export** of submissions (print-to-PDF already shipped).
+| Feature | Doc | Status |
+|---|---|---|
+| Room Condition Inspection | [room-condition-inspection.md](room-condition-inspection.md) | Hidden from portal since 2026-09-30; routable |
+| Inspection Photo Evidence | [inspection-photos.md](inspection-photos.md) | Part of PM V1 |
+| PM Inspect — Item Search | [pm-item-search.md](pm-item-search.md) | Part of PM V1 |
+
+## Backlog / ideas
+
+- Direct-to-storage uploads for large media (known-issues P1)
+- PM V2: photos, quarter-to-quarter carry-forward, per-room history
+- Retire PM V1 ([checklist](pm-v2.md#removing-v1-later))
+- Create workflow services from the UI; Excel export for workflow submissions
+- Per-room status timeline across services (the chatty per-cell audit entries were designed to feed it)
+- Notifications (e.g. room ready to inspect)
 
 ## Authoring a new feature doc
 
-1. Copy [`_template.md`](_template.md) to `<feature-name>.md`.
-2. Fill in every section. Leave a section out only if it genuinely doesn't apply.
-3. Add a row to the table above.
-4. Cross-link from `architecture.md` if the feature introduces a new architectural pattern.
-5. Update this README's table when the feature ships.
+1. Copy [`_template.md`](_template.md) to `<feature-name>.md` and fill every section that applies.
+2. Add a row above and a line in [../changelog.md](../changelog.md).
+3. Update [../routes.md](../routes.md), [../data-model.md](../data-model.md) and
+   [../roles-and-permissions.md](../roles-and-permissions.md) as needed.
+4. Link from [../architecture.md](../architecture.md) if it introduces a new pattern.

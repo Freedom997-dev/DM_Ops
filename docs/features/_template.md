@@ -5,20 +5,19 @@ One-paragraph summary: what it does and why it exists.
 ## Status
 
 | | |
-|---|---|
+|---|---|---|
 | **Shipped on** | YYYY-MM-DD |
 | **Design spec** | `docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md` |
 | **Implementation plan** | `docs/superpowers/plans/YYYY-MM-DD-<topic>.md` |
 | **Live URL path(s)** | `/example` |
 
-## Roles
+## Permissions
 
-Who uses this feature and what they can do.
+Which RBAC permission keys (`app:feature:action`) gate this feature, and which default roles hold them.
 
-| Role | What they can do |
-|---|---|
-| ADMIN | … |
-| INSPECTOR | … |
+| Permission | Allows | Default roles |
+|---|---|---|
+| `app:feature:view` | … | Admin, … |
 
 ## Routes
 
@@ -51,7 +50,7 @@ Non-obvious behaviors a future reader should know:
 
 ## Auth gates
 
-How auth is enforced for this feature. Middleware? Layout guard? Per-action `requireAdmin()`?
+Which guard each page and action uses (`requirePermission`, `requireWorkflowAccess`, …). Every server action must re-check.
 
 ## Storage / external services
 

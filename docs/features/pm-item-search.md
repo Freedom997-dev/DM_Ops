@@ -48,3 +48,4 @@ UX enhancement.
 ## Change log
 
 - **2026-07-19** — Shipped (spec: `docs/superpowers/specs/2026-07-19-pm-item-search-design.md`).
+- **2026-09-30** — PM V1 hidden from the portal; feature remains in the V1 inspect form.

@@ -1,70 +1,36 @@
-# Divya Motel — Operations Platform
+# DM Ops — Divya Motel Operations
 
-A digital operations platform for Divya Motel. It began as a paper-checklist
-replacement for room condition inspections and has grown into an Okta-style
-service catalog: staff pick a service (Room Condition, Housekeeping, Daily
-Cleanliness…) from `/services`, gated by role. Every inspection, cleaning, and
-change is stored permanently.
+A mobile-friendly operations portal for Divya Motel. Staff sign in, see the
+services their role allows, and run them:
 
-## Services
+- **Room Condition V2** — quarterly inspections of every room and common area, repair list, PDF/Excel/WhatsApp reports
+- **Housekeeping** — live board for room turnover and daily tasks with assignment, checklists, photo evidence and inspector approval
+- **Daily Cleanliness** — rooms × items matrix, one submission per day
+- **Settings** — staff, roles & permissions, rooms, services, activity log
 
-- **Room Condition (PM)** — color-coded dashboard of every room; tap through a
-  95-item checklist per room (OK / Needs Repair / Fixed / N/A), with photos,
-  carry-forward of open repairs, item search, and Excel exports.
-- **Housekeeping (HKT)** — live board for room turnover **and** daily tasks;
-  assign work (manual or balanced auto-assign), clean → submit photos → inspect →
-  approve, with an activity timeline and admin-editable status actions, task
-  templates, and photo retention.
-- **Daily Cleanliness** (and future workflows) — a generic rooms × items matrix
-  built on the platform Foundation.
-- **Settings** — staff, service access (RBAC), service catalog, and an activity log.
+**Stack:** Next.js 16 (App Router) · TypeScript · Tailwind · Prisma 5 · Postgres
+(Supabase) · NextAuth · Supabase Storage · Vercel.
+**Production:** https://dm-ops-production.vercel.app (deploys from `main`).
 
-**Roles:** `ADMIN · MANAGER · INSPECTOR · HOUSEKEEPER`. Passwords are bcrypt-hashed;
-every page and action is protected server-side. Mobile-responsive throughout.
-
-## Tech stack
-
-- **Next.js 14** (App Router) + **TypeScript** + **Tailwind CSS** + lucide-react
-- **Prisma 5** ORM on **Postgres** (Supabase in production, Docker locally)
-- **NextAuth** — credentials login, JWT sessions, role-based access
-- **Supabase Storage** for photos in production; a **local filesystem driver** in dev
-- Hosted on **Vercel**; a daily **cron** sweeps expired housekeeping photos
-
-## Run it locally
-
-Full walkthrough: **[docs/getting-started.md](docs/getting-started.md)**. In short:
+## Quick start
 
 ```bash
-docker compose up -d               # Postgres on localhost:5433
+docker compose up -d                 # Postgres on localhost:5433
 npm install
-npx prisma db push                 # create tables
-npx tsx prisma/seed.ts             # admin + PM checklist + sample rooms
-npx tsx prisma/seedWorkflows.ts    # Daily Cleanliness workflow
-npx tsx prisma/seedHousekeeping.ts # housekeeping config
-npm run dev                        # http://localhost:3000
+# create .env.local — see docs/getting-started.md
+export DATABASE_URL="postgresql://postgres:devpass@localhost:5433/divya?sslmode=disable"
+export DIRECT_URL="$DATABASE_URL"
+npx prisma db push
+npx tsx prisma/seed.ts
+npx tsx prisma/seedHousekeeping.ts
+npm run dev -- -p 3001               # http://localhost:3001
 ```
 
-**Default admin login:** `admin@divyamotel.com` / `ChangeMe123!`
+Local login: `admin@divyamotel.com` / `ChangeMe123!`
 
 ## Documentation
 
-The `docs/` folder is the living reference:
+**All documentation lives in [`docs/`](docs/README.md).** Start there.
 
-| Doc | What's in it |
-|---|---|
-| [docs/README.md](docs/README.md) | Docs index + update discipline |
-| [getting-started.md](docs/getting-started.md) | Local setup, scripts, gotchas |
-| [architecture.md](docs/architecture.md) | Stack, patterns, hosting, env vars |
-| [data-model.md](docs/data-model.md) | Every Prisma model + relations/cascades |
-| [routes.md](docs/routes.md) | Every page & API route + access |
-| [roles-and-permissions.md](docs/roles-and-permissions.md) | RBAC reference |
-| [features/](docs/features/README.md) | One doc per shipped feature |
-| [DEPLOYMENT.md](DEPLOYMENT.md) | Production deploy (Vercel + Supabase) |
-
-## Security notes
-
-- Passwords hashed with bcrypt (cost 12); plaintext is never stored.
-- Three-layer auth: middleware gate → `requireUser()` per page → role checks in
-  pages and server actions. See [roles-and-permissions.md](docs/roles-and-permissions.md).
-- `SUPABASE_SERVICE_ROLE_KEY` / `NEXTAUTH_SECRET` / `CRON_SECRET` are server-only.
-- `.env.local` and local storage/DB artifacts are git-ignored.
+- Humans: [docs/README.md](docs/README.md) → reading order
+- AI agents: [docs/AI_GUIDE.md](docs/AI_GUIDE.md) first

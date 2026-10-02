@@ -1,3 +1,5 @@
+> **Frozen historical record** of the Sep 2026 Housekeeping QA. Open items from it are tracked in [../known-issues.md](../known-issues.md). Do not edit.
+
 # Housekeeping (HKT) — QA Bug Status
 
 Snapshot of every bug/finding raised during the Housekeeping mobile QA, with fix

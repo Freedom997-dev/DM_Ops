@@ -1,88 +1,85 @@
 # Platform Foundation + Daily Cleanliness Inspection
 
-The Foundation layer turns the app from a single-purpose PM checklist tool into an **Okta-style multi-service operations platform**. It introduces generic `Workflow*` models, role expansion (Manager, Housekeeper), a service catalog landing page, per-service settings, and one global settings area. The first service built on the new pattern is **Daily Cleanliness Inspection** — a matrix grid (rooms × ~18 items) with single cycling-checkbox cells and per-row notes + photos.
+The Foundation layer turned the app from a single-purpose PM checklist into an
+**Okta-style multi-service platform**: a `/services` catalog, self-contained
+services with their own settings, one global `/settings` area, and generic
+`Workflow*` models so simple checklist services can be added as **data**. The
+first (and so far only) workflow service is **Daily Cleanliness Inspection** — a
+matrix of rooms × 18 items with single cycling-checkbox cells, a notes column,
+and per-row photos.
 
-## Information architecture (Okta-style)
+## Information architecture
 
-- **`/services`** — the service catalog. One tile per service the user can run. Each tile carries a ⚙ gear (admin only) to that service's own settings.
-- **Each service is self-contained** under `/services/<slug>/…` with its own home, history, and `/settings`.
-- **`/settings`** — one global settings area *outside* services, for org-wide concerns: staff & roles, access control, the service catalog admin, and the activity log.
+- **`/services`** — catalog. One tile per service the user can open: built-in
+  services (PM V2, Housekeeping; PM V1 hidden) gated by RBAC permissions, plus one
+  tile per `WorkflowDefinition` the user's roles allow. Tiles show a ⚙ gear to the
+  service's settings when permitted, live status lines (HK counts; workflow
+  "Today: In progress · N rooms touched · Started by …"), and "View history".
+- **`/services/<slug>/…`** — each service is self-contained (home, history, settings).
+- **`/settings`** — org-wide: Staff, Roles & permissions, Rooms, Services, Activity.
 
 ## Status
 
 | | |
 |---|---|
-| **Design spec** | [`docs/superpowers/specs/2026-06-30-foundation-daily-cleanliness-design.md`](../superpowers/specs/2026-06-30-foundation-daily-cleanliness-design.md) |
-| **Implementation plan** | — (designed and implemented directly, then iterated) |
-| **Status** | **Live** on `main` / production |
-| **Live URL path(s)** | `/services`, `/services/[slug]`, `/services/[slug]/history`, `/services/[slug]/settings`, `/services/pm/*`, `/settings`, `/settings/staff`, `/settings/access`, `/settings/services`, `/settings/activity` |
+| **Design spec** | [`superpowers/specs/2026-06-30-foundation-daily-cleanliness-design.md`](../superpowers/specs/2026-06-30-foundation-daily-cleanliness-design.md) (frozen) |
+| **Shipped** | 2026-06-30 → 2026-07-14 (iterated); live on production |
+| **Routes** | `/services`, `/services/[slug]`, `/services/[slug]/history`, `/services/[slug]/settings`, `/settings/*` |
+| **Slug** | `daily-cleanliness` (seeded by `prisma/seedWorkflows.ts`, called from `seed.ts` on every prod deploy) |
 
-## Roles
+## Access
 
-| Role | What they can do |
-|---|---|
-| ADMIN | Everything: manage workflow definitions + items, all submissions, manage staff, view audit. Plus the existing PM checklist powers. |
-| MANAGER | Run any workflow whose `rolesAllowed` includes MANAGER. Manage staff. View audit (read-only). Cannot edit workflow definitions or PM checklist questions. Cannot edit rooms. |
-| INSPECTOR | Run services allowed by their role (currently Daily Cleanliness and PM). No settings access. |
-| HOUSEKEEPER | Reserved for the future Room Cleaning service. Currently sees an empty services list. |
+- **Running a workflow** is governed by `WorkflowDefinition.rolesAllowed` (JSON
+  array of role keys), checked by `requireWorkflowAccess(slug)` on every page and
+  submission action. Daily Cleanliness default: `["ADMIN","MANAGER","INSPECTOR"]`.
+  Super Admin always passes.
+- **Mark complete** button: shown to `isManager` (Admin/Manager role keys). Server
+  side only checks workflow access — see known-issues TD-3.
+- **Reopen** a completed submission and **delete a row photo**: `requireAdmin()`.
+- **Edit the definition/items** (`/services/[slug]/settings`, `workflowAdmin.ts`):
+  `admin:services:manage`.
+- **Service catalog admin** (`/settings/services`): `isAdmin`.
+
+Global settings pages and their permissions are listed in
+[routes.md](../routes.md#pages); RBAC is described in
+[roles-and-permissions.md](../roles-and-permissions.md).
 
 ## Routes
 
-| URL | Component / handler | Purpose |
+| URL | File | Purpose |
 |---|---|---|
-| `/services` | `src/app/(app)/services/page.tsx` | Service catalog. Tiles for each service the user can run (PM built-in card + workflow services), plus a Settings button for admins |
-| `/services/pm` | `src/app/(app)/services/pm/page.tsx` | PM (Room Condition) service home — the room-status dashboard |
-| `/services/pm/rooms`, `/services/pm/rooms/[id]`, `/services/pm/inspect/[roomId]` | under `services/pm/…` | PM rooms list, room detail, run-inspection |
-| `/services/pm/settings` | `src/app/(app)/services/pm/settings/page.tsx` | PM settings landing (checklist + rooms) |
-| `/services/pm/settings/checklist` | `src/app/(app)/services/pm/settings/checklist/page.tsx` | PM checklist editor (sections + questions) |
-| `/services/[slug]` | `src/app/(app)/services/[slug]/page.tsx` | Workflow service matrix (today, or a past date via `?date=YYYY-MM-DD`) |
-| `/services/[slug]/history` | `src/app/(app)/services/[slug]/history/page.tsx` | Tabs: by date / by room |
-| `/services/[slug]/settings` | `src/app/(app)/services/[slug]/settings/page.tsx` | Per-service settings (name, roles, item list). Looked up by **slug** |
-| `/settings` | `src/app/(app)/settings/page.tsx` | Global settings landing (manager+) |
-| `/settings/staff` | `src/app/(app)/settings/staff/page.tsx` | Staff & roles (manager+) |
-| `/settings/access` | `src/app/(app)/settings/access/page.tsx` | Role × service access matrix (admin) |
-| `/settings/services` | `src/app/(app)/settings/services/page.tsx` | Service catalog admin (admin) |
-| `/settings/activity` | `src/app/(app)/settings/activity/page.tsx` | Activity log (manager+) |
+| `/services` | `src/app/(app)/services/page.tsx` | Catalog |
+| `/services/[slug]` | `src/app/(app)/services/[slug]/page.tsx` | Matrix for today or `?date=YYYY-MM-DD` |
+| `/services/[slug]/history` | `…/[slug]/history/page.tsx` | Tabs: by date / by room |
+| `/services/[slug]/settings` | `…/[slug]/settings/page.tsx` | Name, description, allowed roles, items |
+| `/settings` | `src/app/(app)/settings/page.tsx` | Hub (cards per permission) |
+| `/settings/staff` | `…/settings/staff/page.tsx` | Users & role assignment |
+| `/settings/access` | `…/settings/access/page.tsx` | Roles × permissions matrix |
+| `/settings/rooms` | `…/settings/rooms/page.tsx` | Shared rooms (since 2026-09-30) |
+| `/settings/services` | `…/settings/services/page.tsx` | Workflow service catalog admin |
+| `/settings/activity` | `…/settings/activity/page.tsx` | Audit log |
 
-> **Route resolution note:** `/services/pm` is a *static* segment and `/services/[slug]` is *dynamic*. Next.js prefers the static match, so `pm` resolves to the built-in PM pages and everything else (e.g. `daily-cleanliness`) resolves to the dynamic workflow pages.
+Static segments `pm`, `pm-v2`, `housekeeping` win over `[slug]`.
 
-## Data model touchpoints
+## Data model
 
-- **Reads from:** WorkflowDefinition, WorkflowItem, WorkflowSubmission, WorkflowRow, WorkflowCell, WorkflowRowImage, Room, User
-- **Writes to:** all `Workflow*` tables, AuditLog (extended entity union)
-
-See [`docs/data-model.md`](../data-model.md) for full schema of the new tables.
+`WorkflowDefinition`, `WorkflowItem`, `WorkflowSubmission` (unique per workflow +
+UTC date), `WorkflowRow` (per room: note), `WorkflowCell` (per room × item:
+`OK | ISSUE`, blank = no row), `WorkflowRowImage`. See
+[data-model.md](../data-model.md#workflows-generic-services-daily-cleanliness).
 
 ## Key files
 
-### New
-- `src/lib/permissions.ts` — role matrix (`canAccessAdminSection`, `canRunWorkflow`, `parseRolesAllowed`, `isManager`)
-- `src/lib/actions/workflows.ts` — submission flow: `getOrCreateTodaySubmission`, `updateCell`, `saveRow` (photos), `saveRowNote` (note-only), `markSubmissionComplete`, `reopenSubmission` (admin), `deleteRowImage`
-- `src/components/WorkflowNoteCell.tsx` — inline note box for the far-right Notes column (save-on-blur)
-- `src/lib/actions/workflowAdmin.ts` — admin CRUD on definitions and items
-- `src/components/WorkflowMatrix.tsx` — main matrix UI; passes `ensureSubmission` to each cell so the first cell tap bootstraps the day's submission
-- `src/components/WorkflowCellButton.tsx` — **single cycling checkbox** (blank → OK → Issue → blank) with optimistic updates
-- `src/components/WorkflowMatrixRowPanel.tsx` — per-row note + photo panel
-- `src/components/WorkflowHistory.tsx` — history tabs (by date / by room)
-- `src/components/WorkflowDefinitionEditor.tsx` — admin form builder
-- Pages under `src/app/(app)/services/*` and `src/app/(app)/settings/*` (see Routes table)
-- `prisma/seedWorkflows.ts` — local seed script for Daily Cleanliness
-- `prisma/manual-migrations/2026-06-30-add-foundation-workflow-tables.sql` — production schema migration (apply via Supabase MCP)
-- `prisma/manual-migrations/2026-06-30-seed-daily-cleanliness.sql` — production seed (apply via Supabase MCP after the schema)
-
-### Modified
-- `prisma/schema.prisma` — 6 new models + User back-relations + Room back-relations + AuditLog comment update
-- `src/lib/audit.ts` — extended `entity` union with the five new entities
-- `src/lib/session.ts` — added `requireManager`, `requireWorkflowAccess`, `isManager`; admin/manager redirects now go to `/services`
-- `src/lib/actions/users.ts` — role enum widened to `ADMIN | MANAGER | INSPECTOR | HOUSEKEEPER`
-- `src/components/Nav.tsx` — Okta-style top bar: **Services** + **Settings** (admin/manager) only
-- `src/components/UsersManager.tsx` — role badge + dropdown cover all four roles
-- `proxy.ts` — protected matcher includes `/services` and `/settings`
-- `src/app/page.tsx` — landing redirect sends authenticated users to `/services`
-- All PM pages moved from `/dashboard`, `/rooms`, `/inspect`, `/admin/questions` into `/services/pm/*` and `/services/pm/settings/checklist`; all links/redirects/`revalidatePath`s updated
-
-### Removed
-- Old route folders: `app/(app)/dashboard`, `app/(app)/rooms`, `app/(app)/inspect`, `app/(app)/workflows`, `app/(app)/admin`
+- `src/lib/actions/workflows.ts` — `getOrCreateTodaySubmission`, `updateCell`, `saveRow` (photos), `saveRowNote`, `markSubmissionComplete`, `reopenSubmission`, `deleteRowImage`
+- `src/lib/actions/workflowAdmin.ts` — definition/item editing
+- `src/lib/permissions.ts` — `parseRolesAllowed`, `canRunWorkflow`
+- `src/components/WorkflowMatrix.tsx` — grid; `ensureSubmission` bootstraps the day on first tap
+- `src/components/WorkflowCellButton.tsx` — cycling checkbox with optimistic update
+- `src/components/WorkflowNoteCell.tsx` — notes column (save on blur)
+- `src/components/WorkflowMatrixRowPanel.tsx` — per-row photo panel (uses `PhotoPicker`)
+- `src/components/WorkflowHistory.tsx`, `WorkflowDefinitionEditor.tsx`
+- `prisma/seedWorkflows.ts` — Daily Cleanliness definition + 18 items
+- `prisma/manual-migrations/2026-06-30-*.sql` — historical; superseded by `db push` + seed
 
 ## Behavior notes
 
@@ -101,37 +98,23 @@ See [`docs/data-model.md`](../data-model.md) for full schema of the new tables.
 - **Storage path:** `workflows/<slug>/<submissionId>/<rowId>/<uuid>.<ext>` in the same private `inspection-photos` bucket. Reuses `src/lib/storage.ts`.
 - **Per-cell audit log entries are deliberately chatty.** Cell taps (and blank-clears) log on every change — this is the input the future per-room status timeline feature will consume.
 
-## Auth gates
 
-- `proxy.ts` requires authentication for `/services/*` and `/settings/*`.
-- `(app)/layout.tsx` `requireUser()` re-checks server-side.
-- `requireWorkflowAccess(slug)` in every action that mutates a submission: checks the workflow's `rolesAllowed` against the current user's role.
-- `requireManager()` gates `/settings`, `/settings/staff`, `/settings/activity` (ADMIN or MANAGER).
-- `requireAdmin()` gates `/settings/access`, `/settings/services`, per-service `/settings`, and every admin-only action (definition CRUD, item CRUD, photo delete, PM checklist).
+**Dates:** a submission's `date` is UTC midnight of the server clock — after
+~8 PM US Eastern, "today" is already tomorrow's submission ([known-issues](../known-issues.md) TZ-1).
 
-## Storage / external services
+## Storage
 
-- Bucket: `inspection-photos` (shared with the photo-evidence feature)
-- Per-row photos only; per-cell photos not supported
-- Signed URLs at page render (1 hour TTL)
+Row photos: `workflows/<slug>/<submissionId>/<rowId>/<cuid>.<ext>` in the shared
+private `inspection-photos` bucket; images only, ≤ 10 MB; signed URLs (1 h).
 
 ## Out of scope (deferred)
 
-- Migrating existing PM checklist to the generic Workflow models (parallel kept per Approach B)
-- Real-time sync via Supabase Realtime (refresh-based for now)
-- Auto-create submissions at midnight via cron (manual open)
-- Per-cell notes / per-cell photos
-- Form shapes other than MATRIX (e.g. PER_ROOM_DEEP)
-- Workflow scheduling (recurring cron)
-- Workflow-scoped rooms (currently all non-archived rooms)
-- CSV/Excel export (print-to-PDF is done; structured data export is not)
-- Multi-tenancy
-
-## Status: LIVE in production
-
-Shipped to `main` and deployed on Vercel (`https://roomstatus-theta.vercel.app`). The two `prisma/manual-migrations/2026-06-30-*.sql` files were applied to the production Supabase database (6 `Workflow*` tables + the Daily Cleanliness definition with 18 items). No further migration is pending for this feature.
-
-For reference, the production DB migration (already done) was: apply `add-foundation-workflow-tables.sql`, then `seed-daily-cleanliness.sql`, via Supabase MCP in a Supabase-management chat.
+- Creating new workflow definitions from the UI (seed-only today)
+- Shapes other than `MATRIX`; per-cell notes/photos
+- Workflow-scoped room lists (all non-archived rooms are rows)
+- Scheduled auto-creation, reminders, realtime sync
+- CSV/Excel export (print-to-PDF exists)
+- Migrating PM onto the generic models (PM stayed bespoke; PM V2 is bespoke too)
 
 ## Change log
 
@@ -144,3 +127,6 @@ For reference, the production DB migration (already done) was: apply `add-founda
 - 2026-07-02 · Past-date submissions are now **editable** by managers+ (removed the `isToday` gate on Mark complete; edits auto-save, Mark complete finalizes). Banner reworded from "read-only" to reflect editability (completed submissions stay read-only until an admin reopens).
 - 2026-07-02 · **Print / Save as PDF**: a Print button on the matrix triggers `window.print()`. An `@media print` stylesheet (`globals.css`) renders the full grid landscape (✓/✗/blank + Notes), hides all UI chrome, un-sticks columns, and prints a header with date + counts. No server code or dependency — the browser's print dialog does the PDF. Works for today and any past date.
 - 2026-07-14 · **Scroll behavior settled** (after iterating through a `max-h-70vh` box and a synced-scrollbar experiment): the grid uses a bounded scroll box (`max-h-[75vh] overflow-auto`) so the **header row and Room column stay pinned** while scrolling. The **Notes column is un-pinned** (normal far-right column) — pinning both Room-left and Notes-right left no room for items on mobile. The synced-scrollbar strip was removed.
+- 2026-08-05 · Access moved to DB-backed RBAC; `rolesAllowed` now references role keys (multi-role users pass if any role matches).
+- 2026-09-29 · Daily Cleanliness created by the deploy seed (the 2026-06-30 manual SQL had never been applied to the new Supabase DB).
+- 2026-09-30 · Shared `/settings/rooms` page; Next 16 async params.

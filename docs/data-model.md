@@ -1,267 +1,289 @@
 # Data Model
 
-Authoritative reference: `prisma/schema.prisma`. This file explains the *why* alongside the *what*.
+Authoritative source: [`prisma/schema.prisma`](../prisma/schema.prisma). This doc
+explains the *why*, the allowed values of string "enums", relations, cascade
+behaviour, and the rules for changing the schema safely.
 
-## Models
+All IDs are `String @id @default(cuid())` unless noted. Status/kind fields are
+plain `String` columns (no Postgres enums) — the allowed values are enforced in
+application code and listed below.
 
-### User
-Authentication and role assignment.
+## Domain map
 
-| Field | Type | Notes |
-|---|---|---|
-| `id` | `String @id @default(cuid())` | App-generated cuid |
-| `name` | `String` | Display name |
-| `email` | `String @unique` | Lowercase-normalized at login lookup |
-| `passwordHash` | `String` | bcrypt(12) hash; never log or return |
-| `role` | `String @default("INSPECTOR")` | `ADMIN | INSPECTOR` (more roles coming with Foundation refactor) |
-| `active` | `Boolean @default(true)` | Soft deactivation; inactive users can't log in |
-| `createdAt` | `DateTime @default(now())` | |
+```
+                         ┌──────────── User ────────────┐
+                         │  (UserRole) ⇄ Role ─ RolePermission
+                         │  LoginAttempt (by email, no FK)
+                         │  AuditLog.userId
+ ┌───────────────────────┼──────────────────────────────┼──────────────────────┐
+ │ PM V1                 │ Workflows                     │ Housekeeping         │ PM V2
+ │ Section─Question      │ WorkflowDefinition─Item       │ HousekeepingTask     │ PmV2Checklist─Section─Item
+ │ Inspection─Item─Image │ Submission─Row─RowImage       │  ├ TaskItem          │ PmV2Area ─(opt)→ Room
+ │        │              │          └Cell                │  └ Photo             │ PmV2Inspection─Result
+ │        └──── Room ◄───┴──────────── Room ◄────────────┴── Room               │ PmV2Setting (singleton)
+ │                                                         Setting (singleton)  │
+ │                                                         StatusAction         │
+ │                                                         TaskTemplate─ChecklistItem
+ └──────────────────────────────────────────────────────────────────────────────┘
+```
 
-**Relations:** `inspections Inspection[]`, `auditLogs AuditLog[]`
-
-### Room
-Physical rooms in the motel.
-
-| Field | Type | Notes |
-|---|---|---|
-| `id` | `String @id @default(cuid())` | |
-| `number` | `String @unique` | Room number as displayed (`"101"`, `"203"`) |
-| `name` | `String?` | Optional descriptive name (`"Standard Queen"`) |
-| `floor` | `String?` | |
-| `notes` | `String?` | Free-text admin notes |
-| `archived` | `Boolean @default(false)` | Soft delete |
-| `createdAt` | `DateTime @default(now())` | |
-| `updatedAt` | `DateTime @updatedAt` | Prisma-managed |
-
-**Relations:** `inspections Inspection[]`
-
-### Section
-Top-level grouping in the checklist. Editable by admins.
-
-| Field | Type | Notes |
-|---|---|---|
-| `id` | `String @id @default(cuid())` | |
-| `name` | `String` | Display name (`"Bathroom & Vanity Area(s)"`) |
-| `order` | `Int @default(0)` | Sort order within the checklist |
-| `archived` | `Boolean @default(false)` | |
-
-**Relations:** `questions Question[]`
-
-### Question
-Individual checklist line items.
-
-| Field | Type | Notes |
-|---|---|---|
-| `id` | `String @id @default(cuid())` | |
-| `sectionId` | `String` | FK → Section |
-| `text` | `String` | Question text |
-| `order` | `Int @default(0)` | Sort order within section |
-| `archived` | `Boolean @default(false)` | |
-| `createdAt` | `DateTime @default(now())` | |
-
-**Relations:** `section Section`, `responses InspectionItem[]`
-
-### Inspection
-Immutable record of a single inspection run.
-
-| Field | Type | Notes |
-|---|---|---|
-| `id` | `String @id @default(cuid())` | App-generated up-front so we know it before DB write |
-| `roomId` | `String` | FK → Room |
-| `inspectorId` | `String` | FK → User |
-| `status` | `String @default("IN_PROGRESS")` | `IN_PROGRESS | COMPLETED` |
-| `summary` | `String @default("OK")` | `OK | NEEDS_REPAIR` — derived at completion |
-| `notes` | `String?` | Overall notes for the inspection |
-| `startedAt` | `DateTime @default(now())` | |
-| `completedAt` | `DateTime?` | Set when status flips to COMPLETED |
-
-**Relations:** `room Room`, `inspector User`, `items InspectionItem[]`
-
-### InspectionItem
-Per-question response inside one inspection. **Cascading delete** from Inspection.
-
-| Field | Type | Notes |
-|---|---|---|
-| `id` | `String @id @default(cuid())` | |
-| `inspectionId` | `String` | FK → Inspection, ON DELETE CASCADE |
-| `questionId` | `String` | FK → Question |
-| `questionText` | `String` | **Snapshot** of question text at inspection time |
-| `sectionName` | `String` | **Snapshot** of section name at inspection time |
-| `status` | `String @default("NA")` | `OK | NEEDS_REPAIR | REPAIR_COMPLETED | NA` |
-| `note` | `String?` | Per-item note |
-
-**Why the snapshot fields:** if admin later edits or archives a question, historical inspections still show the wording the inspector saw. See `architecture.md → snapshot-on-write`.
-
-**Relations:** `inspection Inspection`, `question Question`, `images InspectionItemImage[]`
-
-### InspectionItemImage
-Photo evidence attached to an inspection item. **Cascading delete** from InspectionItem.
-
-| Field | Type | Notes |
-|---|---|---|
-| `id` | `String @id @default(cuid())` | |
-| `inspectionItemId` | `String` | FK → InspectionItem, ON DELETE CASCADE |
-| `storagePath` | `String` | `inspections/<inspId>/<itemId>/<uuid>.<ext>` in `inspection-photos` bucket |
-| `width` | `Int?` | Best-effort metadata |
-| `height` | `Int?` | Best-effort metadata |
-| `bytes` | `Int?` | File size at upload |
-| `createdAt` | `DateTime @default(now())` | |
-
-**Indexed on** `inspectionItemId` for fast lookup when rendering history.
-
-**Storage cleanup note:** DB cascade does NOT touch Supabase Storage. `deleteInspection` and `deletePhoto` in `src/lib/actions/photos.ts` handle Storage delete explicitly before the DB delete.
-
-### AuditLog
-Append-only activity log. Never updated, never deleted.
-
-| Field | Type | Notes |
-|---|---|---|
-| `id` | `String @id @default(cuid())` | |
-| `userId` | `String?` | FK → User; nullable so LOGIN events don't break if user is deleted later |
-| `action` | `String` | TypeScript-typed union: `CREATE | UPDATE | DELETE | ARCHIVE | RESTORE | LOGIN` |
-| `entity` | `String` | TypeScript-typed union: `Room | Question | Section | User | Inspection | InspectionItemImage | WorkflowDefinition | WorkflowItem | WorkflowSubmission | WorkflowRow | WorkflowCell` |
-| `entityId` | `String?` | ID of the entity acted on |
-| `details` | `String?` | JSON-stringified context |
-| `createdAt` | `DateTime @default(now())` | |
-
-The DB column types are plain `String` (no enums) to keep migrations cheap. TypeScript unions in `src/lib/audit.ts` constrain values at write time.
+`Room` and `User` are the only tables shared across domains. Each service
+otherwise owns its tables outright.
 
 ---
 
-## Foundation models (generic workflows)
+## Users & access control
 
-Added by the Foundation refactor — see [`features/platform-foundation.md`](features/platform-foundation.md). The existing PM checklist tables (Section / Question / Inspection / InspectionItem) are NOT migrated; they coexist.
+### User
+| Field | Type | Notes |
+|---|---|---|
+| `name` | String | Display name |
+| `email` | String **unique** | Stored lower-case; login normalizes input |
+| `passwordHash` | String | bcrypt cost 12. Never log/return |
+| `role` | String, default `"INSPECTOR"` | **DEPRECATED** — legacy single role. Kept so the RBAC migration was non-destructive. **Not read by the app**; use `UserRole`. Seed uses it only to migrate users without roles |
+| `active` | Boolean, default true | `false` = cannot sign in; existing sessions stop resolving on next request |
+| `createdAt` | DateTime | |
+
+Back-relations to every domain (inspections, workflow rows/cells/images, HK
+assigned/assignedBy/created/submitted/reviewed/photos, PM V2 inspections updated).
+
+### Role
+| Field | Notes |
+|---|---|
+| `key` unique | `SUPER_ADMIN`, `ADMIN`, `MANAGER`, `INSPECTOR`, `HOUSEKEEPER`, or a custom key slugged from the label (e.g. `NIGHT_AUDIT`) |
+| `label`, `description?` | UI text |
+| `isSystem` | Built-in roles cannot be deleted |
+
+### RolePermission
+`(roleId, permission)` unique; `permission` is an `app:feature:action` string
+validated against `src/lib/rbac/catalog.ts` (`sanitizePermissions` drops unknown
+keys). Cascades on role delete. **SUPER_ADMIN has no rows** — it's a wildcard.
+
+### UserRole
+Composite PK `(userId, roleId)`; cascades from both sides. A user may hold many roles;
+effective permissions = union.
+
+### LoginAttempt
+One row per **failed** sign-in: `email` (as typed, lower-cased — even for
+non-existent accounts), `ip?`, `createdAt`. Index `(email, createdAt)`. Deleted on
+successful sign-in. Drives lockout (5 in 15 min). Not FK-linked to `User` by design.
+
+### AuditLog
+| Field | Notes |
+|---|---|
+| `userId?` | Actor (nullable FK) |
+| `action` | `CREATE \| UPDATE \| DELETE \| ARCHIVE \| RESTORE \| LOGIN` |
+| `entity` | One of the union in `src/lib/audit.ts` (Room, Question, Section, User, Inspection, InspectionItemImage, Workflow*, Housekeeping*, Role, UserRole, PmV2*) |
+| `entityId?` | Affected row id (sometimes `"bulk"` or the first id of a batch) |
+| `details?` | JSON string — context / before-after |
+
+Append-only; viewed at `/settings/activity`. No retention policy (grows forever).
+
+---
+
+## Shared
+
+### Room
+| Field | Notes |
+|---|---|
+| `number` **unique** | As displayed (`"101"`). Sorted numerically in reports (`byRoomNumber`) |
+| `name?`, `floor?`, `notes?` | |
+| `archived` | Soft delete — hides from boards; history keeps working |
+| `createdAt`, `updatedAt` | |
+
+Created from Settings → Rooms (`/settings/rooms`), PM V1 rooms page, or
+Housekeeping settings (`hkCreateRoom`). PM V2 areas may *link* to a room but V2
+never writes `Room`.
+
+---
+
+## PM V1 — Room Condition (hidden from portal)
+
+### Section / Question
+The single global checklist (seed: 3 sections, 95 questions). `order` for display,
+`archived` for soft delete. `Question.sectionId` → Section (no cascade).
+
+### Inspection
+| Field | Values / notes |
+|---|---|
+| `roomId` → Room, `inspectorId` → User | No cascade (deleting a room with inspections is blocked) |
+| `status` | `IN_PROGRESS \| COMPLETED` — app only ever writes `COMPLETED` |
+| `summary` | `OK \| NEEDS_REPAIR` — derived: any item `NEEDS_REPAIR` → `NEEDS_REPAIR` |
+| `notes?`, `startedAt`, `completedAt?` | |
+
+Immutable history: a new inspection is a new row.
+
+### InspectionItem
+`inspectionId` (cascade), `questionId` → Question, **snapshot** `questionText`,
+`sectionName`, `status` = `OK | NEEDS_REPAIR | REPAIR_COMPLETED | NA`, `note?`.
+
+### InspectionItemImage
+`inspectionItemId` (cascade), `storagePath`, `width?`, `height?`, `bytes?`.
+
+**Derived room status** (`src/lib/status.ts`): latest completed inspection →
+`NOT_INSPECTED` (none) / `NEEDS_REPAIR` (summary) / `FIXED` ("Fixed – verify":
+any `REPAIR_COMPLETED` items) / `OK`.
+
+---
+
+## Workflows (generic services; Daily Cleanliness)
 
 ### WorkflowDefinition
-A workflow type (e.g. Daily Cleanliness Inspection). Editable by admins.
-
-| Field | Type | Notes |
-|---|---|---|
-| `id` | `String @id @default(cuid())` | |
-| `slug` | `String @unique` | URL slug (e.g. `daily-cleanliness`) |
-| `name` | `String` | Display name |
-| `description` | `String?` | Optional description for the workflows index card |
-| `shape` | `String` | Currently only `MATRIX`. Reserved for future shapes (e.g. `PER_ROOM_DEEP`) |
-| `rolesAllowed` | `String` | JSON-encoded array of role strings, e.g. `["ADMIN","MANAGER","INSPECTOR"]` |
-| `archived` | `Boolean @default(false)` | Soft delete |
-| `createdAt` | `DateTime @default(now())` | |
-| `updatedAt` | `DateTime @updatedAt` | Prisma-managed |
-
-**Relations:** `items WorkflowItem[]`, `submissions WorkflowSubmission[]`
+| Field | Notes |
+|---|---|
+| `slug` **unique** | URL segment (`daily-cleanliness`). Must not collide with `pm`, `pm-v2`, `housekeeping` |
+| `name`, `description?` | |
+| `shape` | `"MATRIX"` (only shape implemented) |
+| `rolesAllowed` | **JSON string** array of role keys, e.g. `'["ADMIN","MANAGER","INSPECTOR"]'`. Parse with `parseRolesAllowed` |
+| `archived` | Hidden from catalog; access denied |
 
 ### WorkflowItem
-A column in the matrix (e.g. "Window & Glass"). Cascades from WorkflowDefinition.
-
-| Field | Type | Notes |
-|---|---|---|
-| `id` | `String @id @default(cuid())` | |
-| `workflowId` | `String` | FK → WorkflowDefinition, ON DELETE CASCADE |
-| `text` | `String` | Item label |
-| `order` | `Int @default(0)` | Sort order |
-| `archived` | `Boolean @default(false)` | |
-| `createdAt` | `DateTime @default(now())` | |
-
-**Relations:** `workflow WorkflowDefinition`, `cells WorkflowCell[]`
-**Indexed on** `workflowId`.
+Columns of the matrix. `workflowId` (cascade), `text`, `order`, `archived`.
 
 ### WorkflowSubmission
-One inspection session, exactly one per workflow per date. Multiple inspectors collaborate on the same row.
-
-| Field | Type | Notes |
-|---|---|---|
-| `id` | `String @id @default(cuid())` | App-generated up-front for storage paths |
-| `workflowId` | `String` | FK → WorkflowDefinition (no cascade — submissions block definition delete) |
-| `date` | `DateTime` | Stored as UTC midnight; the calendar date is what matters |
-| `status` | `String @default("IN_PROGRESS")` | `IN_PROGRESS | COMPLETED` |
-| `createdById` | `String` | FK → User; the inspector who opened the form |
-| `completedAt` | `DateTime?` | Set when status flips to COMPLETED |
-| `createdAt` | `DateTime @default(now())` | |
-| `updatedAt` | `DateTime @updatedAt` | |
-
-**Relations:** `workflow`, `createdBy`, `rows WorkflowRow[]`, `cells WorkflowCell[]`
-**Constraints:** `@@unique([workflowId, date])`. Indexes on `date` and `(workflowId, status)`.
+One run per workflow per day. `date` is **UTC midnight** (`@@unique([workflowId, date])`).
+`status` = `IN_PROGRESS | COMPLETED`; `createdById`; `completedAt?`. Created lazily
+on first interaction (`getOrCreateTodaySubmission`).
 
 ### WorkflowRow
-Per-room note + photos for a submission. **Cascading delete** from WorkflowSubmission.
-
-| Field | Type | Notes |
-|---|---|---|
-| `id` | `String @id @default(cuid())` | |
-| `submissionId` | `String` | FK → WorkflowSubmission, ON DELETE CASCADE |
-| `roomId` | `String` | FK → Room |
-| `note` | `String?` | Free text up to 1000 chars |
-| `lastUpdatedById` | `String?` | FK → User (SET NULL on user delete) |
-| `lastUpdatedAt` | `DateTime?` | |
-
-**Relations:** `submission`, `room`, `lastUpdatedBy`, `images WorkflowRowImage[]`
-**Constraints:** `@@unique([submissionId, roomId])`. Index on `roomId`.
+Per (submission, room) — `@@unique([submissionId, roomId])`. `note?`,
+`lastUpdatedById?`, `lastUpdatedAt?`. Cascade from submission.
 
 ### WorkflowCell
-One inspection result for (submission, room, item). **Sparse** — a row exists only when a cell is marked **OK** or **Issue**. Blank / N/A cells have **no row** (the UI's cycling checkbox deletes the row when cycled back to blank). **Cascading delete** from WorkflowSubmission.
-
-| Field | Type | Notes |
-|---|---|---|
-| `id` | `String @id @default(cuid())` | |
-| `submissionId` | `String` | FK → WorkflowSubmission, ON DELETE CASCADE |
-| `itemId` | `String` | FK → WorkflowItem |
-| `roomId` | `String` | FK → Room |
-| `itemText` | `String` | **Snapshot** of item.text at edit time |
-| `status` | `String` | Stored values are only `OK` or `ISSUE`. (`NA` is the client's "clear" signal — the server deletes the row rather than storing `NA`.) |
-| `lastUpdatedById` | `String` | FK → User; who last touched this cell |
-| `lastUpdatedAt` | `DateTime @default(now())` | |
-
-**Relations:** `submission`, `item`, `room`, `lastUpdatedBy`
-**Constraints:** `@@unique([submissionId, roomId, itemId])`. Indexes on `submissionId`, `roomId`, `itemId`.
-**UI mapping:** single cycling checkbox — blank (no row) → `OK` (✓) → `ISSUE` (✗) → blank (row deleted). See [`features/platform-foundation.md`](features/platform-foundation.md).
+Per (submission, room, item) — unique. `itemText` **snapshot**, `status` =
+`OK | ISSUE` stored (blank/N/A = **no row**; cycling to blank deletes it).
+Cascade from submission.
 
 ### WorkflowRowImage
-Photo attached to a WorkflowRow. **Cascading delete** from WorkflowRow.
+`rowId` (cascade), `storagePath`, dims/bytes, `uploadedById`.
 
-| Field | Type | Notes |
-|---|---|---|
-| `id` | `String @id @default(cuid())` | |
-| `rowId` | `String` | FK → WorkflowRow, ON DELETE CASCADE |
-| `storagePath` | `String` | `workflows/<slug>/<submissionId>/<rowId>/<uuid>.<ext>` |
-| `width`, `height`, `bytes` | `Int?` | Best-effort metadata |
-| `uploadedById` | `String` | FK → User |
-| `createdAt` | `DateTime @default(now())` | |
+---
 
-**Storage cleanup:** like InspectionItemImage, DB cascade does NOT touch Supabase Storage. The `deleteRowImage` server action handles Storage delete before DB delete.
+## Housekeeping (HKT)
+
+### HousekeepingTask
+| Field | Notes |
+|---|---|
+| `kind` | `ROOM_CLEANING` (default) \| `GENERAL` |
+| `title?` | GENERAL only |
+| `recurring` | GENERAL only — nightly reset to `TODO`, unassigned, checklist `PENDING` |
+| `roomId?` → Room | ROOM_CLEANING only |
+| `status` | ROOM_CLEANING: `READY_TO_CLEAN → IN_PROGRESS → READY_FOR_INSPECTION → READY_TO_RENT` (reject → `READY_TO_CLEAN`). GENERAL: `TODO → IN_PROGRESS → DONE` |
+| `requestReason?` | Status-action label that created it ("Checkout") |
+| `assignedHousekeeperId?`, `assignedById?`, `assignedAt?` | Assignment |
+| `startedAt?` | Set on start (or on submit if start was skipped) |
+| `createdById` | Who checked out / created |
+| `submittedById?`, `submittedAt?` | Submit for inspection / mark done |
+| `reviewedById?`, `reviewedAt?`, `reviewNote?` | Approve/reject (note required on reject) |
+| `closedAt?` | Set on `READY_TO_RENT` / `DONE` |
+
+Indexes: `roomId`, `status`. Invariant (app-enforced): at most one **open**
+ROOM_CLEANING task per room (`checkOutRooms` skips busy rooms). Rows are never
+deleted except by `deleteHousekeepingTask` (manager).
+
+### HousekeepingTaskItem
+Per-task checklist snapshot. `label` (snapshot), `order`, `status` =
+`PENDING | DONE | NOT_DONE | NA`, `note?`. Cascade from task. Submitting a room
+requires every item `DONE` or `NA`.
+
+### HousekeepingPhoto
+Task media (images **and** videos — table name kept for stability). `mediaType` =
+`IMAGE | VIDEO`, `storagePath`, dims/bytes, `uploadedById`. Cascade from task.
+Index on `createdAt` for the retention sweep. Deleted on approval (if enabled), on
+reject, and by the nightly sweep after `retentionDays`.
+
+### HousekeepingSetting (singleton, `id = "singleton"`)
+`deleteOnApproval` (default true), `retentionDays` (default 7), `instructions?`.
+Code falls back to defaults if the row is missing.
+
+### HousekeepingStatusAction
+Check-out panel options: `label`, `order`, `archived`. At least one must remain active.
+
+### HousekeepingTaskTemplate / HousekeepingChecklistItem
+Templates = quick-pick titles for GENERAL tasks. Checklist items belong to a
+template (`templateId`, cascade) or, when `templateId` is **null**, to the
+**room-cleaning** checklist. Snapshotted into `HousekeepingTaskItem` at task creation.
+
+---
+
+## PM V2 — Room Condition (quarterly)
+
+### PmV2Setting (singleton)
+`hotelName` (used in reports/messages).
+
+### PmV2Checklist → PmV2Section → PmV2Item
+Named checklists ("Guest room", "Common area"). Each level has `order` and
+`archived`; sections/items cascade from their parent. "Removing" in the UI
+**archives**, so past results keep their label. Seed/import keep artifact ids
+(e.g. `gr01`) as primary keys.
+
+### PmV2Area
+Anything inspected. `name`, `group` (e.g. "Floor 2"), `type` = `ROOM | AREA`,
+`checklistId?`, `roomId?` → Room (optional link), `order`, `archived`.
+
+### PmV2Inspection
+One per area per quarter — `@@unique([areaId, quarter])`. Edited in place
+(auto-save), not immutable.
+
+| Field | Notes |
+|---|---|
+| `quarter` | `"YYYY-Qn"` |
+| `date` | `"YYYY-MM-DD"` string — browser-local walk-through date |
+| `initials`, `notes` | Free text |
+| `done`, `completedOn?` | Mark complete / reopen |
+| `updatedById?` | Last editor |
+
+Cascade from area.
+
+### PmV2Result
+| Field | Notes |
+|---|---|
+| `itemId?` | Checklist item; **null** = one-off "added for this room" extra (then `label` is set) |
+| `status?` | `OK \| REPAIR \| REPLACE \| MISSING \| FIXED \| NA`; **null** = not checked |
+| `note`, `fixedOn?` | `fixedOn` set when status becomes `FIXED` |
+
+`@@unique([inspectionId, itemId])` (Postgres allows many null `itemId` extras).
+"Issue" statuses = `REPAIR | REPLACE | MISSING`.
+
+---
 
 ## Cascade summary
 
-| Delete | Cascades to |
-|---|---|
-| Inspection | InspectionItem → InspectionItemImage (DB only; Storage handled separately) |
-| InspectionItem | InspectionItemImage |
-| Room | (NO cascade — referenced inspections/workflow cells block deletion) |
-| User | (NO cascade — referenced inspections/workflow updates block deletion) |
-| Question | (NO cascade — referenced items block deletion; question is `archived` instead) |
-| WorkflowDefinition | WorkflowItem. Submissions are NOT cascaded — definition can't be deleted while submissions exist; use `archived = true` |
-| WorkflowSubmission | WorkflowRow → WorkflowRowImage AND WorkflowCell (DB only; Storage handled separately) |
-| WorkflowRow | WorkflowRowImage (DB only; Storage handled separately) |
-
-## Migration approach
-
-The production schema was created via **Supabase MCP `apply_migration`** (raw SQL), not via Prisma's migrations folder. This means:
-- `prisma/migrations/` does NOT exist in this repo.
-- If you ever need `prisma migrate dev` to work locally, run `prisma migrate resolve --applied init_room_inspection_schema` first to align Prisma's view of migrations history.
-- Future schema changes should be applied via Supabase MCP (in a Supabase-management chat) AND mirrored in `prisma/schema.prisma` so the Prisma client types stay in sync.
-
-## Housekeeping (HKT) models
-
-Three additive tables for the Housekeeping service (built-in, not a Workflow).
-
-| Model | Key fields | Notes |
+| Deleting… | Cascades to | Blocked by |
 |---|---|---|
-| `HousekeepingTask` | `kind` (ROOM_CLEANING\|GENERAL), `title?`, `roomId?`, `status`, `requestReason?`, `assignedHousekeeperId?`, `assignedById?`, `assignedAt?`, `startedAt?`, `submittedById?/At?`, `reviewedById?/At?`, `reviewNote?`, `closedAt?` | One flexible task table. `roomId` nullable (general tasks have none). Status set depends on kind (room 4-state / general 3-state). `requestReason` records which status action created it (e.g. "Checkout"). Indexes: `roomId`, `status`. |
-| `HousekeepingPhoto` | `taskId`, `storagePath`, `mediaType` (IMAGE\|VIDEO), `width?/height?/bytes?`, `uploadedById` | Task media (photos + videos). Cascade-deletes with its task. Index on `createdAt` for the retention sweep. |
-| `HousekeepingTaskItem` | `taskId`, `label`, `order`, `status` (PENDING\|DONE\|NOT_DONE\|NA), `note?` | A subtask on a specific task, snapshotted from the checklist at creation. Cascade-deletes with its task. |
-| `HousekeepingChecklistItem` | `templateId?`, `label`, `order`, `archived` | Admin-defined checklist. `templateId` null = the room-cleaning checklist; set = a daily-task template's checklist. Cascades from its template. |
-| `HousekeepingSetting` | `id="singleton"`, `deleteOnApproval`, `retentionDays`, `instructions?` | One row. Admin-editable retention policy. |
-| `HousekeepingStatusAction` | `label`, `order`, `archived` | Admin-editable list of check-out panel actions (Checkout, Request for cleaning, …). Applying one creates a Ready-to-Clean task tagged with the label. |
-| `HousekeepingTaskTemplate` | `label`, `order`, `archived` | Admin-editable quick-picks for the "New task" panel (Clean lobby, Laundry, …); each can have its own checklist. |
+| Role | RolePermission, UserRole | — (system roles blocked in code) |
+| User | UserRole | Any history FK (inspections, tasks, audit…) — deactivate instead |
+| Room | — | Inspections, workflow rows/cells, HK tasks, PM V2 areas — archive instead |
+| Inspection | InspectionItem → InspectionItemImage | — |
+| WorkflowDefinition | WorkflowItem | Submissions (archive instead) |
+| WorkflowSubmission | Rows → RowImages, Cells | — |
+| HousekeepingTask | TaskItems, Photos | — |
+| HousekeepingTaskTemplate | its ChecklistItems | — |
+| PmV2Checklist | Sections → Items | Areas referencing it, Results referencing items |
+| PmV2Area | Inspections → Results | — |
 
-**Cascade:** `HousekeepingTask → HousekeepingPhoto` (DB cascade; Storage objects removed explicitly by actions/sweep). Room/User FKs are `SET NULL` (assignee/room) or `RESTRICT` (creator) — a task keeps its history even if a user is later removed.
+Storage objects are **never** removed by DB cascades — code deletes them first.
 
-**User back-relations:** `hkAssigned`, `hkAssignedByMe`, `hkCreated`, `hkSubmitted`, `hkReviewed`, `hkPhotosUploaded`. **Room back-relation:** `housekeepingTasks`.
+---
+
+## Schema change rules
+
+Production syncs with **`prisma db push`** on every deploy to `main` (there is no
+`prisma/migrations/`). Therefore:
+
+1. **Additive only** — new models, new nullable or defaulted columns, new indexes.
+2. **Never rename** a field/model in place (push sees drop + add → data loss). Add
+   the new field, backfill, switch code, leave the old one (mark `DEPRECATED`).
+3. **Never drop** in the same deploy that stops using something. Dropping is a
+   separate, deliberate, backed-up operation (see [operations.md](operations.md#backups)).
+4. New required columns need a `@default(...)`, or push fails on existing rows.
+5. Changing string "enum" values: support both old and new values in code first.
+6. After any change locally: `npx prisma db push`, then **restart the dev server**.
+7. Update this doc, and add the model to the `entity` union in `src/lib/audit.ts`
+   if it will be audited.
+
+`prisma/manual-migrations/*.sql` are historical (applied by hand in June 2026 before
+the push-on-deploy pipeline). Don't add new ones; don't re-run them.
+
+If the team grows, move to `prisma migrate` with committed migrations and remove
+`db push` from `scripts/provision-db.mjs`.

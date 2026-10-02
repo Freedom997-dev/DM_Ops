@@ -1,3 +1,5 @@
+> **Frozen historical record** (moved from the repo root on 2026-10-01). Paths such as `roomstatus2.0/roomstatus-main/` and branch `HKT` refer to the old repo layout; the current deploy process is in [../deployment.md](../deployment.md). Do not update this file to match new behaviour.
+
 # Release Runbook — RBAC + Security Hardening
 
 Stack: **Next.js on Vercel** · **Supabase Postgres** (DB) · **Supabase Storage** (media) · production = `main`.

@@ -1,5 +1,7 @@
 # Inspection Photo Evidence
 
+> Part of **PM V1**, which is hidden from the portal since 2026-09-30 (see [room-condition-inspection.md](room-condition-inspection.md)). The storage patterns described here (upload-then-transact, signed URLs) are reused by Workflows and Housekeeping.
+
 Inspectors can attach photos to any checklist item during an inspection. Photos display as thumbnails in history; clicking opens a fullscreen lightbox. Admins can delete individual photos after save via the lightbox.
 
 ## Status
@@ -61,14 +63,14 @@ See [`docs/data-model.md → InspectionItemImage`](../data-model.md).
 - **Upload-then-transact rollback.** See [architecture.md → upload-then-transact](../architecture.md). If the Prisma transaction fails after uploads succeed, the action best-effort deletes the uploaded paths.
 - **IDs minted up-front.** `cuid()` is called for the Inspection and each InspectionItem before any DB write, so storage paths can embed them deterministically.
 - **Signed URLs for display, generated server-side.** `src/app/(app)/services/pm/rooms/[id]/page.tsx` calls `getSignedUrl(path, 3600)` for every image before passing to the client. URLs are good for 1 hour; pages reload after expiry.
-- **Lightbox trash icon visible only to admins.** `isAdmin` prop drives conditional rendering. Server-side `requireAdmin()` enforces this for the action too — defense in depth.
+- **Lightbox trash icon visible only to admins.** `isAdmin` prop drives conditional rendering. `isAdmin` is `can(user, "pm:rooms:update")`; the `deletePhoto` action independently requires `pm:inspections:update` — defense in depth.
 - **DB cascade does NOT delete Storage objects.** `deletePhoto` and `deleteInspection` explicitly call `deleteImages(paths)` before the DB delete.
 
 ## Auth gates
 
-- Upload during inspection: requires being signed in (`requireUser()` in saveInspection).
-- Delete photo after save: requires admin (`requireAdmin()` in `deletePhoto`).
-- Delete inspection (defined but not yet UI-exposed): requires admin (`requireAdmin()` in `deleteInspection`).
+- Upload during inspection: `pm:inspections:add` (checked in `saveInspection`).
+- Delete photo after save: `pm:inspections:update` (in `deletePhoto`).
+- Delete inspection (defined but not UI-exposed): `pm:inspections:delete` (in `deleteInspection`).
 
 ## Storage / external services
 
@@ -92,3 +94,4 @@ See [`docs/data-model.md → InspectionItemImage`](../data-model.md).
 
 - 2026-06-24 · Initial ship · `971f341` (merge of `feat/inspection-photos`)
 - 2026-06-24 · Added pgbouncer-safe URL handling in `src/lib/db.ts` to fix Prisma + Supabase pooler interaction · `8fb63bf`
+- 2026-08-05 · Permission checks moved to RBAC (`pm:inspections:*`).
