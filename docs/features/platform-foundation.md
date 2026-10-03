@@ -99,8 +99,10 @@ UTC date), `WorkflowRow` (per room: note), `WorkflowCell` (per room × item:
 - **Per-cell audit log entries are deliberately chatty.** Cell taps (and blank-clears) log on every change — this is the input the future per-room status timeline feature will consume.
 
 
-**Dates:** a submission's `date` is UTC midnight of the server clock — after
-~8 PM US Eastern, "today" is already tomorrow's submission ([known-issues](../known-issues.md) TZ-1).
+**Dates:** a submission's `date` is UTC midnight of the motel's calendar day
+(`America/New_York`). Use `src/lib/business-date.ts`: `motelTodayUTC()` for
+"today" and `formatBusinessDate()` for display (it renders in UTC so US browsers
+don't show the previous day).
 
 ## Storage
 

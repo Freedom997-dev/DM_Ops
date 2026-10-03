@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import clsx from "clsx";
 import { Calendar, DoorOpen, TriangleAlert, User2 } from "lucide-react";
+import { formatBusinessDate } from "@/lib/business-date";
 
 export type HistorySubmission = {
   id: string;
@@ -76,9 +77,7 @@ export function WorkflowHistory({ workflowSlug, submissions, rooms, byRoom }: Pr
               >
                 <div>
                   <div className="text-sm font-semibold text-slate-900">
-                    {new Date(s.date).toLocaleDateString(undefined, {
-                      dateStyle: "full",
-                    })}
+                    {formatBusinessDate(s.date)}
                   </div>
                   <div className="inline-flex items-center gap-1 text-xs text-slate-500">
                     <User2 className="h-3.5 w-3.5" />
@@ -132,7 +131,7 @@ export function WorkflowHistory({ workflowSlug, submissions, rooms, byRoom }: Pr
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <div className="text-sm font-semibold text-slate-900">
-                        {new Date(e.date).toLocaleDateString(undefined, { dateStyle: "medium" })}
+                        {formatBusinessDate(e.date, { dateStyle: "medium" })}
                       </div>
                       <div className="inline-flex items-center gap-1 text-xs text-slate-500">
                         <User2 className="h-3.5 w-3.5" />
