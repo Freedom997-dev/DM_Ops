@@ -7,20 +7,12 @@ import { prisma } from "@/lib/db";
 import { requireWorkflowAccess, requireUser, requireAdmin } from "@/lib/session";
 import { logAudit } from "@/lib/audit";
 import { uploadImage, deleteImages } from "@/lib/storage";
+import { motelTodayUTC } from "@/lib/business-date";
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
 
 const CELL_STATUS = ["OK", "ISSUE", "NA"] as const;
 type CellStatus = (typeof CELL_STATUS)[number];
-
-function todayMidnightUTC(): Date {
-  const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-}
-
-function midnightUTC(d: Date): Date {
-  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
-}
 
 function extFromMime(mime: string): string {
   if (mime === "image/jpeg") return "jpg";
@@ -40,7 +32,7 @@ type SubmissionResult =
 
 export async function getOrCreateTodaySubmission(workflowSlug: string): Promise<SubmissionResult> {
   const { user, workflow } = await requireWorkflowAccess(workflowSlug);
-  const today = todayMidnightUTC();
+  const today = motelTodayUTC();
 
   const existing = await prisma.workflowSubmission.findUnique({
     where: { workflowId_date: { workflowId: workflow.id, date: today } },

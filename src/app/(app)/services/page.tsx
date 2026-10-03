@@ -3,18 +3,14 @@ import { ChevronRight, ClipboardList, LayoutGrid, Settings, User2, Sparkles } fr
 import { prisma } from "@/lib/db";
 import { requireUser, can, canAccessApp, isManager } from "@/lib/session";
 import { canRunWorkflow, parseRolesAllowed } from "@/lib/permissions";
+import { motelTodayUTC } from "@/lib/business-date";
 
 export const dynamic = "force-dynamic";
-
-function todayMidnightUTC(): Date {
-  const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-}
 
 export default async function ServicesIndex() {
   const user = await requireUser();
   const showSettings = isManager(user);
-  const today = todayMidnightUTC();
+  const today = motelTodayUTC();
 
   const definitions = await prisma.workflowDefinition.findMany({
     where: { archived: false },

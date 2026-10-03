@@ -6,19 +6,15 @@ import { requireWorkflowAccess, isAdmin, isManager, can } from "@/lib/session";
 import { getSignedUrl } from "@/lib/storage";
 import { WorkflowMatrix, type MatrixCellSeed, type MatrixRowSeed } from "@/components/WorkflowMatrix";
 import type { CellStatus } from "@/components/WorkflowCellButton";
+import { motelTodayUTC, formatBusinessDate } from "@/lib/business-date";
 
 export const dynamic = "force-dynamic";
 
-function todayMidnightUTC(): Date {
-  const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-}
-
 function parseDateParam(s: string | undefined): Date {
-  if (!s) return todayMidnightUTC();
+  if (!s) return motelTodayUTC();
   // Expects YYYY-MM-DD
   const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!m) return todayMidnightUTC();
+  if (!m) return motelTodayUTC();
   return new Date(Date.UTC(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10)));
 }
 
@@ -33,7 +29,7 @@ export default async function WorkflowSubmissionPage({
   if (workflow.shape !== "MATRIX") notFound();
 
   const targetDate = parseDateParam((await searchParams).date);
-  const isToday = targetDate.getTime() === todayMidnightUTC().getTime();
+  const isToday = targetDate.getTime() === motelTodayUTC().getTime();
 
   const [items, rooms, submission] = await Promise.all([
     prisma.workflowItem.findMany({
@@ -117,7 +113,7 @@ export default async function WorkflowSubmissionPage({
       {!isToday && (
         <p className="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-800">
           Viewing past date:{" "}
-          {targetDate.toLocaleDateString(undefined, { dateStyle: "full" })}.{" "}
+          {formatBusinessDate(targetDate)}.{" "}
           {submission?.status === "COMPLETED"
             ? "Completed — read-only. Admins can Reopen to edit."
             : "You can edit it; changes save automatically. Use Mark complete when done."}
@@ -135,7 +131,7 @@ export default async function WorkflowSubmissionPage({
         seedRows={seedRows}
         isAdmin={isAdmin(user)}
         canMarkComplete={isManager(user)}
-        printDateLabel={targetDate.toLocaleDateString(undefined, { dateStyle: "full" })}
+        printDateLabel={formatBusinessDate(targetDate)}
         printFileDate={targetDate.toISOString().slice(0, 10)}
       />
     </div>
