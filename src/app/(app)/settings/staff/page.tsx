@@ -55,7 +55,7 @@ export default async function StaffPage() {
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Staff</h1>
         <p className="text-sm text-slate-500">
-          Add staff, assign one or more roles, reset passwords, and deactivate accounts.
+          Add staff, edit names and emails, assign roles, reset passwords, and deactivate accounts.
         </p>
       </div>
       <UsersManager

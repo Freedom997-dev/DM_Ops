@@ -3,6 +3,16 @@
 What shipped, newest first. Dates are commit dates on `main` (production since
 the `dm-ops-production` move). Add an entry with every feature or notable fix.
 
+## 2026-10 — Account management
+
+- **2026-10-04** · Admins can edit staff name and sign-in email; users can reset
+  a forgotten password via an emailed link and change their password from
+  **My account** with an emailed code. Password/email changes sign the user out
+  on other devices. Email sent through Resend. See
+  [features/rbac-and-security.md](features/rbac-and-security.md).
+- **2026-10-03** · Daily Cleanliness dates no longer show one day early; "today"
+  follows US Eastern (TZ-1).
+
 ## 2026-09 — Platform hardening, new hosting, PM V2, Next 16
 
 - **2026-09-30** · Shared room management page at `/settings/rooms` (`0c0b5e7`).

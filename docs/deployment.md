@@ -75,6 +75,9 @@ Set manually:
 | `SEED_ADMIN_EMAIL` | Super Admin login created by the seed |
 | `SEED_ADMIN_PASSWORD` | **Required** — seed throws in production without it |
 | `CRON_SECRET` | Bearer token Vercel Cron sends; without it the cron routes return 401 and jobs silently never run |
+| `RESEND_API_KEY` | [Resend](https://resend.com) API key for password-reset and security emails. Without it emails are only printed to the function log — nobody receives them |
+| `EMAIL_FROM` | Sender, e.g. `Divya Motel <no-reply@divyamotel.com>`. The domain must be verified in Resend (SPF/DKIM DNS records) |
+| `APP_URL` | Optional base URL for links in emails; falls back to `NEXTAUTH_URL` |
 
 ```bash
 vercel env ls
@@ -85,7 +88,7 @@ vercel env add <NAME> production --sensitive   # sensitive values can't be read 
 
 | Path | Schedule | Local time (US Eastern) | Job |
 |---|---|---|---|
-| `/api/cron/housekeeping-daily-reset` | `0 8 * * *` | ~4 AM / 3 AM | Reset recurring daily tasks to TODO, unassigned |
+| `/api/cron/housekeeping-daily-reset` | `0 8 * * *` | ~4 AM / 3 AM | Reset recurring daily tasks to TODO, unassigned; purge expired password-reset tokens |
 
 Hobby-plan crons may fire any time within the scheduled hour.
 

@@ -51,6 +51,25 @@ export async function clearFailedAttempts(email: string): Promise<void> {
   await prisma.loginAttempt.deleteMany({ where: { email: normalize(email) } });
 }
 
+// Generic sliding-window limiter for unauthenticated, email-sending endpoints
+// (forgot password). Hits share the LoginAttempt table under a namespaced key
+// such as "pw-reset:<email>" or "pw-reset-ip:<ip>", which never matches a
+// plain email, so they don't count towards — or get cleared with — login
+// lockouts. Returns false (and records nothing) once the limit is reached.
+export async function allowRateLimited(
+  key: string,
+  max: number,
+  windowMs: number,
+): Promise<boolean> {
+  const since = new Date(Date.now() - windowMs);
+  const hits = await prisma.loginAttempt.count({
+    where: { email: key, createdAt: { gte: since } },
+  });
+  if (hits >= max) return false;
+  await prisma.loginAttempt.create({ data: { email: key } });
+  return true;
+}
+
 export function retryAfterMinutes(retryAfterMs: number): number {
   return Math.max(1, Math.ceil(retryAfterMs / 60000));
 }

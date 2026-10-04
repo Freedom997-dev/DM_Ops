@@ -10,7 +10,10 @@ All `/services/*` and `/settings/*` pages also pass `proxy.ts` (signed in) and
 | Route | Purpose | Guard |
 |---|---|---|
 | `/` | Redirect → `/services` (signed in) or `/login` | — |
-| `/login` | Credentials sign-in; shows lockout message | Public |
+| `/login` | Credentials sign-in; shows lockout message; "Forgot password?" link; `?reset=1` shows "Password updated" | Public |
+| `/forgot-password` | Request a reset link by email (same reply for unknown emails; rate-limited) | Public |
+| `/reset-password?token=…` | Set a new password from an emailed link (single use, 30 min) | Public (token) |
+| `/account` | My account: name/email (read-only) and change password with an emailed 6-digit code | signed in |
 | `/services` | Service catalog — tiles filtered by permission; HK tile shows live counts; workflow tiles show today's status | signed in |
 | **Room Condition V2** | | |
 | `/services/pm-v2` | Board of all areas for a quarter (`?q=YYYY-Qn`, default current) with progress/issue counts | `pmv2:board:view` (layout) |
@@ -34,7 +37,7 @@ All `/services/*` and `/settings/*` pages also pass `proxy.ts` (signed in) and
 | `/services/pm/settings/checklist` | Sections & questions editor | `pm:checklist:view` |
 | **Global settings** | | |
 | `/settings` | Settings hub (cards shown per permission) | `isManager` (Admin/Manager key) |
-| `/settings/staff` | Users: create, roles, activate/deactivate, reset password | `admin:staff:view` (+ add/update for edits) |
+| `/settings/staff` | Users: create, edit name & email, roles, activate/deactivate, reset password | `admin:staff:view` (+ add/update for edits) |
 | `/settings/access` | Roles & permissions matrix; create/delete roles | `admin:roles:view` (+ add/update/delete) |
 | `/settings/rooms` | Shared room management (used by HK, workflows, V1) | `pm:rooms:view` (edit: `pm:rooms:update`) |
 | `/settings/services` | Workflow service catalog admin | `isAdmin` |
@@ -109,10 +112,16 @@ All are `"use server"`. Each re-checks auth itself. Return shape is
 | Action | Guard |
 |---|---|
 | `createUser` | `admin:staff:add` (+ password policy, ≥1 grantable role) |
-| `setUserActive`, `setUserRoles`, `resetPassword` | `admin:staff:update` (+ anti-escalation rules) |
+| `setUserActive`, `setUserRoles`, `resetPassword`, `updateUserProfile` | `admin:staff:update` (+ anti-escalation rules) |
 | `createRole` | `admin:roles:add` |
 | `setRolePermissions` | `admin:roles:update` |
 | `deleteRole` | `admin:roles:delete` |
+
+### `password-reset.ts` — self-service password
+| Action | Guard |
+|---|---|
+| `requestPasswordReset`, `completePasswordReset` | Public; rate-limited (3 / 15 min per email, 10 per IP); token required to complete |
+| `sendPasswordChangeCode`, `changePasswordWithCode` | signed in (own account only); 3 codes / 15 min |
 
 ### PM V1 — `inspections.ts`, `photos.ts`, `checklist.ts`, `rooms.ts`
 | Action | Guard |

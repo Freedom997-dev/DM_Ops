@@ -12,6 +12,8 @@ import {
 // keys off this exact string to show a distinct message.
 export const LOCKED_OUT_ERROR = "TOO_MANY_ATTEMPTS";
 
+export const SESSION_MAX_AGE = 60 * 60 * 24 * 7; // 7 days (was NextAuth's 30-day default)
+
 function clientIpFrom(headers: unknown): string | null {
   const fwd = (headers as Record<string, string | undefined> | undefined)?.[
     "x-forwarded-for"
@@ -22,7 +24,7 @@ function clientIpFrom(headers: unknown): string | null {
 export const authOptions: NextAuthOptions = {
   session: {
     strategy: "jwt",
-    maxAge: 60 * 60 * 24 * 7, // 7 days (was NextAuth's 30-day default)
+    maxAge: SESSION_MAX_AGE,
   },
   pages: { signIn: "/login" },
   providers: [
@@ -64,6 +66,7 @@ export const authOptions: NextAuthOptions = {
           id: user.id,
           name: user.name,
           email: user.email,
+          sessionVersion: user.sessionVersion,
         };
       },
     }),
@@ -72,12 +75,14 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         token.id = (user as { id: string }).id;
+        token.sv = (user as { sessionVersion?: number }).sessionVersion ?? 0;
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
+        session.user.sv = token.sv ?? 0;
       }
       return session;
     },

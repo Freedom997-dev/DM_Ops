@@ -84,12 +84,12 @@ export function Nav({ user }: { user: NavUser }) {
         </nav>
 
         <div className="hidden items-center gap-3 md:flex">
-          <div className="text-right leading-tight">
+          <Link href="/account" className="rounded-lg px-2 py-1 text-right leading-tight hover:bg-slate-100" title="My account">
             <div className="text-sm font-medium text-slate-700">{user.name}</div>
             <div className="text-[11px] uppercase tracking-wide text-slate-400">
               {roleLabel}
             </div>
-          </div>
+          </Link>
           <button
             onClick={() => signOut({ callbackUrl: "/login" })}
             className="btn-secondary px-3 py-2"
@@ -116,12 +116,12 @@ export function Nav({ user }: { user: NavUser }) {
             <NavLinks onClick={() => setOpen(false)} />
           </nav>
           <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3">
-            <div className="leading-tight">
+            <Link href="/account" onClick={() => setOpen(false)} className="leading-tight">
               <div className="text-sm font-medium text-slate-700">{user.name}</div>
               <div className="text-[11px] uppercase tracking-wide text-slate-400">
-                {roleLabel}
+                {roleLabel} · My account
               </div>
-            </div>
+            </Link>
             <button
               onClick={() => signOut({ callbackUrl: "/login" })}
               className="btn-secondary px-3 py-2"

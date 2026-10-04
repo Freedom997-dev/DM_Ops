@@ -8,6 +8,8 @@ import { requirePermission, type AuthUser } from "@/lib/session";
 import { logAudit } from "@/lib/audit";
 import { ROLE_KEYS } from "@/lib/roles";
 import { validatePassword } from "@/lib/password";
+import { sendEmail, emails } from "@/lib/email";
+import { keepThisSessionSignedIn } from "@/lib/session-refresh";
 import type { ActionState } from "./rooms";
 
 export type { ActionState };
@@ -103,8 +105,8 @@ export async function createUser(
   return { ok: true, message: `${user.name} added.` };
 }
 
-// No privilege escalation via password reset: can't reset a Super Admin's
-// password unless you are one, and can't reset a user who holds permissions
+// No privilege escalation via password reset or profile edits: can't manage a
+// Super Admin unless you are one, and can't manage a user who holds permissions
 // you don't (same rule as roleGrantableBy, applied to the target's current roles).
 async function targetManageableBy(admin: AuthUser, targetId: string): Promise<string | null> {
   if (admin.isSuperAdmin) return null;
@@ -113,7 +115,7 @@ async function targetManageableBy(admin: AuthUser, targetId: string): Promise<st
     select: { role: { select: { key: true, permissions: { select: { permission: true } } } } },
   });
   if (current.some((c) => c.role.key === ROLE_KEYS.SUPER_ADMIN)) {
-    return "Only a Super Admin can reset a Super Admin's password.";
+    return "Only a Super Admin can manage a Super Admin's account.";
   }
   const targetPerms = new Set(current.flatMap((c) => c.role.permissions.map((p) => p.permission)));
   for (const perm of targetPerms) {
@@ -252,7 +254,12 @@ export async function resetPassword(
   if (denyReason) return { ok: false, error: denyReason };
 
   const passwordHash = await bcrypt.hash(password, 12);
-  const user = await prisma.user.update({ where: { id }, data: { passwordHash } });
+  // Bumping sessionVersion signs the user out on every device.
+  const user = await prisma.user.update({
+    where: { id },
+    data: { passwordHash, sessionVersion: { increment: 1 } },
+  });
+  if (user.id === admin.id) await keepThisSessionSignedIn(user.sessionVersion);
   await logAudit({
     userId: admin.id,
     action: "UPDATE",
@@ -260,6 +267,69 @@ export async function resetPassword(
     entityId: user.id,
     details: { passwordReset: true },
   });
+  await sendEmail({ to: user.email, ...emails.passwordChanged(user.name) });
   revalidatePath("/settings/staff");
   return { ok: true, message: "Password reset." };
+}
+
+const profileSchema = userSchema.pick({ name: true, email: true });
+
+// Edit a staff member's name and sign-in email. An email change takes effect
+// immediately, signs the user out everywhere, and notifies both addresses.
+export async function updateUserProfile(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const admin = await requirePermission("admin:staff:update");
+  const id = String(formData.get("id") || "");
+  const parsed = profileSchema.safeParse({
+    name: formData.get("name"),
+    email: formData.get("email"),
+  });
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
+
+  const denyReason = await targetManageableBy(admin, id);
+  if (denyReason) return { ok: false, error: denyReason };
+
+  const before = await prisma.user.findUnique({ where: { id }, select: { name: true, email: true } });
+  if (!before) return { ok: false, error: "User not found." };
+
+  const { name, email } = parsed.data;
+  const emailChanged = email !== before.email;
+  if (!emailChanged && name === before.name) return { ok: true, message: "No changes." };
+
+  if (emailChanged) {
+    const taken = await prisma.user.findUnique({ where: { email }, select: { id: true } });
+    if (taken) return { ok: false, error: "A user with that email already exists." };
+  }
+
+  const user = await prisma.user.update({
+    where: { id },
+    data: { name, email, ...(emailChanged && { sessionVersion: { increment: 1 } }) },
+  });
+  if (emailChanged && user.id === admin.id) await keepThisSessionSignedIn(user.sessionVersion);
+
+  await logAudit({
+    userId: admin.id,
+    action: "UPDATE",
+    entity: "User",
+    entityId: user.id,
+    details: {
+      ...(name !== before.name && { name: { from: before.name, to: name } }),
+      ...(emailChanged && { email: { from: before.email, to: email } }),
+    },
+  });
+
+  if (emailChanged) {
+    await Promise.all([
+      sendEmail({ to: before.email, ...emails.emailChangedOld(user.name, email) }),
+      sendEmail({ to: email, ...emails.emailChangedNew(user.name, before.email) }),
+    ]);
+  }
+
+  revalidatePath("/settings/staff");
+  return {
+    ok: true,
+    message: emailChanged ? `${user.name} updated. They'll sign in with ${email}.` : `${user.name} updated.`,
+  };
 }

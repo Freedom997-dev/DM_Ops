@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useFormState } from "react-dom";
 import clsx from "clsx";
-import { KeyRound, ShieldCheck, UserPlus, Users2, X, Check } from "lucide-react";
+import { KeyRound, Pencil, ShieldCheck, UserPlus, Users2, X, Check } from "lucide-react";
 import { SubmitButton } from "@/components/forms/SubmitButton";
 import { useToast } from "@/components/Toast";
 import {
@@ -12,6 +12,7 @@ import {
   resetPassword,
   setUserActive,
   setUserRoles,
+  updateUserProfile,
   type ActionState,
 } from "@/lib/actions/users";
 
@@ -48,6 +49,7 @@ export function UsersManager({
   const toast = useToast();
   const [adding, setAdding] = useState(false);
   const [resetFor, setResetFor] = useState<StaffUser | null>(null);
+  const [editFor, setEditFor] = useState<StaffUser | null>(null);
   const [editRolesFor, setEditRolesFor] = useState<StaffUser | null>(null);
   const grantable = grantableRoleIds ? new Set(grantableRoleIds) : null;
 
@@ -100,6 +102,9 @@ export function UsersManager({
 
               {canUpdate && (
                 <div className="flex items-center gap-2">
+                  <button onClick={() => setEditFor(u)} className="btn-secondary px-3 py-2" title="Edit name & email">
+                    <Pencil className="h-4 w-4" />
+                  </button>
                   <button onClick={() => setEditRolesFor(u)} className="btn-secondary px-3 py-2" title="Edit roles">
                     <Users2 className="h-4 w-4" />
                   </button>
@@ -125,6 +130,9 @@ export function UsersManager({
         })}
       </div>
 
+      {editFor && (
+        <EditProfileModal user={editFor} onClose={() => setEditFor(null)} onSaved={(msg) => { setEditFor(null); toast.show(msg); router.refresh(); }} />
+      )}
       {resetFor && (
         <ResetPasswordModal user={resetFor} onClose={() => setResetFor(null)} onSaved={() => { setResetFor(null); toast.show("Password reset."); router.refresh(); }} />
       )}
@@ -204,7 +212,7 @@ function AddUserForm({ allRoles, grantable, onClose, onSaved }: { allRoles: Role
         </div>
         <div className="sm:col-span-2">
           <label className="label">Temporary password *</label>
-          <input name="password" type="text" required className="input" placeholder="At least 6 characters" />
+          <input name="password" type="text" required className="input" placeholder="At least 8 characters, with a letter and a number" />
         </div>
         {state.error && <p className="sm:col-span-2 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{state.error}</p>}
         <div className="sm:col-span-2 flex gap-2">
@@ -276,6 +284,49 @@ function ResetPasswordModal({ user, onClose, onSaved }: { user: StaffUser; onClo
           {state.error && <p className="text-sm text-red-700">{state.error}</p>}
           <div className="flex gap-2">
             <SubmitButton pendingText="Saving…"><Check className="h-4 w-4" /> Set password</SubmitButton>
+            <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function EditProfileModal({ user, onClose, onSaved }: { user: StaffUser; onClose: () => void; onSaved: (message: string) => void; }) {
+  const [state, formAction] = useActionState(updateUserProfile, EMPTY);
+  const [email, setEmail] = useState(user.email);
+  useEffect(() => {
+    if (state.ok) onSaved(state.message ?? "Saved.");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state]);
+
+  const emailChanged = email.trim().toLowerCase() !== user.email;
+
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/40 p-4">
+      <div className="card w-full max-w-md p-5">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-bold text-slate-900">Edit staff member</h2>
+          <button onClick={onClose} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100"><X className="h-5 w-5" /></button>
+        </div>
+        <form action={formAction} className="space-y-3">
+          <input type="hidden" name="id" value={user.id} />
+          <div>
+            <label className="label">Full name *</label>
+            <input name="name" required defaultValue={user.name} className="input" autoFocus />
+          </div>
+          <div>
+            <label className="label">Sign-in email *</label>
+            <input name="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="input" />
+          </div>
+          {emailChanged && (
+            <p className="rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              The new email works straight away and the old one stops working. {user.name} will be signed out on all devices, and both addresses get a notice.
+            </p>
+          )}
+          {state.error && <p className="text-sm text-red-700">{state.error}</p>}
+          <div className="flex gap-2">
+            <SubmitButton pendingText="Saving…"><Check className="h-4 w-4" /> Save</SubmitButton>
             <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
           </div>
         </form>

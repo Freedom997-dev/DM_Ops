@@ -26,8 +26,13 @@ model User {
   role         String   @default("INSPECTOR")
   active       Boolean  @default(true)
   createdAt    DateTime @default(now())
+  // Bumped on password change/reset and email change. The JWT carries the
+  // value from sign-in; getCurrentUser() rejects a token whose value differs,
+  // which signs the user out on every other device.
+  sessionVersion Int    @default(0)
 
   roles       UserRole[]
+  authTokens  AuthToken[]
   inspections Inspection[]
   auditLogs   AuditLog[]
 
@@ -93,6 +98,23 @@ model UserRole {
 // Failed-login tracking for rate limiting / lockout (see src/lib/login-attempts.ts).
 // One row per failed sign-in, keyed by the email typed (stored even when no such
 // user exists, so lockout can't probe which emails are real). Cleared on success.
+// One-time secrets for password reset (emailed link) and password change
+// (emailed 6-digit code). Only a SHA-256 hash of the secret is stored.
+model AuthToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purpose   String // PASSWORD_RESET | PASSWORD_CHANGE_CODE
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  attempts  Int       @default(0)
+  createdAt DateTime  @default(now())
+
+  @@index([userId, purpose])
+  @@index([expiresAt])
+}
+
 model LoginAttempt {
   id        String   @id @default(cuid())
   email     String

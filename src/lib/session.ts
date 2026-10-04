@@ -23,6 +23,9 @@ export const getCurrentUser = cache(async (): Promise<AuthUser | null> => {
     },
   });
   if (!user || !user.active) return null;
+  // Password or email changed since this token was issued: signed out.
+  // Tokens from before sessionVersion existed carry no value and count as 0.
+  if ((session.user.sv ?? 0) !== user.sessionVersion) return null;
 
   const roleKeys = user.roles.map((ur) => ur.role.key);
   const permissions = new Set<string>();

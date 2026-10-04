@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useState } from "react";
+import Link from "next/link";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { BedDouble, Loader2, LogIn } from "lucide-react";
@@ -17,6 +18,7 @@ function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
   const callbackUrl = params.get("callbackUrl") || "/services";
+  const justReset = params.get("reset") === "1";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -59,6 +61,11 @@ function LoginForm() {
         </div>
 
         <form onSubmit={onSubmit} className="card space-y-4 p-6">
+          {justReset && !error && (
+            <p className="rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+              Password updated. Sign in with your new password.
+            </p>
+          )}
           <div>
             <label className="label" htmlFor="email">
               Email
@@ -75,9 +82,14 @@ function LoginForm() {
             />
           </div>
           <div>
-            <label className="label" htmlFor="password">
-              Password
-            </label>
+            <div className="flex items-baseline justify-between">
+              <label className="label" htmlFor="password">
+                Password
+              </label>
+              <Link href="/forgot-password" className="text-xs font-medium text-brand-600 hover:underline">
+                Forgot password?
+              </Link>
+            </div>
             <input
               id="password"
               type="password"

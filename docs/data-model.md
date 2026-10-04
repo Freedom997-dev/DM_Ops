@@ -43,6 +43,7 @@ otherwise owns its tables outright.
 | `role` | String, default `"INSPECTOR"` | **DEPRECATED** — legacy single role. Kept so the RBAC migration was non-destructive. **Not read by the app**; use `UserRole`. Seed uses it only to migrate users without roles |
 | `active` | Boolean, default true | `false` = cannot sign in; existing sessions stop resolving on next request |
 | `createdAt` | DateTime | |
+| `sessionVersion` | Int, default 0 | Copied into the JWT at sign-in (`sv`). Bumped on password change/reset and email change; `getCurrentUser()` rejects tokens with a different value, which signs the user out everywhere |
 
 Back-relations to every domain (inspections, workflow rows/cells/images, HK
 assigned/assignedBy/created/submitted/reviewed/photos, PM V2 inspections updated).
@@ -67,6 +68,18 @@ effective permissions = union.
 One row per **failed** sign-in: `email` (as typed, lower-cased — even for
 non-existent accounts), `ip?`, `createdAt`. Index `(email, createdAt)`. Deleted on
 successful sign-in. Drives lockout (5 in 15 min). Not FK-linked to `User` by design.
+Also stores forgot-password rate-limit hits under namespaced keys
+(`pw-reset:<email>`, `pw-reset-ip:<ip>`; see `allowRateLimited`), which never
+match a plain email, so they don't affect login lockout.
+
+### AuthToken
+One-time secrets for the password flows. `purpose` is `PASSWORD_RESET` (emailed
+link, 30 min) or `PASSWORD_CHANGE_CODE` (6-digit code, 10 min, 5 tries via
+`attempts`). Only `tokenHash` (SHA-256; codes hashed with the user id) is stored.
+`usedAt` marks used **or superseded** tokens — issuing a new one invalidates the
+user's earlier unused ones. Rows are kept to drive per-user rate limits and purged
+by the nightly cron once expired for a day. Cascades from `User`.
+Code: `src/lib/auth-tokens.ts`.
 
 ### AuditLog
 | Field | Notes |
