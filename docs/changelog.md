@@ -3,6 +3,16 @@
 What shipped, newest first. Dates are commit dates on `main` (production since
 the `dm-ops-production` move). Add an entry with every feature or notable fix.
 
+## 2026-10 — Mobile app install
+
+- **v4.7.6 · 2026-10-06** · App versioning starts at **4.7.6**, shown in the page
+  footer; bump rules in [deployment.md](deployment.md#versioning). Home-screen
+  app name is **DMO**.
+- **2026-10-06** · App icon (favicon, iPhone and Android home-screen icons) and web
+  app manifest; installable full-screen from the phone's browser.
+- **2026-10-06** · `/install` instructions page, install prompt on the login and
+  Services pages, staff guide [user-guide.md](user-guide.md).
+
 ## 2026-09 — Platform hardening, new hosting, PM V2, Next 16
 
 - **2026-09-30** · Shared room management page at `/settings/rooms` (`0c0b5e7`).

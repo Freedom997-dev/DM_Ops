@@ -15,6 +15,10 @@ lives in this folder. The root `README.md` is only a short landing page.
 
 ## Reading order
 
+### Motel staff
+
+[user-guide.md](user-guide.md) — links, installing the app on a phone, signing in.
+
 ### New human contributor
 
 1. [overview.md](overview.md) — what the product is, who uses it, glossary

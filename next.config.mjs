@@ -1,6 +1,13 @@
+import { readFileSync } from "node:fs";
+
+// App version shown in the footer. Bump "version" in package.json with every
+// release (see docs/deployment.md → Versioning).
+const { version } = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8"));
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  env: { NEXT_PUBLIC_APP_VERSION: version },
   experimental: {
     serverActions: {
       // Housekeeping photo/video uploads go through a Server Action

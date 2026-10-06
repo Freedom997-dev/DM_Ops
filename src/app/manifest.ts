@@ -5,8 +5,8 @@ import type { MetadataRoute } from "next";
 // scripts/generate-icons.mjs.
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Divya Motel Operations",
-    short_name: "Divya Motel",
+    name: "DMO · Divya Motel Operations",
+    short_name: "DMO", // name under the home-screen icon
     description: "Operations portal for Divya Motel staff.",
     start_url: "/services",
     scope: "/",

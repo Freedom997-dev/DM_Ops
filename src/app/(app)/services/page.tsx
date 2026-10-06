@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { requireUser, can, canAccessApp, isManager } from "@/lib/session";
 import { canRunWorkflow, parseRolesAllowed } from "@/lib/permissions";
 import { motelTodayUTC } from "@/lib/business-date";
+import { InstallAppBanner } from "@/components/install/InstallAppBanner";
 
 export const dynamic = "force-dynamic";
 
@@ -68,6 +69,8 @@ export default async function ServicesIndex() {
           </Link>
         )}
       </div>
+
+      <InstallAppBanner variant="banner" />
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {workflowCards.length === 0 && !showPmCard && !showPmV2Card && !showHkCard && (

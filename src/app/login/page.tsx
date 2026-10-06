@@ -4,6 +4,7 @@ import { Suspense, useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { BedDouble, Loader2, LogIn } from "lucide-react";
+import { InstallAppBanner } from "@/components/install/InstallAppBanner";
 
 export default function LoginPage() {
   return (
@@ -105,6 +106,8 @@ function LoginForm() {
             Sign in
           </button>
         </form>
+
+        <InstallAppBanner variant="link" />
 
         <p className="mt-6 text-center text-xs text-slate-400">
           Authorized staff only · Divya Motel

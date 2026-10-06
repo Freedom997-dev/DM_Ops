@@ -10,7 +10,8 @@ All `/services/*` and `/settings/*` pages also pass `proxy.ts` (signed in) and
 | Route | Purpose | Guard |
 |---|---|---|
 | `/` | Redirect → `/services` (signed in) or `/login` | — |
-| `/login` | Credentials sign-in; shows lockout message | Public |
+| `/login` | Credentials sign-in; shows lockout message; "Install the app" link | Public |
+| `/install` | How to add the portal to a phone's home screen (one-tap Install on Android Chrome when offered) | Public |
 | `/services` | Service catalog — tiles filtered by permission; HK tile shows live counts; workflow tiles show today's status | signed in |
 | **Room Condition V2** | | |
 | `/services/pm-v2` | Board of all areas for a quarter (`?q=YYYY-Qn`, default current) with progress/issue counts | `pmv2:board:view` (layout) |

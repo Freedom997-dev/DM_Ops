@@ -111,8 +111,28 @@ signed URLs generated server-side with the service-role key.
 5. Push the branch → Vercel preview must build green.
 6. Back up production if the change touches schema or data (see
    [operations.md](operations.md#backups)).
-7. Merge to `main` → production build runs provisioning + build → live.
+7. Bump the version (below) and add a changelog entry, then merge to `main` →
+   production build runs provisioning + build → live.
 8. Smoke test production (below). Watch Vercel logs for errors.
+
+### Versioning
+
+The version lives in `package.json` (`"version"`) and is shown in the footer of
+every page (`v4.7.6`, via `NEXT_PUBLIC_APP_VERSION` in `next.config.mjs`). Bump it
+once per release, before merging to `main`:
+
+| Change | Bump | Example |
+|---|---|---|
+| Bug fix, wording, small tweak | patch | 4.7.6 → 4.7.7 |
+| New feature or improvement | minor | 4.7.6 → 4.8.0 |
+| Big change that alters how staff work, or needs data migration | major | 4.7.6 → 5.0.0 |
+
+```bash
+npm version minor --no-git-tag-version
+```
+
+(`patch` / `minor` / `major`; updates `package.json` and `package-lock.json`.)
+Put the new version in the changelog entry heading.
 
 ### Production smoke test (~5 min)
 
