@@ -6,6 +6,10 @@ import { Footer } from "@/components/Footer";
 export const metadata: Metadata = {
   title: "Divya Motel · Room Condition Program",
   description: "Preventive maintenance & room inspection tracking for Divya Motel.",
+  applicationName: "Divya Motel",
+  // iOS "Add to Home Screen": open full-screen with this name under the icon
+  // (icon: src/app/apple-icon.png). Android uses src/app/manifest.ts.
+  appleWebApp: { capable: true, title: "Divya Motel", statusBarStyle: "default" },
 };
 
 export const viewport: Viewport = {
