@@ -23,8 +23,8 @@ All `/services/*` and `/settings/*` pages also pass `proxy.ts` (signed in) and
 | `/services/housekeeping` | Live board: room tasks + daily tasks, toolbar, drawers, polling | `housekeeping:board:view` |
 | `/services/housekeeping/settings` | Tabs: status actions, daily-task templates + checklists, room checklist, rooms, retention & instructions | `housekeeping:settings:configure` (else → board) |
 | **Workflow services** | | |
-| `/services/[slug]` | Matrix for today or `?date=YYYY-MM-DD`; print; mark complete; reopen | `requireWorkflowAccess(slug)` (`rolesAllowed`) |
-| `/services/[slug]/history` | Past submissions — by date / by room | `requireWorkflowAccess(slug)` |
+| `/services/[slug]` | Sheet for today or `?date=YYYY-MM-DD` (future → today); date bar ◀ / ▶ / picker; print; mark complete; unlock / lock (manager); reopen (admin) | `requireWorkflowAccess(slug)` (`rolesAllowed`) |
+| `/services/[slug]/history` | **Day list** (the card's target): today pinned on top, then every past day incl. missed ones; by room tab | `requireWorkflowAccess(slug)` |
 | `/services/[slug]/settings` | Name, description, allowed roles, items | `admin:services:manage` |
 | **Room Condition V1** (hidden from catalog, still routable) | | |
 | `/services/pm` | Room status dashboard, filters (`?view=`), repair breakdown, exports | `pm:dashboard:view` |
@@ -102,7 +102,8 @@ All are `"use server"`. Each re-checks auth itself. Return shape is
 ### `workflows.ts` / `workflowAdmin.ts`
 | Action | Guard |
 |---|---|
-| `getOrCreateTodaySubmission(slug)`, `updateCell`, `saveRow` (photos), `saveRowNote`, `markSubmissionComplete` | `requireWorkflowAccess(slug)` — refused once COMPLETED |
+| `getOrCreateSubmission(slug, day)`, `updateCell`, `saveRow` (photos), `saveRowNote`, `markSubmissionComplete` | `requireWorkflowAccess(slug)` — refused unless the day is editable (today, or a past day while unlocked; never once COMPLETED) |
+| `unlockDay(slug, day)`, `lockDay(submissionId)` | `requireWorkflowAccess(slug)` + `isManager`; past days only |
 | `reopenSubmission`, `deleteRowImage` | `requireAdmin()` |
 | `createWorkflowItem`, `updateWorkflowItem`, `archiveWorkflowItem`, `updateWorkflowDefinition`, `archiveWorkflowDefinition` | `admin:services:manage` |
 

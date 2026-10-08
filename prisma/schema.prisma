@@ -33,6 +33,7 @@ model User {
 
   // Foundation: Workflow back-relations
   workflowSubmissionsCreated WorkflowSubmission[] @relation("WorkflowSubmissionCreated")
+  workflowSubmissionsUnlocked WorkflowSubmission[] @relation("WorkflowSubmissionUnlocked")
   workflowRowUpdates         WorkflowRow[]        @relation("WorkflowRowUpdated")
   workflowCellUpdates        WorkflowCell[]       @relation("WorkflowCellUpdated")
   workflowRowImagesUploaded  WorkflowRowImage[]   @relation("WorkflowRowImageUploaded")
@@ -261,6 +262,11 @@ model WorkflowSubmission {
   createdById String
   createdBy   User               @relation("WorkflowSubmissionCreated", fields: [createdById], references: [id])
   completedAt DateTime?
+  // Past days are locked; a manager unlocks one for editing (null = locked).
+  // Today is always editable. See src/lib/workflow-lock.ts.
+  unlockedAt   DateTime?
+  unlockedById String?
+  unlockedBy   User?              @relation("WorkflowSubmissionUnlocked", fields: [unlockedById], references: [id])
   createdAt   DateTime           @default(now())
   updatedAt   DateTime           @updatedAt
 

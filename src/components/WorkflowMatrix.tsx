@@ -1,13 +1,20 @@
 "use client";
 
-import { Fragment, useMemo, useState, useTransition } from "react";
+import { Fragment, useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import clsx from "clsx";
-import { Check, ChevronDown, Loader2, LockOpen, Printer, RefreshCw } from "lucide-react";
+import { Check, ChevronDown, Loader2, Lock, LockOpen, Printer, RefreshCw } from "lucide-react";
 import { WorkflowCellButton, type CellStatus } from "@/components/WorkflowCellButton";
 import { WorkflowNoteCell } from "@/components/WorkflowNoteCell";
 import { WorkflowMatrixRowPanel, type RowImage } from "@/components/WorkflowMatrixRowPanel";
-import { getOrCreateTodaySubmission, markSubmissionComplete, reopenSubmission } from "@/lib/actions/workflows";
+import {
+  getOrCreateSubmission,
+  markSubmissionComplete,
+  reopenSubmission,
+  unlockDay,
+  lockDay,
+} from "@/lib/actions/workflows";
+import { lockMessage, type SheetState } from "@/lib/workflow-lock";
 
 type Room = { id: string; number: string; name: string | null };
 type Item = { id: string; text: string };
@@ -28,6 +35,7 @@ export type MatrixRowSeed = {
 type Props = {
   workflowSlug: string;
   workflowName: string;
+  dateKey: string; // YYYY-MM-DD of the day shown
   submissionId: string | null; // null means "not yet created — will be created on first cell tap"
   submissionStatus: "IN_PROGRESS" | "COMPLETED" | null;
   rooms: Room[];
@@ -36,6 +44,11 @@ type Props = {
   seedRows: MatrixRowSeed[];
   isAdmin: boolean;
   canMarkComplete: boolean;
+  canUnlock: boolean; // manager+: unlock / lock past days
+  isPast: boolean;
+  editable: boolean; // server-computed (src/lib/workflow-lock.ts); the server re-checks every write
+  lockReason: SheetState["lockReason"];
+  unlockedBy: string | null; // past day currently unlocked by this person
   printDateLabel: string;
   printFileDate: string; // YYYY-MM-DD, used in the saved PDF's file name
 };
@@ -43,6 +56,7 @@ type Props = {
 export function WorkflowMatrix({
   workflowSlug,
   workflowName,
+  dateKey,
   submissionId: initialSubmissionId,
   submissionStatus: initialSubmissionStatus,
   rooms,
@@ -51,6 +65,11 @@ export function WorkflowMatrix({
   seedRows,
   isAdmin,
   canMarkComplete,
+  canUnlock,
+  isPast,
+  editable,
+  lockReason,
+  unlockedBy,
   printDateLabel,
   printFileDate,
 }: Props) {
@@ -66,7 +85,17 @@ export function WorkflowMatrix({
   // Notes saved since the last server refresh, so the printed notes are current
   const [savedNotes, setSavedNotes] = useState<Record<string, string>>({});
 
+  // Pick up a sheet the server created or changed (unlock, reopen) after a
+  // router.refresh(); local state only seeds from props on first render.
+  useEffect(() => {
+    if (initialSubmissionId) setSubmissionId(initialSubmissionId);
+  }, [initialSubmissionId]);
+  useEffect(() => {
+    if (initialSubmissionStatus) setSubmissionStatus(initialSubmissionStatus);
+  }, [initialSubmissionStatus]);
+
   const completed = submissionStatus === "COMPLETED";
+  const locked = !editable || completed;
 
   // cellMap[`${roomId}::${itemId}`] = status (or undefined if not marked)
   const cellMap = useMemo(() => {
@@ -102,10 +131,14 @@ export function WorkflowMatrix({
 
   async function ensureSubmission(): Promise<string | null> {
     if (submissionId) return submissionId;
+    if (locked) {
+      setError(lockMessage(lockReason));
+      return null;
+    }
     setError(null);
     return new Promise<string | null>((resolve) => {
       startCreate(async () => {
-        const res = await getOrCreateTodaySubmission(workflowSlug);
+        const res = await getOrCreateSubmission(workflowSlug, dateKey);
         if (!res.ok) {
           setError(res.error);
           resolve(null);
@@ -152,6 +185,32 @@ export function WorkflowMatrix({
     });
   }
 
+  function handleUnlock() {
+    if (!confirm("Unlock this day? Anyone with access can then edit it until it's locked again or marked complete.")) return;
+    setError(null);
+    startTransition(async () => {
+      const res = await unlockDay(workflowSlug, dateKey);
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      router.refresh();
+    });
+  }
+
+  function handleLock() {
+    if (!submissionId) return;
+    setError(null);
+    startTransition(async () => {
+      const res = await lockDay(submissionId);
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      router.refresh();
+    });
+  }
+
   function handleRefresh() {
     router.refresh();
   }
@@ -184,6 +243,16 @@ export function WorkflowMatrix({
               <span className="inline-flex items-center gap-1 text-emerald-700">
                 <Check className="h-4 w-4" /> Completed
               </span>
+            ) : !editable ? (
+              <span className="inline-flex items-center gap-1 text-amber-700">
+                <Lock className="h-4 w-4" />
+                {submissionId ? "Locked" : "Missed — no inspection"}
+                {canUnlock ? " · unlock to edit" : " · ask a manager to unlock"}
+              </span>
+            ) : unlockedBy ? (
+              <span className="inline-flex items-center gap-1 text-amber-700">
+                <LockOpen className="h-4 w-4" /> Unlocked by {unlockedBy} · {submissionId ? "editing" : "tap a cell to begin"}
+              </span>
             ) : submissionId ? (
               "In progress"
             ) : (
@@ -212,7 +281,19 @@ export function WorkflowMatrix({
               Print
             </button>
           )}
-          {canMarkComplete && !completed && submissionId && (
+          {canUnlock && isPast && lockReason === "past-locked" && (
+            <button type="button" onClick={handleUnlock} className="btn-secondary" disabled={pending}>
+              {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <LockOpen className="h-4 w-4" />}
+              Unlock for editing
+            </button>
+          )}
+          {canUnlock && isPast && unlockedBy && !completed && submissionId && (
+            <button type="button" onClick={handleLock} className="btn-secondary" disabled={pending}>
+              {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />}
+              Lock
+            </button>
+          )}
+          {canMarkComplete && !locked && submissionId && (
             <button
               type="button"
               onClick={handleMarkComplete}
@@ -253,7 +334,7 @@ export function WorkflowMatrix({
         <span className="inline-flex items-center gap-1 text-slate-400">
           <span className="h-2 w-2 rounded-full border border-slate-300 bg-white" /> {counts.blank} blank / N/A
         </span>
-        <span className="ml-auto text-slate-400">
+        <span className={clsx("ml-auto text-slate-400", locked && "hidden")}>
           Tap a box: blank → <span className="text-emerald-700">✓ OK</span> → <span className="text-red-700">✗ Issue</span> → blank
         </span>
       </div>
@@ -337,7 +418,7 @@ export function WorkflowMatrix({
                             itemId={item.id}
                             initialStatus={cell?.status ?? null}
                             lastUpdatedBy={cell?.lastUpdatedBy ?? null}
-                            disabled={completed}
+                            disabled={locked}
                           />
                         </td>
                       );
@@ -354,7 +435,7 @@ export function WorkflowMatrix({
                         ensureSubmission={ensureSubmission}
                         roomId={room.id}
                         initialNote={row?.note ?? null}
-                        disabled={completed}
+                        disabled={locked}
                         onSaved={(note) => setSavedNotes((cur) => ({ ...cur, [room.id]: note }))}
                       />
                     </td>
@@ -368,7 +449,7 @@ export function WorkflowMatrix({
                           roomLabel={`Room ${room.number}`}
                           initialImages={row?.images ?? []}
                           isAdmin={isAdmin}
-                          disabled={completed}
+                          disabled={locked}
                           onClose={() => setOpenRoomId(null)}
                           onSaved={() => {
                             handleRefresh();

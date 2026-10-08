@@ -3,7 +3,7 @@ import { ChevronRight, ClipboardList, LayoutGrid, Settings, User2, Sparkles } fr
 import { prisma } from "@/lib/db";
 import { requireUser, can, canAccessApp, isManager } from "@/lib/session";
 import { canRunWorkflow, parseRolesAllowed } from "@/lib/permissions";
-import { motelTodayUTC } from "@/lib/business-date";
+import { motelTodayUTC, formatBusinessDate } from "@/lib/business-date";
 import { InstallAppBanner } from "@/components/install/InstallAppBanner";
 
 export const dynamic = "force-dynamic";
@@ -12,6 +12,7 @@ export default async function ServicesIndex() {
   const user = await requireUser();
   const showSettings = isManager(user);
   const today = motelTodayUTC();
+  const todayLabel = formatBusinessDate(today, { weekday: "short", month: "short", day: "numeric" });
 
   const definitions = await prisma.workflowDefinition.findMany({
     where: { archived: false },
@@ -118,16 +119,17 @@ export default async function ServicesIndex() {
         {workflowCards.map((c) => (
           <ServiceCard
             key={c.slug}
-            href={`/services/${c.slug}`}
+            // The card opens the day list (today pinned on top); "Open today" jumps straight in.
+            href={`/services/${c.slug}/history`}
             icon={<LayoutGrid className="h-5 w-5" />}
             name={c.name}
             settingsHref={can(user, "admin:services:manage") ? `/services/${c.slug}/settings` : undefined}
-            historyHref={`/services/${c.slug}/history`}
-            statusLine={
+            quickLink={{ href: `/services/${c.slug}`, label: "Open today →" }}
+            statusLine={`Today, ${todayLabel} · ${
               c.submission
-                ? `Today: ${c.submission.status === "COMPLETED" ? "Completed" : "In progress"} · ${c.submission._count.rows} room${c.submission._count.rows === 1 ? "" : "s"} touched`
-                : "Today: Not started"
-            }
+                ? `${c.submission.status === "COMPLETED" ? "Completed" : "In progress"} · ${c.submission._count.rows} room${c.submission._count.rows === 1 ? "" : "s"} touched`
+                : "Not started"
+            }`}
             startedBy={c.submission?.createdBy.name ?? null}
             completed={c.submission?.status === "COMPLETED"}
           />
@@ -142,7 +144,7 @@ function ServiceCard({
   icon,
   name,
   settingsHref,
-  historyHref,
+  quickLink,
   statusLine,
   startedBy,
   completed,
@@ -151,7 +153,7 @@ function ServiceCard({
   icon: React.ReactNode;
   name: string;
   settingsHref?: string;
-  historyHref?: string;
+  quickLink?: { href: string; label: string };
   statusLine?: string;
   startedBy?: string | null;
   completed?: boolean;
@@ -206,17 +208,17 @@ function ServiceCard({
       )}
 
       <div className="mt-auto flex items-center gap-3">
-        {historyHref && (
+        {quickLink && (
           <Link
-            href={historyHref}
+            href={quickLink.href}
             className="relative z-10 text-xs font-semibold text-brand-600 hover:underline"
           >
-            View history →
+            {quickLink.label}
           </Link>
         )}
         {/* Stretched link: after:inset-0 covers the whole card, so tapping
-            anywhere opens the service (mobile-friendly). The gear + "View
-            history" sit above it via z-10 and stay independently tappable. */}
+            anywhere opens the service (mobile-friendly). The gear + quick
+            link sit above it via z-10 and stay independently tappable. */}
         <Link
           href={href}
           aria-label={`Open ${name}`}

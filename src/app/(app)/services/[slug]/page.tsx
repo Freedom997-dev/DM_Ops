@@ -1,22 +1,16 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Clock, DoorOpen } from "lucide-react";
+import { ArrowLeft, DoorOpen } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { requireWorkflowAccess, isAdmin, isManager, can } from "@/lib/session";
 import { getSignedUrl } from "@/lib/storage";
 import { WorkflowMatrix, type MatrixCellSeed, type MatrixRowSeed } from "@/components/WorkflowMatrix";
 import type { CellStatus } from "@/components/WorkflowCellButton";
+import { WorkflowDayBar } from "@/components/WorkflowDayBar";
 import { motelTodayUTC, formatBusinessDate } from "@/lib/business-date";
+import { sheetState, dateKey, parseDateKey, addDays } from "@/lib/workflow-lock";
 
 export const dynamic = "force-dynamic";
-
-function parseDateParam(s: string | undefined): Date {
-  if (!s) return motelTodayUTC();
-  // Expects YYYY-MM-DD
-  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!m) return motelTodayUTC();
-  return new Date(Date.UTC(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10)));
-}
 
 export default async function WorkflowSubmissionPage({
   params,
@@ -28,8 +22,12 @@ export default async function WorkflowSubmissionPage({
   const { user, workflow } = await requireWorkflowAccess((await params).slug);
   if (workflow.shape !== "MATRIX") notFound();
 
-  const targetDate = parseDateParam((await searchParams).date);
-  const isToday = targetDate.getTime() === motelTodayUTC().getTime();
+  const today = motelTodayUTC();
+  const dateParam = (await searchParams).date;
+  const parsed = parseDateKey(dateParam);
+  // No date, a malformed one, or a future one: show today.
+  if (dateParam !== undefined && (!parsed || parsed > today)) redirect(`/services/${workflow.slug}`);
+  const targetDate = parsed ?? today;
 
   const [items, rooms, submission] = await Promise.all([
     prisma.workflowItem.findMany({
@@ -43,6 +41,7 @@ export default async function WorkflowSubmissionPage({
     prisma.workflowSubmission.findUnique({
       where: { workflowId_date: { workflowId: workflow.id, date: targetDate } },
       include: {
+        unlockedBy: { select: { name: true } },
         cells: {
           include: { lastUpdatedBy: { select: { name: true } } },
         },
@@ -80,15 +79,18 @@ export default async function WorkflowSubmissionPage({
     })),
   );
 
+  const state = sheetState(targetDate, today, submission);
+  const key = dateKey(targetDate);
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Link
-          href="/services"
+          href={`/services/${workflow.slug}/history`}
           className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to services
+          All days
         </Link>
         <div className="flex items-center gap-4">
           {can(user, "pm:rooms:add") && (
@@ -100,29 +102,23 @@ export default async function WorkflowSubmissionPage({
               Rooms
             </Link>
           )}
-          <Link
-            href={`/services/${workflow.slug}/history`}
-            className="inline-flex items-center gap-1 text-sm font-semibold text-brand-600 hover:underline"
-          >
-            <Clock className="h-4 w-4" />
-            History
-          </Link>
         </div>
       </div>
 
-      {!isToday && (
-        <p className="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-800">
-          Viewing past date:{" "}
-          {formatBusinessDate(targetDate)}.{" "}
-          {submission?.status === "COMPLETED"
-            ? "Completed — read-only. Admins can Reopen to edit."
-            : "You can edit it; changes save automatically. Use Mark complete when done."}
-        </p>
-      )}
+      <WorkflowDayBar
+        workflowSlug={workflow.slug}
+        dateKey={key}
+        dateLabel={formatBusinessDate(targetDate)}
+        todayKey={dateKey(today)}
+        prevKey={dateKey(addDays(targetDate, -1))}
+        nextKey={state.kind === "today" ? null : dateKey(addDays(targetDate, 1))}
+        isToday={state.kind === "today"}
+      />
 
       <WorkflowMatrix
         workflowSlug={workflow.slug}
         workflowName={workflow.name}
+        dateKey={key}
         submissionId={submission?.id ?? null}
         submissionStatus={(submission?.status as "IN_PROGRESS" | "COMPLETED" | undefined) ?? null}
         rooms={rooms.map((r) => ({ id: r.id, number: r.number, name: r.name }))}
@@ -131,8 +127,13 @@ export default async function WorkflowSubmissionPage({
         seedRows={seedRows}
         isAdmin={isAdmin(user)}
         canMarkComplete={isManager(user)}
+        canUnlock={isManager(user)}
+        isPast={state.kind === "past"}
+        editable={state.editable}
+        lockReason={state.lockReason}
+        unlockedBy={state.unlocked ? (submission?.unlockedBy?.name ?? "a manager") : null}
         printDateLabel={formatBusinessDate(targetDate)}
-        printFileDate={targetDate.toISOString().slice(0, 10)}
+        printFileDate={key}
       />
     </div>
   );
