@@ -11,6 +11,10 @@ the `dm-ops-production` move). Add an entry with every feature or notable fix.
   days are **locked** until a manager unlocks them; then anyone with access can
   edit. The card shows today's date. Fixes taps on an empty past day being saved
   into today's inspection.
+- **v4.8.0 · 2026-10-08** · **Performance** tab (replaces "By room") for managers:
+  room scoreboard with scores, trends and top problems, a room detail view and a
+  rooms × checklist problem map, over 7 / 30 / 90 days. New permission
+  `workflows:performance:view`, given to Admin and Manager automatically once.
 
 ## 2026-10 — Mobile app install
 

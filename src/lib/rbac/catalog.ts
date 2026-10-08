@@ -78,6 +78,15 @@ export const APPS: AppDef[] = [
     ],
   },
   {
+    // Workflow services (Daily Cleanliness, …). Running one is still governed
+    // by WorkflowDefinition.rolesAllowed; this app holds extra capabilities.
+    key: "workflows",
+    label: "Services",
+    description: "Daily Cleanliness & other workflow services",
+    icon: "LayoutGrid",
+    features: [{ key: "performance", label: "Performance", actions: [A.view] }],
+  },
+  {
     key: "admin",
     label: "Administration",
     description: "Staff, roles, services & activity",

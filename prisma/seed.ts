@@ -1,6 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
-import { DEFAULT_ROLES } from "../src/lib/rbac/defaults";
+import { DEFAULT_ROLES, INTRODUCED_GRANTS } from "../src/lib/rbac/defaults";
 import { ROLE_KEYS } from "../src/lib/roles";
 import { importPmV2Config } from "./pmv2Import";
 import { seedDailyCleanliness } from "./seedWorkflows";
@@ -155,6 +155,24 @@ async function main() {
     (await prisma.role.findMany({ select: { id: true, key: true } })).map((r) => [r.key, r.id]),
   );
   console.log(`✓ Ensured ${DEFAULT_ROLES.length} roles`);
+
+  // --- One-time grants of permissions introduced after roles existed ---
+  for (const g of INTRODUCED_GRANTS) {
+    const marker = JSON.stringify({ seedGrant: g.permission });
+    const done = await prisma.auditLog.findFirst({ where: { entity: "Role", details: marker } });
+    if (done) continue;
+    for (const key of g.roles) {
+      const roleId = roleByKey[key];
+      if (!roleId) continue;
+      await prisma.rolePermission.upsert({
+        where: { roleId_permission: { roleId, permission: g.permission } },
+        create: { roleId, permission: g.permission },
+        update: {},
+      });
+    }
+    await prisma.auditLog.create({ data: { action: "UPDATE", entity: "Role", details: marker } });
+    console.log(`✓ Granted ${g.permission} to ${g.roles.join(", ")} (one-time)`);
+  }
 
   // --- Migrate any existing users' single role string -> UserRole ---
   const usersToMigrate = await prisma.user.findMany({

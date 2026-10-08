@@ -31,6 +31,7 @@ export const DEFAULT_ROLES: RoleSeed[] = [
       ...permissionsForApp("pm"),
       ...permissionsForApp("pmv2"),
       ...permissionsForApp("housekeeping"),
+      "workflows:performance:view",
       "admin:staff:view",
       "admin:staff:add",
       "admin:staff:update",
@@ -55,6 +56,7 @@ export const DEFAULT_ROLES: RoleSeed[] = [
       "housekeeping:tasks:manage",
       "housekeeping:tasks:submit",
       "housekeeping:cleaning:review",
+      "workflows:performance:view",
       "admin:staff:view",
       "admin:audit:view",
     ],
@@ -83,4 +85,13 @@ export const DEFAULT_ROLES: RoleSeed[] = [
     isSystem: true,
     permissions: ["housekeeping:board:view", "housekeeping:tasks:submit"],
   },
+];
+
+// Permissions added after roles already exist in production. The seed never
+// rewrites an existing role's grants, so without this a new key would reach
+// nobody but Super Admin. Each entry is granted to its default roles ONCE (a
+// marker row in AuditLog records it); removing it from a role later sticks.
+// Append here whenever a new key should reach existing roles.
+export const INTRODUCED_GRANTS: { permission: string; roles: string[] }[] = [
+  { permission: "workflows:performance:view", roles: [ROLE_KEYS.ADMIN, ROLE_KEYS.MANAGER] },
 ];

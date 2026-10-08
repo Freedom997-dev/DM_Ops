@@ -2,33 +2,35 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { prisma } from "@/lib/db";
-import { requireWorkflowAccess } from "@/lib/session";
-import { WorkflowHistory, type HistoryDay, type HistorySubmission, type RoomHistoryEntry } from "@/components/WorkflowHistory";
+import { requireWorkflowAccess, can, isManager } from "@/lib/session";
+import { WorkflowHistory, type HistoryDay, type HistorySubmission } from "@/components/WorkflowHistory";
+import { getWorkflowPerformance, parseRange } from "@/lib/workflow-performance";
 import { motelTodayUTC } from "@/lib/business-date";
 import { addDays, dateKey } from "@/lib/workflow-lock";
 
 export const dynamic = "force-dynamic";
 
-export default async function WorkflowHistoryPage({ params }: { params: Promise<{ slug: string }> }) {
-  const { workflow } = await requireWorkflowAccess((await params).slug);
+export default async function WorkflowHistoryPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ view?: string; range?: string }>;
+}) {
+  const { user, workflow } = await requireWorkflowAccess((await params).slug);
   if (workflow.shape !== "MATRIX") notFound();
+  const sp = await searchParams;
+  const canPerformance = can(user, "workflows:performance:view");
+  const view = sp.view === "performance" && canPerformance ? "performance" : "date";
 
-  const [submissions, rooms] = await Promise.all([
-    prisma.workflowSubmission.findMany({
-      where: { workflowId: workflow.id },
-      orderBy: { date: "desc" },
-      include: {
-        createdBy: { select: { name: true } },
-        cells: { select: { roomId: true, status: true } },
-        _count: { select: { rows: true } },
-      },
-    }),
-    prisma.room.findMany({
-      where: { archived: false },
-      orderBy: { number: "asc" },
-      select: { id: true, number: true, name: true },
-    }),
-  ]);
+  const submissions = await prisma.workflowSubmission.findMany({
+    where: { workflowId: workflow.id },
+    orderBy: { date: "desc" },
+    include: {
+      createdBy: { select: { name: true } },
+      cells: { select: { roomId: true, status: true } },
+    },
+  });
 
   const summarize = (s: (typeof submissions)[number]): HistorySubmission => ({
     id: s.id,
@@ -57,29 +59,9 @@ export default async function WorkflowHistoryPage({ params }: { params: Promise<
     submission: todaySubmission ? summarize(todaySubmission) : null,
   };
 
-  // Per-room aggregates
-  const byRoom: Record<string, RoomHistoryEntry[]> = {};
-  for (const room of rooms) byRoom[room.id] = [];
-  for (const s of submissions) {
-    const cellsByRoom = new Map<string, { touched: number; issues: number }>();
-    for (const c of s.cells) {
-      const cur = cellsByRoom.get(c.roomId) ?? { touched: 0, issues: 0 };
-      cur.touched++;
-      if (c.status === "ISSUE") cur.issues++;
-      cellsByRoom.set(c.roomId, cur);
-    }
-    for (const [roomId, agg] of cellsByRoom.entries()) {
-      const list = byRoom[roomId];
-      if (!list) continue;
-      list.push({
-        submissionId: s.id,
-        date: s.date.toISOString(),
-        createdBy: s.createdBy.name,
-        cellsTouched: agg.touched,
-        issueCount: agg.issues,
-      });
-    }
-  }
+  // Performance data is only computed when that tab is open.
+  const performance =
+    view === "performance" ? await getWorkflowPerformance(workflow.id, parseRange(sp.range), today) : null;
 
   return (
     <div className="space-y-5">
@@ -100,8 +82,10 @@ export default async function WorkflowHistoryPage({ params }: { params: Promise<
         workflowSlug={workflow.slug}
         today={todayDay}
         pastDays={pastDays}
-        rooms={rooms}
-        byRoom={byRoom}
+        view={view}
+        canPerformance={canPerformance}
+        performance={performance}
+        canRoomHistory={isManager(user)}
       />
     </div>
   );

@@ -24,7 +24,7 @@ All `/services/*` and `/settings/*` pages also pass `proxy.ts` (signed in) and
 | `/services/housekeeping/settings` | Tabs: status actions, daily-task templates + checklists, room checklist, rooms, retention & instructions | `housekeeping:settings:configure` (else → board) |
 | **Workflow services** | | |
 | `/services/[slug]` | Sheet for today or `?date=YYYY-MM-DD` (future → today); date bar ◀ / ▶ / picker; print; mark complete; unlock / lock (manager); reopen (admin) | `requireWorkflowAccess(slug)` (`rolesAllowed`) |
-| `/services/[slug]/history` | **Day list** (the card's target): today pinned on top, then every past day incl. missed ones; by room tab | `requireWorkflowAccess(slug)` |
+| `/services/[slug]/history` | **Day list** (the card's target): today pinned on top, then every past day incl. missed ones. `?view=performance&range=7\|30\|90` → Performance tab (scoreboard, room detail, problem map) | `requireWorkflowAccess(slug)`; Performance also `workflows:performance:view` |
 | `/services/[slug]/settings` | Name, description, allowed roles, items | `admin:services:manage` |
 | **Room Condition V1** (hidden from catalog, still routable) | | |
 | `/services/pm` | Room status dashboard, filters (`?view=`), repair breakdown, exports | `pm:dashboard:view` |
