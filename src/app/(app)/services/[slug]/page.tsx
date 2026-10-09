@@ -115,7 +115,12 @@ export default async function WorkflowSubmissionPage({
         isToday={state.kind === "today"}
       />
 
+      {/* key={key}: remount the grid when the date changes so each cell/note
+          re-seeds from the new day's data. Without it, a soft nav (prev/next
+          arrows, date picker) reuses the cell-button instances and the grid
+          keeps showing the previous day. */}
       <WorkflowMatrix
+        key={key}
         workflowSlug={workflow.slug}
         workflowName={workflow.name}
         dateKey={key}
