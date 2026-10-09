@@ -32,6 +32,15 @@ function refresh() {
   revalidatePath("/services/housekeeping");
 }
 
+/** Photo/video rules from Housekeeping settings (defaults when never saved: rooms required, tasks optional). */
+async function mediaRules(): Promise<{ room: boolean; task: boolean }> {
+  const s = await prisma.housekeepingSetting.findUnique({
+    where: { id: "singleton" },
+    select: { requireRoomMedia: true, requireTaskMedia: true },
+  });
+  return { room: s?.requireRoomMedia ?? true, task: s?.requireTaskMedia ?? false };
+}
+
 // --- Notifications -----------------------------------------------------------
 
 const hkHref = (taskId?: string) => (taskId ? `/services/housekeeping?task=${taskId}` : "/services/housekeeping");
@@ -496,7 +505,9 @@ export async function submitForInspection(form: FormData): Promise<Result> {
 
   const media = await collectUploadedMedia(form, taskId);
   if (!media.ok) return { ok: false, error: media.error };
-  if (media.files.length === 0) return { ok: false, error: "Add at least one photo or video before submitting." };
+  if (media.files.length === 0 && (await mediaRules()).room) {
+    return { ok: false, error: "Add at least one photo or video before submitting." };
+  }
   const uploaded = { paths: media.files.map((m) => m.storagePath) };
 
   try {
@@ -559,6 +570,9 @@ export async function completeGeneralTask(form: FormData): Promise<Result> {
 
   const media = await collectUploadedMedia(form, taskId);
   if (!media.ok) return { ok: false, error: media.error };
+  if (media.files.length === 0 && (await mediaRules()).task) {
+    return { ok: false, error: "Add at least one photo or video before completing this task." };
+  }
   const uploaded = { paths: media.files.map((m) => m.storagePath) };
 
   try {
@@ -734,19 +748,26 @@ export async function deleteHousekeepingPhoto(photoId: string): Promise<Result> 
 
 export async function updateHousekeepingSettings(input: {
   instructions: string;
+  requireRoomMedia: boolean;
+  requireTaskMedia: boolean;
 }): Promise<Result> {
   const user = await requireUser();
   if (!can(user, "housekeeping:settings:configure")) return { ok: false, error: "Not allowed." };
 
   const instructions = input.instructions.trim().slice(0, 2000) || null;
+  const data = {
+    instructions,
+    requireRoomMedia: !!input.requireRoomMedia,
+    requireTaskMedia: !!input.requireTaskMedia,
+  };
   await prisma.housekeepingSetting.upsert({
     where: { id: "singleton" },
-    create: { id: "singleton", instructions },
-    update: { instructions },
+    create: { id: "singleton", ...data },
+    update: data,
   });
   await logAudit({
     userId: user.id, action: "UPDATE", entity: "HousekeepingSetting", entityId: "singleton",
-    details: { instructions: !!instructions },
+    details: { instructions: !!instructions, requireRoomMedia: data.requireRoomMedia, requireTaskMedia: data.requireTaskMedia },
   });
   revalidatePath("/services/housekeeping");
   revalidatePath("/services/housekeeping/settings");

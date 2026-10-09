@@ -8,6 +8,26 @@ export type HkPerson = { id: string; name: string };
 export type HkMediaType = "IMAGE" | "VIDEO";
 export type HkPhotoView = { id: string; url: string; mediaType: HkMediaType; createdAt: string };
 
+/** Whether photo/video is required to finish each kind of task (Housekeeping settings). */
+export type HkMediaRules = { room: boolean; task: boolean };
+
+/**
+ * Media belonging to the latest submission. Media is only added on submit, so
+ * while a task is open again everything attached is from an earlier round (a
+ * sent-back room, a recurring task's previous day); after a submit, anything
+ * older than the submit (minus clock slack) is from an earlier round.
+ */
+export function isEarlierMedia(task: { status: string; submittedAt: string | null }, p: { createdAt: string }): boolean {
+  const reopened = task.status === "READY_TO_CLEAN" || task.status === "IN_PROGRESS" || task.status === "TODO";
+  const cutoff = task.submittedAt ? new Date(task.submittedAt).getTime() - 60_000 : null;
+  return reopened || (cutoff !== null && new Date(p.createdAt).getTime() < cutoff);
+}
+
+/** A room waiting for inspection that was submitted without any photo or video. */
+export function submittedWithoutMedia(task: { status: string; submittedAt: string | null; photos: { createdAt: string }[] }): boolean {
+  return task.status === "READY_FOR_INSPECTION" && !task.photos.some((p) => !isEarlierMedia(task, p));
+}
+
 export type HkSubtaskStatus = "PENDING" | "DONE" | "NOT_DONE" | "NA";
 export type HkSubtask = {
   id: string;

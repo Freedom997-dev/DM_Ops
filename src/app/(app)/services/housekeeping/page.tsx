@@ -171,6 +171,7 @@ export default async function HousekeepingPage({
 
       <HousekeepingDashboard
         initialOpenId={openTaskId}
+        mediaRules={{ room: setting?.requireRoomMedia ?? true, task: setting?.requireTaskMedia ?? false }}
         tasks={taskViews}
         rooms={allRooms}
         housekeepers={roster}

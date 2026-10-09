@@ -418,6 +418,9 @@ model HousekeepingSetting {
   deleteOnApproval Boolean  @default(true)
   retentionDays    Int      @default(7)
   instructions     String? // cleaning instructions shown to housekeepers
+  // Photo/video evidence required to finish a task (admin switch in settings).
+  requireRoomMedia Boolean  @default(true) // submit a room for inspection
+  requireTaskMedia Boolean  @default(false) // complete a daily task
   updatedAt        DateTime @updatedAt
 }
 

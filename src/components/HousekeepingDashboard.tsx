@@ -6,10 +6,11 @@ import { useRouter } from "next/navigation";
 import clsx from "clsx";
 import {
   BedDouble, Sparkles, DoorOpen, Plus, Wand2, UserPlus, X, Loader2,
-  CheckCircle2, Clock3, ClipboardCheck, ShieldCheck, Users, Check, History,
+  CheckCircle2, Clock3, ClipboardCheck, ShieldCheck, Users, Check, History, CameraOff,
 } from "lucide-react";
 import { HK_STATUS_META, taskLabel, type HkStatus } from "@/lib/housekeeping";
-import type { HkTaskView, HkRoomOption, HkPerson, HkCaps, HkStatusAction, HkTaskTemplate } from "@/lib/hk-view";
+import { submittedWithoutMedia } from "@/lib/hk-view";
+import type { HkTaskView, HkRoomOption, HkPerson, HkCaps, HkStatusAction, HkTaskTemplate, HkMediaRules } from "@/lib/hk-view";
 import { HkTaskPanel } from "@/components/HkTaskPanel";
 import {
   checkOutRooms, createGeneralTask, assignTasks, autoAssign, bulkReview,
@@ -41,9 +42,10 @@ function initials(name: string) {
 }
 
 export function HousekeepingDashboard({
-  tasks, rooms, housekeepers, statusActions, taskTemplates, caps, currentUserId, initialOpenId,
+  tasks, rooms, housekeepers, statusActions, taskTemplates, caps, currentUserId, initialOpenId, mediaRules,
 }: {
   initialOpenId?: string | null; // ?task=<id> from a notification link
+  mediaRules: HkMediaRules; // photo/video required to finish rooms / daily tasks
   tasks: HkTaskView[];
   rooms: HkRoomOption[];
   housekeepers: HkPerson[];
@@ -215,6 +217,7 @@ export function HousekeepingDashboard({
             caps={{ submit: caps.submit, review: caps.review, manage: caps.manage }}
             currentUserId={currentUserId}
             canModerate={caps.moderate}
+            mediaRequired={openTask.kind === "ROOM_CLEANING" ? mediaRules.room : mediaRules.task}
             onDone={() => { setOpenId(null); router.refresh(); }}
             onChanged={() => router.refresh()}
           />
@@ -323,7 +326,13 @@ function TaskTile({
           ) : (
             <span className="text-slate-400">Unassigned</span>
           )}
-          {task.photos.length > 0 && <span>{task.photos.length} photo{task.photos.length === 1 ? "" : "s"}</span>}
+          {submittedWithoutMedia(task) ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 font-semibold text-amber-800" title="Submitted without photos — check the room in person">
+              <CameraOff className="h-3 w-3" /> No photos
+            </span>
+          ) : (
+            task.photos.length > 0 && <span>{task.photos.length} photo{task.photos.length === 1 ? "" : "s"}</span>
+          )}
         </div>
       </button>
     </div>

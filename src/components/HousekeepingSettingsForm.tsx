@@ -7,9 +7,11 @@ import { updateHousekeepingSettings } from "@/lib/actions/housekeeping";
 export function HousekeepingSettingsForm({
   initial,
 }: {
-  initial: { instructions: string };
+  initial: { instructions: string; requireRoomMedia: boolean; requireTaskMedia: boolean };
 }) {
   const [instructions, setInstructions] = useState(initial.instructions);
+  const [requireRoomMedia, setRequireRoomMedia] = useState(initial.requireRoomMedia);
+  const [requireTaskMedia, setRequireTaskMedia] = useState(initial.requireTaskMedia);
   const [msg, setMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
@@ -17,7 +19,7 @@ export function HousekeepingSettingsForm({
   function save() {
     setError(null); setMsg(null);
     start(async () => {
-      const res = await updateHousekeepingSettings({ instructions });
+      const res = await updateHousekeepingSettings({ instructions, requireRoomMedia, requireTaskMedia });
       if (!res.ok) { setError(res.error); return; }
       setMsg("Saved.");
     });
@@ -34,6 +36,26 @@ export function HousekeepingSettingsForm({
             photo from its viewer, or a manager can delete a whole task.
           </span>
         </span>
+      </div>
+
+      <div className="space-y-3">
+        <div className="label">Photo / video evidence</div>
+        <Toggle
+          checked={requireRoomMedia}
+          onChange={setRequireRoomMedia}
+          title="Required to submit a room for inspection"
+          hint={requireRoomMedia
+            ? "Housekeepers must add at least one photo or video before submitting a cleaned room."
+            : "Optional — rooms can be submitted without photos. Inspectors see “No photos” on those rooms."}
+        />
+        <Toggle
+          checked={requireTaskMedia}
+          onChange={setRequireTaskMedia}
+          title="Required to complete a daily task"
+          hint={requireTaskMedia
+            ? "Daily tasks (laundry, lobby…) need at least one photo or video to be marked done."
+            : "Optional — daily tasks can be completed without photos."}
+        />
       </div>
 
       <div>
@@ -53,5 +75,21 @@ export function HousekeepingSettingsForm({
         Save settings
       </button>
     </div>
+  );
+}
+
+function Toggle({ checked, onChange, title, hint }: { checked: boolean; onChange: (v: boolean) => void; title: string; hint: string }) {
+  return (
+    <label className="flex cursor-pointer items-start justify-between gap-4 rounded-xl border border-slate-200 px-4 py-3">
+      <span className="min-w-0">
+        <span className="block text-sm font-semibold text-slate-900">{title}</span>
+        <span className="block text-xs text-slate-500">{hint}</span>
+      </span>
+      <span className="relative mt-0.5 inline-flex shrink-0 items-center">
+        <input type="checkbox" className="peer sr-only" checked={checked} onChange={(e) => onChange(e.target.checked)} aria-label={title} />
+        <span className="h-6 w-11 rounded-full bg-slate-300 transition peer-checked:bg-brand-600" />
+        <span className="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-5" />
+      </span>
+    </label>
   );
 }

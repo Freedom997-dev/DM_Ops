@@ -2,7 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import {
-  Loader2, Check, X, Send, Play, CheckCircle2, Camera, Clock, ListChecks, Save, Minus, Trash2, ImageOff,
+  Loader2, Check, X, Send, Play, CheckCircle2, Camera, CameraOff, Clock, ListChecks, Save, Minus, Trash2, ImageOff,
 } from "lucide-react";
 import clsx from "clsx";
 import { HkMediaPicker } from "@/components/HkMediaPicker";
@@ -13,7 +13,7 @@ import {
 } from "@/lib/actions/housekeeping";
 import { HK_STATUS_META } from "@/lib/housekeeping";
 import { CommentsSection } from "@/components/messages/CommentsSection";
-import { buildTimeline, type HkTaskView, type HkSubtask, type HkSubtaskStatus, type HkPhotoView } from "@/lib/hk-view";
+import { buildTimeline, isEarlierMedia, type HkTaskView, type HkSubtask, type HkSubtaskStatus, type HkPhotoView } from "@/lib/hk-view";
 import { UPLOAD_FAILED_MESSAGE } from "@/lib/upload-limits";
 import { uploadToSignedUrl } from "@/lib/direct-upload";
 
@@ -41,11 +41,13 @@ export function HkTaskPanel({
   onChanged,
   currentUserId,
   canModerate = false,
+  mediaRequired,
 }: {
   task: HkTaskView;
   caps: { submit: boolean; review: boolean; manage: boolean };
   currentUserId: string;
   canModerate?: boolean; // may delete others' comments
+  mediaRequired: boolean; // Housekeeping settings: photo/video needed to finish this kind of task
   onDone: () => void;
   /** Task changed but the panel should stay open (refresh data only). */
   onChanged: () => void;
@@ -77,10 +79,7 @@ export function HkTaskPanel({
   // attached came from an earlier round (a sent-back room, or a recurring daily
   // task from a previous day); after a submit, anything older than that submit
   // (minus clock slack) is from an earlier round.
-  const reopened = task.status === "READY_TO_CLEAN" || task.status === "IN_PROGRESS" || task.status === "TODO";
-  const submitCutoff = task.submittedAt ? new Date(task.submittedAt).getTime() - 60_000 : null;
-  const isEarlier = (p: HkPhotoView) =>
-    reopened || (submitCutoff !== null && new Date(p.createdAt).getTime() < submitCutoff);
+  const isEarlier = (p: HkPhotoView) => isEarlierMedia(task, p);
   // Newest first, capped: recurring daily tasks collect photos every day.
   const EARLIER_SHOWN = 12;
   const earlierAll = task.photos
@@ -156,7 +155,10 @@ export function HkTaskPanel({
 
   function doSubmit() {
     setError(null);
-    if (isRoom && files.length === 0) { setError("Add at least one photo or video of the cleaned room."); return; }
+    if (mediaRequired && files.length === 0) {
+      setError(isRoom ? "Add at least one photo or video of the cleaned room." : "Add at least one photo or video of the finished task.");
+      return;
+    }
     start(async () => {
       try {
         // Persist checklist first, then upload media, then submit/complete.
@@ -291,7 +293,10 @@ export function HkTaskPanel({
         <div className="space-y-2 border-t border-slate-200 pt-3">
           <div className="flex items-center gap-1.5 text-xs font-medium text-slate-500">
             <Camera className="h-3.5 w-3.5" />
-            {isRoom ? "Photos / videos of the cleaned room" : "Photos / videos (optional)"}
+            {isRoom ? "Photos / videos of the cleaned room" : "Photos / videos of the finished task"}
+            <span className={clsx("ml-1 rounded-full px-1.5 py-px text-[10px] font-semibold uppercase", mediaRequired ? "bg-red-50 text-red-700" : "bg-slate-100 text-slate-500")}>
+              {mediaRequired ? "required" : "optional"}
+            </span>
           </div>
           <HkMediaPicker id={task.id} files={files} onChange={setFiles} />
           <button type="button" onClick={doSubmit} disabled={pending} className="btn-primary">
@@ -299,6 +304,16 @@ export function HkTaskPanel({
             {uploadStatus ?? (isRoom ? "Submit for inspection" : "Mark done")}
           </button>
         </div>
+      )}
+
+      {task.status === "READY_FOR_INSPECTION" && currentMedia.length === 0 && (
+        <p className="flex items-start gap-2 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          <CameraOff className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>
+            <span className="font-semibold">Submitted without photos.</span>{" "}
+            {caps.review ? "Check the room in person before approving." : "The inspector will check the room in person."}
+          </span>
+        </p>
       )}
 
       {caps.review && task.status === "READY_FOR_INSPECTION" && (

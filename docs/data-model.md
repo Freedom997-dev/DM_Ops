@@ -216,7 +216,9 @@ since 2026-10-02, so it stays in the room history. `createdAt` also separates a
 sent-back submission's media from the latest one in the task panel.
 
 ### HousekeepingSetting (singleton, `id = "singleton"`)
-`instructions?`. `deleteOnApproval` and `retentionDays` still exist as columns but
+`instructions?`; `requireRoomMedia` (default true) and `requireTaskMedia` (default
+false) — whether photo/video is needed to submit a room / complete a daily task.
+`deleteOnApproval` and `retentionDays` still exist as columns but
 are **unused** since 2026-10-02 (media is kept until deleted).
 
 ### HousekeepingStatusAction

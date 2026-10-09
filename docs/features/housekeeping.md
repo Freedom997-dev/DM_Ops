@@ -24,14 +24,21 @@ One flexible model, `HousekeepingTask`, with a `kind`:
 
 **`ROOM_CLEANING`** (linked to a `Room`):
 ```
-READY_TO_CLEAN ──start──► IN_PROGRESS ──submit (checklist done + ≥1 media)──► READY_FOR_INSPECTION
+READY_TO_CLEAN ──start──► IN_PROGRESS ──submit (checklist done + media*)──► READY_FOR_INSPECTION
       ▲                                                                           │
       └──────────────── reject (note required; media deleted) ◄────────────────────┤
                                                                                   └─approve──► READY_TO_RENT (closed)
 ```
 Submitting directly from READY_TO_CLEAN is allowed (`startedAt` is back-filled).
+\* **Photo/video evidence is an admin setting** (Settings → *Photos & instructions*):
+"Required to submit a room" (`HousekeepingSetting.requireRoomMedia`, default **on**)
+and "Required to complete a daily task" (`requireTaskMedia`, default **off**).
+Enforced in `submitForInspection` / `completeGeneralTask` and mirrored in the task
+panel ("required" / "optional" label). A room submitted without media shows
+**No photos** on its board tile and an "inspect in person" notice in the review
+panel (`submittedWithoutMedia` in `src/lib/hk-view.ts`).
 
-**`GENERAL`** (titled job, no room): `TODO → IN_PROGRESS → DONE` — media optional,
+**`GENERAL`** (titled job, no room): `TODO → IN_PROGRESS → DONE` — media optional unless the setting requires it,
 no inspection. If `recurring`, the nightly job resets it to `TODO`, unassigned,
 with its checklist back to `PENDING`.
 

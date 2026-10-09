@@ -36,7 +36,7 @@ export function HkConfigManager({
   taskTemplates: HkTemplateWithChecklist[];
   roomChecklist: HkChecklistItem[];
   roomCount: number;
-  retention: { instructions: string };
+  retention: { instructions: string; requireRoomMedia: boolean; requireTaskMedia: boolean };
 }) {
   const [tab, setTab] = useState<TabKey>("checkout");
   const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});

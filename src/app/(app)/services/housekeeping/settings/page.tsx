@@ -57,7 +57,11 @@ export default async function HousekeepingSettingsPage() {
         taskTemplates={templates}
         roomChecklist={roomList}
         roomCount={roomCount}
-        retention={{ instructions: setting?.instructions ?? "" }}
+        retention={{
+          instructions: setting?.instructions ?? "",
+          requireRoomMedia: setting?.requireRoomMedia ?? true,
+          requireTaskMedia: setting?.requireTaskMedia ?? false,
+        }}
       />
     </div>
   );
