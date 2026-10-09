@@ -12,6 +12,7 @@ import {
   deleteHousekeepingTask, requestHkMediaUploads,
 } from "@/lib/actions/housekeeping";
 import { HK_STATUS_META } from "@/lib/housekeeping";
+import { CommentsSection } from "@/components/messages/CommentsSection";
 import { buildTimeline, type HkTaskView, type HkSubtask, type HkSubtaskStatus, type HkPhotoView } from "@/lib/hk-view";
 import { UPLOAD_FAILED_MESSAGE } from "@/lib/upload-limits";
 import { uploadToSignedUrl } from "@/lib/direct-upload";
@@ -38,9 +39,13 @@ export function HkTaskPanel({
   caps,
   onDone,
   onChanged,
+  currentUserId,
+  canModerate = false,
 }: {
   task: HkTaskView;
   caps: { submit: boolean; review: boolean; manage: boolean };
+  currentUserId: string;
+  canModerate?: boolean; // may delete others' comments
   onDone: () => void;
   /** Task changed but the panel should stay open (refresh data only). */
   onChanged: () => void;
@@ -343,6 +348,8 @@ export function HkTaskPanel({
       )}
 
       {error && <p className="text-sm text-red-700">{error}</p>}
+
+      <CommentsSection contextType="HK_TASK" contextId={task.id} meId={currentUserId} canModerate={canModerate} />
 
       {/* --- Timeline --- */}
       {timeline.length > 0 && (

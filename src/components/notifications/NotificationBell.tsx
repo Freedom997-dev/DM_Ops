@@ -12,6 +12,11 @@ type Item = { id: string; title: string; body: string | null; href: string | nul
 
 const POLL_MS = 30_000;
 
+// The bell does the only header poll; it re-broadcasts the unread-chats count
+// so the Messages button (and an open /messages list) needn't poll separately.
+export const COUNTS_EVENT = "dmo:counts";
+export type CountsDetail = { unread: number; messagesUnread: number };
+
 // Header bell: unread badge (polled every 30 s and when the tab regains focus)
 // and a panel with the latest 20 notifications.
 export function NotificationBell() {
@@ -25,8 +30,11 @@ export function NotificationBell() {
     try {
       const res = await fetch(`/api/notifications${list ? "?list=1" : ""}`, { cache: "no-store" });
       if (!res.ok) return;
-      const data = (await res.json()) as { unread: number; items: Item[] | null };
+      const data = (await res.json()) as { unread: number; messagesUnread: number; items: Item[] | null };
       setUnread(data.unread);
+      window.dispatchEvent(
+        new CustomEvent<CountsDetail>(COUNTS_EVENT, { detail: { unread: data.unread, messagesUnread: data.messagesUnread } }),
+      );
       if (data.items) setItems(data.items);
     } catch {
       // offline — keep the last count

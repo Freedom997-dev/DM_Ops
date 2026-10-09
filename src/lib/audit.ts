@@ -26,7 +26,9 @@ type AuditInput = {
     | "PmV2Item"
     | "PmV2Area"
     | "PmV2Inspection"
-    | "NotificationRule";
+    | "NotificationRule"
+    | "Conversation"
+    | "Message";
   entityId?: string | null;
   details?: Record<string, unknown> | string | null;
 };

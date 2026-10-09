@@ -46,6 +46,8 @@ Key format: **`app:feature:action`**.
 | | `tasks` | submit | start, checklist edits, submit room, complete general task |
 | | `cleaning` | review | approve / reject (single + bulk) |
 | | `settings` | configure | HK settings page, status actions, templates, checklists, add room, delete photo |
+| **Messages** (`comms`) | `announcements` | send | `/messages/announce`, `postAnnouncement` |
+| | `messages` | moderate | delete others' messages in groups / announcements / comments (`deleteMessage`) |
 | **Administration** (`admin`) | `staff` | view, add, update, delete | `/settings/staff`, `users.ts` (update covers activate/deactivate, roles, password reset; **delete is currently unused** — users are deactivated, never deleted) |
 | | `roles` | view, add, update, delete | `/settings/access`, `roles.ts` |
 | | `services` | view, manage | Settings hub card; workflow definition/item editing |
@@ -81,6 +83,8 @@ label/description), so production may differ — check `/settings/access` for tr
 | `admin:services:view/manage` | ✱ | ✅ | — | — | — |
 | `admin:audit:view` | ✱ | ✅ | ✅ | — | — |
 | `admin:notifications:manage` | ✱ | ✅ | — | — | — |
+| `comms:announcements:send` | ✱ | ✅ | ✅ | — | — |
+| `comms:messages:moderate` | ✱ | ✅ | — | — | — |
 
 ✱ = wildcard bypass. All five are `isSystem` (cannot be deleted). Custom roles can
 be created by holders of `admin:roles:add` (Super Admin by default).

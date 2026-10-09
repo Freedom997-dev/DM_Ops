@@ -52,6 +52,11 @@ model User {
   notifications     Notification[]
   pushSubscriptions PushSubscription[]
   notificationMutes NotificationMute[]
+
+  // Staff messaging
+  messagesSent       Message[]
+  conversationReads  ConversationRead[]
+  conversationsStarted Conversation[] @relation("ConversationCreatedBy")
 }
 
 // ---------------------------------------------------------------------------
@@ -624,4 +629,61 @@ model NotificationMute {
   type   String
 
   @@id([userId, type])
+}
+
+// ===========================================================================
+// Staff messaging — direct chats, role groups, announcements, task/room
+// comment threads. Access rules: src/lib/messaging/access.ts
+// ===========================================================================
+
+model Conversation {
+  id    String @id @default(cuid())
+  kind  String // DIRECT | GROUP | ANNOUNCEMENT | THREAD
+  // Unique handle for the one-per-thing kinds:
+  //   "dm:<userA>:<userB>" (ids sorted) · "group:ALL" · "group:<ROLE_KEY>"
+  //   "thread:HK_TASK:<taskId>" · "thread:ROOM:<roomId>". Announcements: null.
+  key   String? @unique
+  title String? // announcements; groups/threads derive theirs
+  // ANNOUNCEMENT: JSON array of role keys, or ["ALL"]
+  audienceRoles String?
+  contextType   String? // THREAD: HK_TASK | ROOM
+  contextId     String?
+
+  createdById         String
+  createdBy           User      @relation("ConversationCreatedBy", fields: [createdById], references: [id])
+  createdAt           DateTime  @default(now())
+  lastMessageAt       DateTime?
+  lastMessageSenderId String?
+
+  messages Message[]
+  reads    ConversationRead[]
+
+  @@index([kind, lastMessageAt])
+}
+
+// Per user: last time they read the conversation (unread counts, "seen by") and mute.
+model ConversationRead {
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lastReadAt     DateTime     @default(now())
+  muted          Boolean      @default(false)
+
+  @@id([conversationId, userId])
+  @@index([userId])
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId       String
+  sender         User         @relation(fields: [senderId], references: [id])
+  body           String // ≤ 2000 chars, text only
+  createdAt      DateTime     @default(now())
+  deletedAt      DateTime?
+  deletedById    String?
+
+  @@index([conversationId, createdAt])
 }

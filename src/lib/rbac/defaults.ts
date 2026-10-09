@@ -39,6 +39,8 @@ export const DEFAULT_ROLES: RoleSeed[] = [
       "admin:services:manage",
       "admin:audit:view",
       "admin:notifications:manage",
+      "comms:announcements:send",
+      "comms:messages:moderate",
       // Can see and edit role permissions; creating/deleting roles is reserved
       // for Super Admin (keeps the top role meaningful).
       "admin:roles:view",
@@ -58,6 +60,7 @@ export const DEFAULT_ROLES: RoleSeed[] = [
       "housekeeping:cleaning:review",
       "admin:staff:view",
       "admin:audit:view",
+      "comms:announcements:send",
     ],
   },
   {

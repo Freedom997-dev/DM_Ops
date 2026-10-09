@@ -78,6 +78,15 @@ service reports it gone. `NotificationRule`: admin override per `type` (`enabled
 `roles` JSON for audience events); no row = catalog default. `NotificationMute`:
 `(userId, type)` the user turned off. All cascade from `User`.
 
+### Conversation / ConversationRead / Message
+Staff messaging. `Conversation.kind` = DIRECT | GROUP | ANNOUNCEMENT | THREAD;
+`key` (unique) identifies the one-per-thing kinds (`dm:<a>:<b>`, `group:<ROLE|ALL>`,
+`thread:HK_TASK|ROOM:<id>`); announcements have `title` + `audienceRoles` JSON;
+threads have `contextType`/`contextId`. `lastMessageAt`/`lastMessageSenderId`
+drive ordering and unread badges. `ConversationRead` `(conversationId, userId)`:
+`lastReadAt`, `muted`. `Message`: `body` (≤ 2000), `deletedAt?`/`deletedById?`
+(soft delete). Access rules: `src/lib/messaging/server.ts`.
+
 ### AuditLog
 | Field | Notes |
 |---|---|

@@ -213,6 +213,8 @@ export function HousekeepingDashboard({
           <HkTaskPanel
             task={openTask}
             caps={{ submit: caps.submit, review: caps.review, manage: caps.manage }}
+            currentUserId={currentUserId}
+            canModerate={caps.moderate}
             onDone={() => { setOpenId(null); router.refresh(); }}
             onChanged={() => router.refresh()}
           />

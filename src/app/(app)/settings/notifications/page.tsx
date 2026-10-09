@@ -39,7 +39,12 @@ export default async function NotificationRulesPage() {
             label: e.label,
             description: e.description,
             recipients: e.recipients,
-            defaultAudience: e.defaultPermission ? `Everyone with “${permissionLabel(e.defaultPermission)}”` : null,
+            defaultAudience: e.defaultPermission
+              ? `Everyone with “${permissionLabel(e.defaultPermission)}”`
+              : e.defaultRoles
+                ? `Roles: ${e.defaultRoles.map((k) => roles.find((r) => r.key === k)?.label ?? k).join(", ")}`
+                : null,
+            recipientsLabel: e.recipientsLabel ?? "the person it's about",
             enabled: rule?.enabled ?? e.defaultEnabled,
             roles: parseRoles(rule?.roles),
             customized: !!rule,

@@ -7,6 +7,7 @@ import { useState } from "react";
 import clsx from "clsx";
 import { BedDouble, LayoutGrid, Settings, LogOut, Menu, X } from "lucide-react";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
+import { MessagesButton } from "@/components/messages/MessagesButton";
 
 type NavUser = {
   name?: string | null;
@@ -85,6 +86,7 @@ export function Nav({ user }: { user: NavUser }) {
         </nav>
 
         <div className="flex items-center gap-2 md:gap-3">
+        <MessagesButton />
         <NotificationBell />
 
         <div className="hidden items-center gap-3 md:flex">

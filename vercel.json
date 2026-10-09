@@ -3,6 +3,7 @@
   "buildCommand": "npm run build:deploy",
   "installCommand": "npm install",
   "crons": [
-    { "path": "/api/cron/housekeeping-daily-reset", "schedule": "0 8 * * *" }
+    { "path": "/api/cron/housekeeping-daily-reset", "schedule": "0 8 * * *" },
+    { "path": "/api/cron/daily-reminders", "schedule": "0 15 * * *" }
   ]
 }

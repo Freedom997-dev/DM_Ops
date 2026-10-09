@@ -78,6 +78,16 @@ export const APPS: AppDef[] = [
     ],
   },
   {
+    key: "comms",
+    label: "Messages",
+    description: "Staff messaging & announcements",
+    icon: "MessageSquare",
+    features: [
+      { key: "announcements", label: "Announcements", actions: [{ key: "send", label: "Send" }] },
+      { key: "messages", label: "Messages", actions: [{ key: "moderate", label: "Moderate" }] },
+    ],
+  },
+  {
     key: "admin",
     label: "Administration",
     description: "Staff, roles, services & activity",

@@ -182,6 +182,7 @@ export default async function HousekeepingPage({
           review: can(user, "housekeeping:cleaning:review"),
           admin: can(user, "housekeeping:settings:configure"),
           history: isManager(user),
+          moderate: can(user, "comms:messages:moderate"),
         }}
         currentUserId={user.id}
       />

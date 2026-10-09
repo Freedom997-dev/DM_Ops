@@ -51,6 +51,17 @@ page, which does the same in one tap.
   Do this once on each phone or computer you use.
 - On the same page you can switch off the types you don't want.
 
+## Messages
+
+- Tap the **speech-bubble** icon at the top for **Messages**.
+- **New message** → pick a person for a private chat. Only the two of you can read it.
+- **Groups** are automatic: **All staff**, plus one for your role (e.g. Housekeepers).
+  Tap **Mute** in a group to stop its notifications.
+- **Announcements** from managers appear at the top. You can read them, not reply;
+  the manager can see who has seen it.
+- **Comments:** open a housekeeping task (or, for managers, a room's history) and
+  use **Comments** to leave notes for the team about that room or task.
+
 ## Signing in
 
 - Use the email your manager set up. Five wrong passwords in 15 minutes locks the

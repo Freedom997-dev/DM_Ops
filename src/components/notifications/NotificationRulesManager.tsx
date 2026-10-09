@@ -14,6 +14,7 @@ type EventRow = {
   description: string;
   recipients: "direct" | "audience";
   defaultAudience: string | null;
+  recipientsLabel: string;
   enabled: boolean;
   roles: string[] | null; // null = default audience
   customized: boolean;
@@ -69,7 +70,7 @@ function RuleRow({ event, roles }: { event: EventRow; roles: { key: string; labe
           <div className="mt-0.5 text-xs text-slate-400">
             Goes to:{" "}
             {event.recipients === "direct"
-              ? "the person it's about"
+              ? event.recipientsLabel
               : picked
                 ? `roles: ${[...picked].map((k) => roles.find((r) => r.key === k)?.label ?? k).join(", ") || "none"}`
                 : event.defaultAudience}

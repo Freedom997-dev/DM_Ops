@@ -60,6 +60,7 @@ export type HkCaps = {
   review: boolean; // approve / reject
   admin: boolean; // settings, delete photos
   history: boolean; // room history page (managers and above)
+  moderate: boolean; // delete others' comments (comms:messages:moderate)
 };
 
 export type TimelineEvent = {

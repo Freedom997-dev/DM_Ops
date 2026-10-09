@@ -9,7 +9,8 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/session";
 import { logAudit } from "@/lib/audit";
-import { PMV2_BASE, RESULT_STATUSES } from "@/lib/pmv2";
+import { PMV2_BASE, RESULT_STATUSES, isIssue } from "@/lib/pmv2";
+import { notify } from "@/lib/notifications/notify";
 
 export type PmV2Result<T = undefined> = { ok: true; data?: T } | { ok: false; error: string };
 
@@ -182,6 +183,25 @@ export async function pmv2SetDone(input: unknown): Promise<PmV2Result> {
     entityId: insp.id,
     details: { quarter: q, areaId, event: isDone ? "completed" : "reopened" },
   });
+  if (isDone) {
+    const results = await prisma.pmV2Result.findMany({
+      where: { inspectionId: insp.id },
+      select: { status: true },
+    });
+    const repairs = results.filter((x) => isIssue(x.status)).length;
+    if (repairs > 0) {
+      const area = await prisma.pmV2Area.findUnique({ where: { id: areaId }, select: { name: true } });
+      await notify({
+        type: "pmv2.repairs_found",
+        actorId: user.id,
+        title: `${area?.name ?? "Inspection"}: ${repairs} repair${repairs === 1 ? "" : "s"} found`,
+        body: `Inspection completed by ${user.name}.`,
+        href: `${PMV2_BASE}/issues?q=${q}`,
+        entityType: "PmV2Inspection",
+        entityId: insp.id,
+      });
+    }
+  }
   revalidate();
   return done();
 }
@@ -202,6 +222,23 @@ export async function pmv2MarkFixed(input: unknown): Promise<PmV2Result> {
     entityId: r.inspectionId,
     details: { event: "marked fixed", resultId: r.id },
   });
+  const insp = await prisma.pmV2Inspection.findUnique({
+    where: { id: r.inspectionId },
+    select: { quarter: true, updatedById: true, area: { select: { name: true } } },
+  });
+  const item = r.itemId ? await prisma.pmV2Item.findUnique({ where: { id: r.itemId }, select: { label: true } }) : null;
+  if (insp) {
+    await notify({
+      type: "pmv2.repair_fixed",
+      actorId: user.id,
+      userIds: [insp.updatedById],
+      title: `Fixed: ${item?.label ?? r.label ?? "repair"} · ${insp.area.name}`,
+      body: `Marked fixed by ${user.name}.`,
+      href: `${PMV2_BASE}/issues?q=${insp.quarter}`,
+      entityType: "PmV2Result",
+      entityId: r.id,
+    });
+  }
   revalidate();
   return done();
 }

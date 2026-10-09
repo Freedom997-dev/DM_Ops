@@ -5,7 +5,8 @@ import {
   ArrowLeft, ClipboardCheck, History, ImageOff, PencilLine, Sparkles, Trash2, Video, Wrench,
 } from "lucide-react";
 import { prisma } from "@/lib/db";
-import { requireManager } from "@/lib/session";
+import { requireManager, can } from "@/lib/session";
+import { CommentsSection } from "@/components/messages/CommentsSection";
 import { getSignedUrl } from "@/lib/storage";
 import { LocalDateTime } from "@/components/LocalDateTime";
 
@@ -89,7 +90,7 @@ export default async function RoomHistoryPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ range?: string; type?: string }>;
 }) {
-  await requireManager();
+  const me = await requireManager();
   const { id } = await params;
   const sp = await searchParams;
   const range = RANGES.find((r) => r.key === sp.range) ?? RANGES[1];
@@ -315,6 +316,10 @@ export default async function RoomHistoryPage({
               "Cleanings, daily inspections, room condition and changes."}
           </p>
         </div>
+      </div>
+
+      <div className="card p-4">
+        <CommentsSection contextType="ROOM" contextId={room.id} meId={me.id} canModerate={can(me, "comms:messages:moderate")} />
       </div>
 
       {/* Filters */}

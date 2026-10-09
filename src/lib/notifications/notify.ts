@@ -24,9 +24,12 @@ export type NotifyInput = {
   href?: string | null;
   entityType?: string;
   entityId?: string;
+  // Replace the recipient's earlier UNREAD notification of this type for the
+  // same entity (busy chats leave one entry, not fifty).
+  collapse?: boolean;
 };
 
-async function audienceUserIds(permission: string | undefined, roles: string[] | null): Promise<string[]> {
+async function audienceUserIds(permission: string | undefined, roles: string[] | null | undefined): Promise<string[]> {
   const where = roles
     ? { roles: { some: { role: { key: { in: roles } } } } }
     : permission
@@ -56,7 +59,7 @@ export async function notify(input: NotifyInput): Promise<void> {
     let ids =
       def.recipients === "direct"
         ? input.userIds?.filter((id): id is string => !!id) ?? []
-        : await audienceUserIds(def.defaultPermission, parseRoles(rule?.roles));
+        : await audienceUserIds(def.defaultPermission, parseRoles(rule?.roles) ?? def.defaultRoles);
     ids = [...new Set(ids)].filter((id) => id !== input.actorId);
     if (ids.length === 0) return;
 
@@ -73,6 +76,11 @@ export async function notify(input: NotifyInput): Promise<void> {
     const recipients = active.map((u) => u.id).filter((id) => !mutedSet.has(id));
     if (recipients.length === 0) return;
 
+    if (input.collapse && input.entityId) {
+      await prisma.notification.deleteMany({
+        where: { userId: { in: recipients }, type: def.type, entityId: input.entityId, readAt: null },
+      });
+    }
     await prisma.notification.createMany({
       data: recipients.map((userId) => ({
         userId,

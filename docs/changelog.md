@@ -11,6 +11,12 @@ the `dm-ops-production` move). Add an entry with every feature or notable fix.
   "your password was reset". Admins choose events and receiving roles in
   Settings → Notifications; staff can mute types. See
   [features/notifications.md](features/notifications.md).
+- **2026-10-09** · Staff messaging (phase 2): direct chats, automatic role groups,
+  manager announcements with "Seen by", per-chat mute and a Messages badge.
+- **2026-10-09** · Phase 3: comments on housekeeping tasks and rooms; Daily
+  Cleanliness reminders ("not started" ~11 AM ET, "missed yesterday", optional
+  issue summary) on a new daily cron; Room Condition V2 "repairs found" and
+  "repair marked fixed".
 
 ## 2026-10 — Mobile app install
 
