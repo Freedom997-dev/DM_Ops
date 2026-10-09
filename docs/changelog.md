@@ -5,6 +5,7 @@ the `dm-ops-production` move). Add an entry with every feature or notable fix.
 
 ## 2026-10 — Daily Cleanliness day list & locking
 
+- **2026-10-09** · Performance tab **Export**: Excel download (summary, rooms, problem map, issue log) and Print / Save as PDF.
 - **v4.8.0 · 2026-10-08** · Tapping the Daily Cleanliness card opens a **day list**:
   today pinned on top, every earlier day below, missed days as blank sheets. The
   sheet shows a big date with Today / Past date, ◀ / ▶ and a date picker. Past

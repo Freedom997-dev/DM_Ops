@@ -10,9 +10,11 @@ import {
   CheckCircle2,
   ChevronDown,
   CircleDashed,
+  Download,
   ExternalLink,
   Grid3x3,
   LayoutList,
+  Printer,
   XCircle,
 } from "lucide-react";
 import { formatBusinessDate } from "@/lib/business-date";
@@ -38,21 +40,41 @@ const shortDate = (key: string) => formatBusinessDate(`${key}T00:00:00.000Z`, { 
 
 export function WorkflowPerformance({
   workflowSlug,
+  workflowName = "Daily Cleanliness Inspection",
   data,
   canRoomHistory,
 }: {
   workflowSlug: string;
+  workflowName?: string;
   data: Perf;
   canRoomHistory: boolean; // manager: link to /settings/rooms/[id]
 }) {
   const [view, setView] = useState<"scoreboard" | "map">("scoreboard");
   const [openRoom, setOpenRoom] = useState<string | null>(null);
   const rangeHref = (r: number) => `/services/${workflowSlug}/history?view=performance&range=${r}`;
+  const fileStem = `${workflowSlug}-performance-${data.fromKey}-to-${data.toKey}`;
+
+  function print() {
+    // The browser uses document.title as the default "Save as PDF" file name.
+    const original = document.title;
+    document.title = fileStem;
+    window.addEventListener("afterprint", () => (document.title = original), { once: true });
+    window.print();
+  }
 
   return (
-    <div className="space-y-4">
+    <div className="print-area space-y-4">
+      {/* Printed report header (the page title and tabs aren't printed) */}
+      <div className="print-only">
+        <h1 className="text-lg font-bold">Divya Motel — {workflowName} performance</h1>
+        <p className="text-sm">
+          {shortDate(data.fromKey)} – {shortDate(data.toKey)} ({data.range} days) · printed{" "}
+          {new Date().toLocaleDateString(undefined, { dateStyle: "medium" })}
+        </p>
+      </div>
+
       {/* Filters: one row above everything */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="no-print flex flex-wrap items-center justify-between gap-2">
         <div className="inline-flex rounded-xl bg-slate-100 p-1" role="group" aria-label="Period">
           {[7, 30, 90].map((r) => (
             <Link
@@ -83,6 +105,19 @@ export function WorkflowPerformance({
             <Grid3x3 className="h-4 w-4" /> Problem map
           </button>
         </div>
+        <div className="flex gap-2" role="group" aria-label="Export">
+          <a
+            href={`/api/exports/workflow-performance/${workflowSlug}?range=${data.range}`}
+            download={`${fileStem}.xlsx`}
+            className="btn-secondary px-3 py-1.5 text-sm"
+            title="Download as Excel: summary, rooms, problem map and issue log"
+          >
+            <Download className="h-4 w-4" /> Excel
+          </a>
+          <button type="button" onClick={print} className="btn-secondary px-3 py-1.5 text-sm" title="Print, or choose “Save as PDF”">
+            <Printer className="h-4 w-4" /> Print / PDF
+          </button>
+        </div>
       </div>
       <p className="text-xs text-slate-500">
         {shortDate(data.fromKey)} – {shortDate(data.toKey)} · score = OK ÷ (OK + Issue); blank boxes don&apos;t count.
@@ -96,8 +131,9 @@ export function WorkflowPerformance({
         <Tile label="Most common issue" value={data.topItem ? data.topItem.text : "None"} sub={data.topItem ? `${data.topItem.issues}×` : undefined} small />
       </div>
 
-      {view === "scoreboard" ? (
-        <div className="grid gap-3 md:grid-cols-2">
+      {/* Both views print (rooms, then problem map); on screen only the chosen one shows. */}
+      <div className={clsx("perf-print-section", view !== "scoreboard" && "hidden print:block")}>
+        <div className="grid gap-3 md:grid-cols-2 print:grid-cols-2">
           {data.rooms.map((r) => (
             <RoomCard
               key={r.roomId}
@@ -110,9 +146,11 @@ export function WorkflowPerformance({
             />
           ))}
         </div>
-      ) : (
+      </div>
+      <div className={clsx("perf-print-section", view !== "map" && "hidden print:block")}>
+        <h2 className="print-only mb-2 mt-4 text-sm font-bold">Problem map — issues by room and checklist item</h2>
         <ProblemMap data={data} />
-      )}
+      </div>
     </div>
   );
 }
@@ -355,7 +393,7 @@ function ProblemMap({ data }: { data: Perf }) {
   const rooms = [...data.rooms].sort((a, b) => a.number.localeCompare(b.number, undefined, { numeric: true }));
   return (
     <div className="space-y-2">
-      <div className="overflow-auto rounded-xl border border-slate-200 bg-white">
+      <div className="matrix-scroll overflow-auto rounded-xl border border-slate-200 bg-white">
         <table className="border-separate border-spacing-0.5 text-xs">
           <thead>
             <tr>

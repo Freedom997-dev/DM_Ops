@@ -87,6 +87,13 @@ body {
   .print-notes tr {
     break-inside: avoid;
   }
+  /* Performance report: keep each room card whole; problem map on its own page */
+  .print-area .card {
+    break-inside: avoid;
+  }
+  .perf-print-section + .perf-print-section {
+    break-before: page;
+  }
   /* Notes textareas print as plain text */
   .matrix-scroll textarea {
     border: none !important;

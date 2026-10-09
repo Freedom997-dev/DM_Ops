@@ -80,6 +80,7 @@ export default async function WorkflowHistoryPage({
       </div>
       <WorkflowHistory
         workflowSlug={workflow.slug}
+        workflowName={workflow.name}
         today={todayDay}
         pastDays={pastDays}
         view={view}

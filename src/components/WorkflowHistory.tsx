@@ -28,6 +28,7 @@ const PAGE = 30;
 
 type Props = {
   workflowSlug: string;
+  workflowName: string;
   today: HistoryDay;
   pastDays: HistoryDay[]; // newest first, including missed days
   view: "date" | "performance";
@@ -36,7 +37,7 @@ type Props = {
   canRoomHistory: boolean;
 };
 
-export function WorkflowHistory({ workflowSlug, today, pastDays, view, canPerformance, performance, canRoomHistory }: Props) {
+export function WorkflowHistory({ workflowSlug, workflowName, today, pastDays, view, canPerformance, performance, canRoomHistory }: Props) {
   const [shown, setShown] = useState(PAGE);
   const tabClass = (on: boolean) =>
     clsx(
@@ -78,7 +79,7 @@ export function WorkflowHistory({ workflowSlug, today, pastDays, view, canPerfor
       )}
 
       {view === "performance" && performance && (
-        <WorkflowPerformance workflowSlug={workflowSlug} data={performance} canRoomHistory={canRoomHistory} />
+        <WorkflowPerformance workflowSlug={workflowSlug} workflowName={workflowName} data={performance} canRoomHistory={canRoomHistory} />
       )}
     </div>
   );

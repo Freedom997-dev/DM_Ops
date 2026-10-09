@@ -51,6 +51,7 @@ workflow must never use those slugs.
 |---|---|---|---|
 | `/api/auth/[...nextauth]` | GET/POST | NextAuth (sign-in, session, sign-out) | NextAuth |
 | `/api/exports/pm-v2?q=YYYY-Qn` | GET | PM V2 quarter workbook (Summary, Rooms, Open issues, Fixed) | `pmv2:reports:view` |
+| `/api/exports/workflow-performance/[slug]?range=7\|30\|90` | GET | Daily Cleanliness performance workbook (Summary, Rooms, Problem map, Issue log) | workflow access + `workflows:performance:view` (404 otherwise) |
 | `/api/exports/repairs` | GET | PM V1 open repairs `.xlsx` | `pm:inspections:view` |
 | `/api/exports/status-report` | GET | PM V1 full status workbook (Summary, Rooms, Repairs, Awaiting verification) | `pm:inspections:view` |
 | `/api/local-images/[...path]` | GET | Dev-only file server for the FS storage driver; **404 when Supabase is configured** | `housekeeping:board:view` for `housekeeping/*`, else `pm:inspections:view`; 404 on deny |
