@@ -11,6 +11,7 @@ files, behaviour notes and a change log.
 | Housekeeping (HKT) | [housekeeping.md](housekeeping.md) | Live |
 | Platform Foundation + Daily Cleanliness | [platform-foundation.md](platform-foundation.md) | Live — `/services`, `/settings`, workflow matrix |
 | RBAC & Security | [rbac-and-security.md](rbac-and-security.md) | Live |
+| Notifications | [notifications.md](notifications.md) | Phase 1 built (bell, phone push, Housekeeping + account events) |
 
 ## Retained but hidden (PM V1)
 

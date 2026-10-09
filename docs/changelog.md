@@ -3,6 +3,15 @@
 What shipped, newest first. Dates are commit dates on `main` (production since
 the `dm-ops-production` move). Add an entry with every feature or notable fix.
 
+## 2026-10 — Notifications
+
+- **2026-10-09** · Notifications phase 1: header bell + `/notifications`, phone
+  notifications through the DMO app (Web Push), Housekeeping events (assigned,
+  ready for inspection, sent back, approved, rooms waiting for assignment) and
+  "your password was reset". Admins choose events and receiving roles in
+  Settings → Notifications; staff can mute types. See
+  [features/notifications.md](features/notifications.md).
+
 ## 2026-10 — Mobile app install
 
 - **v4.7.6 · 2026-10-06** · App versioning starts at **4.7.6**, shown in the page

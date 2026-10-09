@@ -40,6 +40,17 @@ page, which does the same in one tap.
 - On a phone, the Services page shows an "Add to home screen" card until the app
   is installed. Tap **✕** to hide it on that phone.
 
+## Notifications
+
+- The **bell** at the top shows new updates — e.g. a room assigned to you, a room
+  ready for you to inspect, a room sent back with the reason. Tap one to go
+  straight to it.
+- **Get alerts on your phone:** open the bell → **See all · Notification settings**
+  → **Turn on** under *Phone notifications on this device*, and allow it when the
+  phone asks. On iPhone, add DMO to your home screen first and open it from there.
+  Do this once on each phone or computer you use.
+- On the same page you can switch off the types you don't want.
+
 ## Signing in
 
 - Use the email your manager set up. Five wrong passwords in 15 minutes locks the

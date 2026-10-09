@@ -8,6 +8,7 @@ import { requirePermission, type AuthUser } from "@/lib/session";
 import { logAudit } from "@/lib/audit";
 import { ROLE_KEYS } from "@/lib/roles";
 import { validatePassword } from "@/lib/password";
+import { notify } from "@/lib/notifications/notify";
 import type { ActionState } from "./rooms";
 
 export type { ActionState };
@@ -259,6 +260,15 @@ export async function resetPassword(
     entity: "User",
     entityId: user.id,
     details: { passwordReset: true },
+  });
+  await notify({
+    type: "account.password.reset",
+    actorId: admin.id,
+    userIds: [user.id],
+    title: "Your password was reset",
+    body: `${admin.name} set a new password for your account. If you didn't expect this, tell your manager.`,
+    entityType: "User",
+    entityId: user.id,
   });
   revalidatePath("/settings/staff");
   return { ok: true, message: "Password reset." };

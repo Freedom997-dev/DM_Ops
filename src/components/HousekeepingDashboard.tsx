@@ -41,8 +41,9 @@ function initials(name: string) {
 }
 
 export function HousekeepingDashboard({
-  tasks, rooms, housekeepers, statusActions, taskTemplates, caps, currentUserId,
+  tasks, rooms, housekeepers, statusActions, taskTemplates, caps, currentUserId, initialOpenId,
 }: {
+  initialOpenId?: string | null; // ?task=<id> from a notification link
   tasks: HkTaskView[];
   rooms: HkRoomOption[];
   housekeepers: HkPerson[];
@@ -53,7 +54,11 @@ export function HousekeepingDashboard({
 }) {
   const router = useRouter();
   const [filter, setFilter] = useState<Filter>("all");
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(initialOpenId ?? null);
+  // A notification link while already on the board (?task= changes) opens that task too.
+  useEffect(() => {
+    if (initialOpenId) setOpenId(initialOpenId);
+  }, [initialOpenId]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [modal, setModal] = useState<null | "checkout" | "newtask" | "assign">(null);
   const [busy, setBusy] = useState(false);

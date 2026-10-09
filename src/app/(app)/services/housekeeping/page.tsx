@@ -17,8 +17,13 @@ export const dynamic = "force-dynamic";
 // served by an auth-guarded route with no expiry.
 const PHOTO_URL_TTL = 6 * 60 * 60; // 6 hours
 
-export default async function HousekeepingPage() {
+export default async function HousekeepingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ task?: string }>;
+}) {
   const user = await requirePermission("housekeeping:board:view");
+  const openTaskId = (await searchParams).task ?? null; // deep link from a notification
 
   const [tasks, rooms, housekeepers, setting, statusActions, taskTemplates] = await Promise.all([
     prisma.housekeepingTask.findMany({
@@ -165,6 +170,7 @@ export default async function HousekeepingPage() {
       )}
 
       <HousekeepingDashboard
+        initialOpenId={openTaskId}
         tasks={taskViews}
         rooms={allRooms}
         housekeepers={roster}

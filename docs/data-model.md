@@ -68,6 +68,16 @@ One row per **failed** sign-in: `email` (as typed, lower-cased — even for
 non-existent accounts), `ip?`, `createdAt`. Index `(email, createdAt)`. Deleted on
 successful sign-in. Drives lockout (5 in 15 min). Not FK-linked to `User` by design.
 
+### Notification / PushSubscription / NotificationRule / NotificationMute
+Notifications ([features/notifications.md](features/notifications.md)).
+`Notification`: one row per recipient — `type` (catalog key), `title`, `body?`,
+`href?`, `entityType?`/`entityId?`, `readAt?`; index `(userId, readAt, createdAt)`;
+purged after 90 days by the nightly cron. `PushSubscription`: one per device that
+enabled phone push (`endpoint` unique, `p256dh`, `auth`); deleted when the push
+service reports it gone. `NotificationRule`: admin override per `type` (`enabled`,
+`roles` JSON for audience events); no row = catalog default. `NotificationMute`:
+`(userId, type)` the user turned off. All cascade from `User`.
+
 ### AuditLog
 | Field | Notes |
 |---|---|

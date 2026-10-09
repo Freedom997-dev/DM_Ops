@@ -11,6 +11,8 @@ All `/services/*` and `/settings/*` pages also pass `proxy.ts` (signed in) and
 |---|---|---|
 | `/` | Redirect → `/services` (signed in) or `/login` | — |
 | `/login` | Credentials sign-in; shows lockout message; "Install the app" link | Public |
+| `/notifications` | My notifications (latest 100), phone-push switch for this device, per-type mutes | signed in |
+| `/settings/notifications` | Turn events on/off; pick receiving roles for audience events | `admin:notifications:manage` |
 | `/install` | How to add the portal to a phone's home screen (one-tap Install on Android Chrome when offered) | Public |
 | `/services` | Service catalog — tiles filtered by permission; HK tile shows live counts; workflow tiles show today's status | signed in |
 | **Room Condition V2** | | |
@@ -54,7 +56,8 @@ workflow must never use those slugs.
 | `/api/exports/repairs` | GET | PM V1 open repairs `.xlsx` | `pm:inspections:view` |
 | `/api/exports/status-report` | GET | PM V1 full status workbook (Summary, Rooms, Repairs, Awaiting verification) | `pm:inspections:view` |
 | `/api/local-images/[...path]` | GET | Dev-only file server for the FS storage driver; **404 when Supabase is configured** | `housekeeping:board:view` for `housekeeping/*`, else `pm:inspections:view`; 404 on deny |
-| `/api/cron/housekeeping-daily-reset` | GET | Reset recurring GENERAL tasks to TODO/unassigned | `Bearer CRON_SECRET` (401 otherwise) |
+| `/api/cron/housekeeping-daily-reset` | GET | Reset recurring GENERAL tasks to TODO/unassigned; delete notifications older than 90 days | `Bearer CRON_SECRET` (401 otherwise) |
+| `/api/notifications` | GET | Unread count for the bell; `?list=1` adds the latest 20 | signed in (401 otherwise) |
 | `/api/local-uploads/[...path]` | PUT | Dev-only stand-in for a Supabase signed upload URL (direct uploads); **404 when Supabase is configured** | signed-in + valid upload token |
 
 Cron schedules live in `vercel.json` (UTC): cleanup `0 3 * * *`, reset `0 8 * * *`.

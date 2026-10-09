@@ -13,6 +13,7 @@ import {
   isOpenStatus,
 } from "@/lib/housekeeping";
 import { ROLE_KEYS } from "@/lib/roles";
+import { notify } from "@/lib/notifications/notify";
 
 type Result = { ok: true } | { ok: false; error: string };
 
@@ -29,6 +30,38 @@ function extFromMime(mime: string): string {
 
 function refresh() {
   revalidatePath("/services/housekeeping");
+}
+
+// --- Notifications -----------------------------------------------------------
+
+const hkHref = (taskId?: string) => (taskId ? `/services/housekeeping?task=${taskId}` : "/services/housekeeping");
+
+type TaskLabel = { id: string; kind: string; title: string | null; room: { number: string } | null };
+const taskName = (t: TaskLabel) => (t.kind === "ROOM_CLEANING" ? `Room ${t.room?.number ?? "?"}` : t.title ?? "Task");
+
+/** One "assigned to you" per housekeeper, however many tasks they got. */
+async function notifyAssigned(byAssignee: Map<string, TaskLabel[]>, actorId: string) {
+  for (const [userId, tasks] of byAssignee) {
+    const title =
+      tasks.length === 1 ? `${taskName(tasks[0])} assigned to you` : `${tasks.length} tasks assigned to you`;
+    await notify({
+      type: "hk.task.assigned",
+      actorId,
+      userIds: [userId],
+      title,
+      body: tasks.length === 1 ? null : tasks.map(taskName).join(", "),
+      href: hkHref(tasks.length === 1 ? tasks[0].id : undefined),
+      entityType: "HousekeepingTask",
+      entityId: tasks[0].id,
+    });
+  }
+}
+
+async function labelsFor(taskIds: string[]): Promise<TaskLabel[]> {
+  return prisma.housekeepingTask.findMany({
+    where: { id: { in: taskIds } },
+    select: { id: true, kind: true, title: true, room: { select: { number: true } } },
+  });
 }
 
 // ===========================================================================
@@ -75,6 +108,7 @@ export async function checkOutRooms(
     select: { label: true, order: true },
   });
 
+  const created: TaskLabel[] = [];
   for (const room of toCreate) {
     const task = await prisma.housekeepingTask.create({
       data: {
@@ -96,6 +130,23 @@ export async function checkOutRooms(
       entityId: task.id,
       details: { kind: "ROOM_CLEANING", roomNumber: room.number, status: "READY_TO_CLEAN", reason: requestReason },
     });
+    created.push({ id: task.id, kind: "ROOM_CLEANING", title: null, room: { number: room.number } });
+  }
+
+  if (created.length > 0) {
+    if (assignee) {
+      await notifyAssigned(new Map([[assignee, created]]), user.id);
+    } else {
+      await notify({
+        type: "hk.rooms.unassigned",
+        actorId: user.id,
+        title: created.length === 1 ? `${taskName(created[0])} needs a housekeeper` : `${created.length} rooms need a housekeeper`,
+        body: `${created.map(taskName).join(", ")}${requestReason ? ` · ${requestReason}` : ""}`,
+        href: hkHref(created.length === 1 ? created[0].id : undefined),
+        entityType: "HousekeepingTask",
+        entityId: created[0].id,
+      });
+    }
   }
 
   refresh();
@@ -147,6 +198,9 @@ export async function createGeneralTask(input: {
     entityId: task.id,
     details: { kind: "GENERAL", title, status: "TODO", recurring },
   });
+  if (assignee) {
+    await notifyAssigned(new Map([[assignee, [{ id: task.id, kind: "GENERAL", title: task.title, room: null }]]]), user.id);
+  }
 
   refresh();
   return { ok: true };
@@ -227,6 +281,9 @@ export async function assignTasks(
     entityId: taskIds[0],
     details: { assignedTo: housekeeperId, count: taskIds.length },
   });
+  if (housekeeperId) {
+    await notifyAssigned(new Map([[housekeeperId, await labelsFor(taskIds)]]), user.id);
+  }
 
   refresh();
   return { ok: true, count: taskIds.length };
@@ -279,6 +336,7 @@ export async function autoAssign(
   }
 
   // Greedy: each task → the currently-least-loaded housekeeper.
+  const assignedTo = new Map<string, string[]>();
   for (const task of targets) {
     let bestId = housekeepers[0].id;
     let best = load.get(bestId) ?? 0;
@@ -291,6 +349,7 @@ export async function autoAssign(
       data: { assignedHousekeeperId: bestId, assignedById: user.id, assignedAt: new Date() },
     });
     load.set(bestId, best + 1);
+    assignedTo.set(bestId, [...(assignedTo.get(bestId) ?? []), task.id]);
   }
 
   await logAudit({
@@ -300,6 +359,11 @@ export async function autoAssign(
     entityId: targets[0].id,
     details: { autoAssigned: targets.length, housekeepers: housekeepers.length },
   });
+  const labels = new Map((await labelsFor(targets.map((t) => t.id))).map((l) => [l.id, l]));
+  await notifyAssigned(
+    new Map([...assignedTo].map(([hk, ids]) => [hk, ids.map((id) => labels.get(id)).filter((l): l is TaskLabel => !!l)])),
+    user.id,
+  );
 
   refresh();
   return { ok: true, assigned: targets.length };
@@ -465,6 +529,15 @@ export async function submitForInspection(form: FormData): Promise<Result> {
     userId: user.id, action: "UPDATE", entity: "HousekeepingTask", entityId: taskId,
     details: { roomNumber: task.room?.number, status: "READY_FOR_INSPECTION", photos: uploaded.paths.length },
   });
+  await notify({
+    type: "hk.task.submitted",
+    actorId: user.id,
+    title: `Room ${task.room?.number ?? "?"} ready for inspection`,
+    body: `Cleaned by ${user.name}`,
+    href: hkHref(taskId),
+    entityType: "HousekeepingTask",
+    entityId: taskId,
+  });
   refresh();
   return { ok: true };
 }
@@ -568,6 +641,16 @@ export async function reviewTask(
       userId: user.id, action: "UPDATE", entity: "HousekeepingTask", entityId: taskId,
       details: { roomNumber: task.room?.number, outcome: "REJECTED", note: trimmed.slice(0, 200) },
     });
+    await notify({
+      type: "hk.task.rejected",
+      actorId: user.id,
+      userIds: [task.assignedHousekeeperId ?? task.submittedById],
+      title: `Room ${task.room?.number ?? "?"} sent back`,
+      body: trimmed.slice(0, 300),
+      href: hkHref(taskId),
+      entityType: "HousekeepingTask",
+      entityId: taskId,
+    });
     refresh();
     return { ok: true };
   }
@@ -591,6 +674,16 @@ export async function reviewTask(
   await logAudit({
     userId: user.id, action: "UPDATE", entity: "HousekeepingTask", entityId: taskId,
     details: { roomNumber: task.room?.number, outcome: "APPROVED" },
+  });
+  await notify({
+    type: "hk.task.approved",
+    actorId: user.id,
+    userIds: [task.assignedHousekeeperId ?? task.submittedById],
+    title: `Room ${task.room?.number ?? "?"} approved`,
+    body: `Inspected by ${user.name}`,
+    href: hkHref(taskId),
+    entityType: "HousekeepingTask",
+    entityId: taskId,
   });
   refresh();
   return { ok: true };

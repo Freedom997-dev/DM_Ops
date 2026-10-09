@@ -50,6 +50,7 @@ Key format: **`app:feature:action`**.
 | | `roles` | view, add, update, delete | `/settings/access`, `roles.ts` |
 | | `services` | view, manage | Settings hub card; workflow definition/item editing |
 | | `audit` | view | Settings hub card (see coarse checks below) |
+| | `notifications` | manage | `/settings/notifications` + `setNotificationRule` / `resetNotificationRule` |
 
 Adding an app/feature/action = append to `APPS` in `catalog.ts`; the roles matrix
 UI, seed and `sanitizePermissions` all read from it. See
@@ -79,6 +80,7 @@ label/description), so production may differ — check `/settings/access` for tr
 | `admin:roles:add`, `admin:roles:delete` | ✱ | — | — | — | — |
 | `admin:services:view/manage` | ✱ | ✅ | — | — | — |
 | `admin:audit:view` | ✱ | ✅ | ✅ | — | — |
+| `admin:notifications:manage` | ✱ | ✅ | — | — | — |
 
 ✱ = wildcard bypass. All five are `isSystem` (cannot be deleted). Custom roles can
 be created by holders of `admin:roles:add` (Super Admin by default).

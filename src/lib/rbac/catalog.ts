@@ -87,6 +87,7 @@ export const APPS: AppDef[] = [
       { key: "roles", label: "Roles", actions: [A.view, A.add, A.update, A.delete] },
       { key: "services", label: "Services", actions: [A.view, A.manage] },
       { key: "audit", label: "Activity log", actions: [A.view] },
+      { key: "notifications", label: "Notifications", actions: [A.manage] },
     ],
   },
 ];

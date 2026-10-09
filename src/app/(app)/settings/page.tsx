@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, ChevronRight, Users, History, LayoutGrid, ShieldCheck, DoorOpen } from "lucide-react";
+import { ArrowLeft, Bell, ChevronRight, Users, History, LayoutGrid, ShieldCheck, DoorOpen } from "lucide-react";
 import { requireManager, can } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -41,6 +41,13 @@ export default async function SettingsIndex() {
       title: "Services",
       description: "Create, edit and archive service definitions and their items.",
       visible: can(user, "admin:services:view"),
+    },
+    {
+      href: "/settings/notifications",
+      icon: <Bell className="h-5 w-5" />,
+      title: "Notifications",
+      description: "Choose which events notify staff, and which roles receive them.",
+      visible: can(user, "admin:notifications:manage"),
     },
     {
       href: "/settings/activity",

@@ -6,6 +6,7 @@ import { signOut } from "next-auth/react";
 import { useState } from "react";
 import clsx from "clsx";
 import { BedDouble, LayoutGrid, Settings, LogOut, Menu, X } from "lucide-react";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 
 type NavUser = {
   name?: string | null;
@@ -83,6 +84,9 @@ export function Nav({ user }: { user: NavUser }) {
           <NavLinks />
         </nav>
 
+        <div className="flex items-center gap-2 md:gap-3">
+        <NotificationBell />
+
         <div className="hidden items-center gap-3 md:flex">
           <div className="text-right leading-tight">
             <div className="text-sm font-medium text-slate-700">{user.name}</div>
@@ -107,6 +111,7 @@ export function Nav({ user }: { user: NavUser }) {
         >
           {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
         </button>
+        </div>
       </div>
 
       {/* Mobile menu */}

@@ -75,6 +75,7 @@ Set manually:
 | `SEED_ADMIN_EMAIL` | Super Admin login created by the seed |
 | `SEED_ADMIN_PASSWORD` | **Required** — seed throws in production without it |
 | `CRON_SECRET` | Bearer token Vercel Cron sends; without it the cron routes return 401 and jobs silently never run |
+| `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Phone notifications (Web Push). Generate once: `npx web-push generate-vapid-keys`; subject is `mailto:<your email>`. Without them push is off (the in-app bell still works). Changing the keys signs every device out of push — staff must turn it on again |
 
 ```bash
 vercel env ls

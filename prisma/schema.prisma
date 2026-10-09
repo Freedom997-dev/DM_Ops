@@ -47,6 +47,11 @@ model User {
 
   // PM V2 back-relation
   pmV2InspectionsUpdated PmV2Inspection[] @relation("PmV2InspUpdated")
+
+  // Notifications
+  notifications     Notification[]
+  pushSubscriptions PushSubscription[]
+  notificationMutes NotificationMute[]
 }
 
 // ---------------------------------------------------------------------------
@@ -565,4 +570,58 @@ model PmV2Result {
 
   @@unique([inspectionId, itemId])
   @@index([inspectionId])
+}
+
+// ===========================================================================
+// Notifications — event → recipient inbox + phone push.
+// Event types and their default recipients: src/lib/notifications/catalog.ts
+// ===========================================================================
+
+model Notification {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type       String // catalog key, e.g. "hk.task.assigned"
+  title      String
+  body       String?
+  href       String? // page the notification opens
+  entityType String?
+  entityId   String?
+  readAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId, readAt, createdAt])
+  @@index([createdAt])
+}
+
+// One row per device that allowed phone notifications (Web Push).
+model PushSubscription {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint   String   @unique
+  p256dh     String
+  auth       String
+  userAgent  String?
+  createdAt  DateTime @default(now())
+  lastUsedAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+// Admin override of a catalog event. No row = catalog default.
+model NotificationRule {
+  type      String   @id
+  enabled   Boolean  @default(true)
+  roles     String? // JSON array of role keys for audience events; null = default
+  updatedAt DateTime @updatedAt
+}
+
+// A user muted this event type.
+model NotificationMute {
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type   String
+
+  @@id([userId, type])
 }
