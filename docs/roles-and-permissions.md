@@ -46,6 +46,7 @@ Key format: **`app:feature:action`**.
 | | `tasks` | submit | start, checklist edits, submit room, complete general task |
 | | `cleaning` | review | approve / reject (single + bulk) |
 | | `settings` | configure | HK settings page, status actions, templates, checklists, add room, delete photo |
+| **Services** (`workflows`) | `performance` | view | Performance tab on a workflow's day list (`/services/[slug]/history?view=performance`); data is only computed for holders |
 | **Messages** (`comms`) | `announcements` | send | `/messages/announce`, `postAnnouncement` |
 | | `messages` | moderate | delete others' messages in groups / announcements / comments (`deleteMessage`) |
 | **Administration** (`admin`) | `staff` | view, add, update, delete | `/settings/staff`, `users.ts` (update covers activate/deactivate, roles, password reset; **delete is currently unused** — users are deactivated, never deleted) |
@@ -76,6 +77,7 @@ label/description), so production may differ — check `/settings/access` for tr
 | `housekeeping:tasks:submit` | ✱ | ✅ | ✅ | — | ✅ |
 | `housekeeping:cleaning:review` | ✱ | ✅ | ✅ | ✅ | — |
 | `housekeeping:settings:configure` | ✱ | ✅ | — | — | — |
+| `workflows:performance:view` | ✱ | ✅ | ✅ | — | — |
 | `admin:staff:view` | ✱ | ✅ | ✅ | — | — |
 | `admin:staff:add/update/delete` | ✱ | ✅ | — | — | — |
 | `admin:roles:view`, `admin:roles:update` | ✱ | ✅ | — | — | — |
@@ -93,6 +95,15 @@ be created by holders of `admin:roles:add` (Super Admin by default).
 > production roles were seeded. If Admins/Inspectors can't see Room Condition V2,
 > grant the `pmv2:*` keys in Settings → Roles & permissions.
 
+### Introducing a permission to existing roles
+
+Because the seed never edits an existing role's grants, a new key would reach only
+Super Admin. List it in `INTRODUCED_GRANTS` (`src/lib/rbac/defaults.ts`) with its
+default roles: the deploy seed grants it **once** and writes a marker row to
+`AuditLog` (`entity: "Role"`, `details: {"seedGrant": "<key>"}`). Later removals
+in the roles matrix stick — the grant is never re-applied. First used for
+`workflows:performance:view` (Admin, Manager).
+
 ## Workflow-service access (separate mechanism)
 
 Generic workflow services (Daily Cleanliness, future ones) are **not** in the
@@ -103,7 +114,9 @@ list in the service's settings (`/services/[slug]/settings`). Daily Cleanliness
 defaults to `["ADMIN","MANAGER","INSPECTOR"]`.
 
 Within a workflow page: **Mark complete** is shown to managers+ (`isManager`),
-**Reopen** and **delete row image** require `isAdmin` (server-enforced).
+**Unlock / Lock** a past day requires `isManager` (server-enforced),
+**Reopen** and **delete row image** require `isAdmin` (server-enforced). The
+**Performance** tab requires the catalog key `workflows:performance:view`.
 
 ## Coarse role-key checks (not catalog-driven)
 

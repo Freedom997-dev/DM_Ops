@@ -40,6 +40,20 @@ page, which does the same in one tap.
 - On a phone, the Services page shows an "Add to home screen" card until the app
   is installed. Tap **✕** to hide it on that phone.
 
+## Daily Cleanliness Inspection
+
+- Tap the **Daily Cleanliness Inspection** card to see the list of days.
+  **Today** is at the top — tap **Start today's inspection** (or **Continue**).
+- At the top of the sheet you always see **which day** it is, with a green
+  **Today** or amber **Past date** label. Use **◀ / ▶** or the date box to change day.
+- **Past days are locked.** A missed day shows as a blank sheet. If a past day
+  needs filling in or fixing, ask a manager to **Unlock** it; you can then edit it
+  until the manager locks it again or marks it complete.
+- **Managers:** the **Performance** tab on the day list shows how each room is
+  doing over the last 7, 30 or 90 days — a score per room (green / amber / red),
+  its trend, the checklist items that fail most, and a problem map of all rooms.
+  Tap a room for its day-by-day record; tap a day to open that sheet.
+
 ## Notifications
 
 - The **bell** at the top shows new updates — e.g. a room assigned to you, a room

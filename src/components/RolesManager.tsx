@@ -7,6 +7,7 @@ import clsx from "clsx";
 import {
   ClipboardCheck,
   BedDouble,
+  LayoutGrid,
   MessageSquare,
   Settings,
   ShieldCheck,
@@ -36,6 +37,7 @@ type Role = {
 const APP_ICONS: Record<string, LucideIcon> = {
   ClipboardCheck,
   BedDouble,
+  LayoutGrid,
   MessageSquare,
   Settings,
 };

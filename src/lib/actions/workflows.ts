@@ -4,10 +4,11 @@ import cuid from "cuid";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
-import { requireWorkflowAccess, requireUser, requireAdmin } from "@/lib/session";
+import { requireWorkflowAccess, requireUser, requireAdmin, isManager } from "@/lib/session";
 import { logAudit } from "@/lib/audit";
 import { uploadImage, deleteImages } from "@/lib/storage";
 import { motelTodayUTC } from "@/lib/business-date";
+import { sheetState, lockMessage, parseDateKey } from "@/lib/workflow-lock";
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
 
@@ -23,21 +24,44 @@ function extFromMime(mime: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Get-or-create today's submission for a workflow
+// Editability — every write goes through this (see src/lib/workflow-lock.ts)
+// ---------------------------------------------------------------------------
+
+function editError(submission: { date: Date; status: string; unlockedAt: Date | null }): string | null {
+  const state = sheetState(submission.date, motelTodayUTC(), submission);
+  return state.editable ? null : lockMessage(state.lockReason);
+}
+
+function revalidateWorkflow(slug: string) {
+  revalidatePath(`/services/${slug}`);
+  revalidatePath(`/services/${slug}/history`);
+  revalidatePath("/services");
+}
+
+// ---------------------------------------------------------------------------
+// Get-or-create the submission for the day being viewed. Only today's can be
+// created by a first tap; a past day is created by a manager's unlock.
 // ---------------------------------------------------------------------------
 
 type SubmissionResult =
   | { ok: true; submissionId: string }
   | { ok: false; error: string };
 
-export async function getOrCreateTodaySubmission(workflowSlug: string): Promise<SubmissionResult> {
+export async function getOrCreateSubmission(workflowSlug: string, day: string): Promise<SubmissionResult> {
   const { user, workflow } = await requireWorkflowAccess(workflowSlug);
-  const today = motelTodayUTC();
+  const date = parseDateKey(day);
+  if (!date) return { ok: false, error: "Invalid date." };
 
   const existing = await prisma.workflowSubmission.findUnique({
-    where: { workflowId_date: { workflowId: workflow.id, date: today } },
+    where: { workflowId_date: { workflowId: workflow.id, date } },
   });
-  if (existing) return { ok: true, submissionId: existing.id };
+  if (existing) {
+    const err = editError(existing);
+    return err ? { ok: false, error: err } : { ok: true, submissionId: existing.id };
+  }
+
+  const state = sheetState(date, motelTodayUTC(), null);
+  if (!state.editable) return { ok: false, error: lockMessage(state.lockReason) };
 
   const submissionId = cuid();
   try {
@@ -45,7 +69,7 @@ export async function getOrCreateTodaySubmission(workflowSlug: string): Promise<
       data: {
         id: submissionId,
         workflowId: workflow.id,
-        date: today,
+        date,
         status: "IN_PROGRESS",
         createdById: user.id,
       },
@@ -53,7 +77,7 @@ export async function getOrCreateTodaySubmission(workflowSlug: string): Promise<
   } catch (e) {
     // Race: someone else just created it. Re-fetch.
     const again = await prisma.workflowSubmission.findUnique({
-      where: { workflowId_date: { workflowId: workflow.id, date: today } },
+      where: { workflowId_date: { workflowId: workflow.id, date } },
     });
     if (again) return { ok: true, submissionId: again.id };
     return { ok: false, error: e instanceof Error ? e.message : "Could not open submission." };
@@ -64,11 +88,82 @@ export async function getOrCreateTodaySubmission(workflowSlug: string): Promise<
     action: "CREATE",
     entity: "WorkflowSubmission",
     entityId: submissionId,
-    details: { workflowSlug, date: today.toISOString() },
+    details: { workflowSlug, date: date.toISOString() },
   });
 
-  revalidatePath(`/services/${workflowSlug}`);
+  revalidateWorkflow(workflowSlug);
   return { ok: true, submissionId };
+}
+
+// ---------------------------------------------------------------------------
+// Unlock / lock a past day (manager and above)
+// ---------------------------------------------------------------------------
+
+export async function unlockDay(workflowSlug: string, day: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const { user, workflow } = await requireWorkflowAccess(workflowSlug);
+  if (!isManager(user)) return { ok: false, error: "Only a manager can unlock a past day." };
+  const date = parseDateKey(day);
+  if (!date) return { ok: false, error: "Invalid date." };
+  if (sheetState(date, motelTodayUTC(), null).kind !== "past") {
+    return { ok: false, error: "Only past days can be unlocked." };
+  }
+
+  const existing = await prisma.workflowSubmission.findUnique({
+    where: { workflowId_date: { workflowId: workflow.id, date } },
+  });
+  if (existing?.status === "COMPLETED") {
+    return { ok: false, error: "This day is marked complete. An admin can Reopen it." };
+  }
+
+  const now = new Date();
+  // A missed day has no submission yet: unlocking creates its blank sheet.
+  const submission = await prisma.workflowSubmission.upsert({
+    where: { workflowId_date: { workflowId: workflow.id, date } },
+    create: {
+      workflowId: workflow.id,
+      date,
+      status: "IN_PROGRESS",
+      createdById: user.id,
+      unlockedAt: now,
+      unlockedById: user.id,
+    },
+    update: { unlockedAt: now, unlockedById: user.id },
+  });
+
+  await logAudit({
+    userId: user.id,
+    action: "UPDATE",
+    entity: "WorkflowSubmission",
+    entityId: submission.id,
+    details: { workflowSlug, date: day, status: "UNLOCKED", createdBlank: !existing },
+  });
+  revalidateWorkflow(workflowSlug);
+  return { ok: true };
+}
+
+export async function lockDay(submissionId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const submission = await prisma.workflowSubmission.findUnique({
+    where: { id: submissionId },
+    include: { workflow: true },
+  });
+  if (!submission) return { ok: false, error: "Submission not found." };
+  const { user } = await requireWorkflowAccess(submission.workflow.slug);
+  if (!isManager(user)) return { ok: false, error: "Only a manager can lock a day." };
+  if (!submission.unlockedAt) return { ok: true };
+
+  await prisma.workflowSubmission.update({
+    where: { id: submissionId },
+    data: { unlockedAt: null, unlockedById: null },
+  });
+  await logAudit({
+    userId: user.id,
+    action: "UPDATE",
+    entity: "WorkflowSubmission",
+    entityId: submissionId,
+    details: { workflowSlug: submission.workflow.slug, status: "LOCKED" },
+  });
+  revalidateWorkflow(submission.workflow.slug);
+  return { ok: true };
 }
 
 // ---------------------------------------------------------------------------
@@ -96,9 +191,8 @@ export async function updateCell(input: z.infer<typeof updateCellSchema>): Promi
     include: { workflow: true },
   });
   if (!submission) return { ok: false, error: "Submission not found." };
-  if (submission.status === "COMPLETED") {
-    return { ok: false, error: "Submission is already marked complete." };
-  }
+  const lockedErr = editError(submission);
+  if (lockedErr) return { ok: false, error: lockedErr };
 
   const { user } = await requireWorkflowAccess(submission.workflow.slug);
 
@@ -193,9 +287,8 @@ export async function saveRow(form: FormData): Promise<SaveRowResult> {
     include: { workflow: true },
   });
   if (!submission) return { ok: false, error: "Submission not found." };
-  if (submission.status === "COMPLETED") {
-    return { ok: false, error: "Submission is already marked complete." };
-  }
+  const lockedErr = editError(submission);
+  if (lockedErr) return { ok: false, error: lockedErr };
 
   const { user, workflow } = await requireWorkflowAccess(submission.workflow.slug);
 
@@ -297,9 +390,8 @@ export async function saveRowNote(
     include: { workflow: true },
   });
   if (!submission) return { ok: false, error: "Submission not found." };
-  if (submission.status === "COMPLETED") {
-    return { ok: false, error: "Submission is already marked complete." };
-  }
+  const lockedErr = editError(submission);
+  if (lockedErr) return { ok: false, error: lockedErr };
   const { user } = await requireWorkflowAccess(submission.workflow.slug);
 
   const noteValue = note.trim().slice(0, 1000);
@@ -344,10 +436,12 @@ export async function markSubmissionComplete(submissionId: string): Promise<{ ok
   const { user } = await requireWorkflowAccess(submission.workflow.slug);
 
   if (submission.status === "COMPLETED") return { ok: true };
+  const lockedErr = editError(submission);
+  if (lockedErr) return { ok: false, error: lockedErr };
 
   await prisma.workflowSubmission.update({
     where: { id: submissionId },
-    data: { status: "COMPLETED", completedAt: new Date() },
+    data: { status: "COMPLETED", completedAt: new Date(), unlockedAt: null, unlockedById: null },
   });
 
   await logAudit({
@@ -379,9 +473,15 @@ export async function reopenSubmission(submissionId: string): Promise<{ ok: true
 
   if (submission.status !== "COMPLETED") return { ok: true };
 
+  // A reopened past day comes back unlocked; otherwise it would stay read-only.
+  const isPast = sheetState(submission.date, motelTodayUTC(), null).kind === "past";
   await prisma.workflowSubmission.update({
     where: { id: submissionId },
-    data: { status: "IN_PROGRESS", completedAt: null },
+    data: {
+      status: "IN_PROGRESS",
+      completedAt: null,
+      ...(isPast && { unlockedAt: new Date(), unlockedById: admin.id }),
+    },
   });
 
   await logAudit({

@@ -18,6 +18,20 @@ the `dm-ops-production` move). Add an entry with every feature or notable fix.
   issue summary) on a new daily cron; Room Condition V2 "repairs found" and
   "repair marked fixed".
 
+## 2026-10 — Daily Cleanliness day list & locking
+
+- **2026-10-09** · Performance tab **Export**: Excel download (summary, rooms, problem map, issue log) and Print / Save as PDF.
+- **v4.8.0 · 2026-10-08** · Tapping the Daily Cleanliness card opens a **day list**:
+  today pinned on top, every earlier day below, missed days as blank sheets. The
+  sheet shows a big date with Today / Past date, ◀ / ▶ and a date picker. Past
+  days are **locked** until a manager unlocks them; then anyone with access can
+  edit. The card shows today's date. Fixes taps on an empty past day being saved
+  into today's inspection.
+- **v4.8.0 · 2026-10-08** · **Performance** tab (replaces "By room") for managers:
+  room scoreboard with scores, trends and top problems, a room detail view and a
+  rooms × checklist problem map, over 7 / 30 / 90 days. New permission
+  `workflows:performance:view`, given to Admin and Manager automatically once.
+
 ## 2026-10 — Mobile app install
 
 - **v4.7.6 · 2026-10-06** · App versioning starts at **4.7.6**, shown in the page

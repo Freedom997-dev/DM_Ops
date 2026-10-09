@@ -162,7 +162,10 @@ Columns of the matrix. `workflowId` (cascade), `text`, `order`, `archived`.
 ### WorkflowSubmission
 One run per workflow per day. `date` is **UTC midnight** (`@@unique([workflowId, date])`).
 `status` = `IN_PROGRESS | COMPLETED`; `createdById`; `completedAt?`. Created lazily
-on first interaction (`getOrCreateTodaySubmission`).
+on the first tap **today** (`getOrCreateSubmission(slug, day)` refuses other days),
+or by a manager's `unlockDay` for a missed past day. `unlockedAt?` / `unlockedById?`
+(→ `User`): a past day is editable only while set; cleared by `lockDay` and by
+Mark complete. Rules: `src/lib/workflow-lock.ts`.
 
 ### WorkflowRow
 Per (submission, room) — `@@unique([submissionId, roomId])`. `note?`,

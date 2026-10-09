@@ -36,6 +36,12 @@ and per-row photos.
 - **Mark complete** button: shown to `isManager` (Admin/Manager role keys). Server
   side only checks workflow access — see known-issues TD-3.
 - **Reopen** a completed submission and **delete a row photo**: `requireAdmin()`.
+- **Day lock** (`src/lib/workflow-lock.ts`, enforced in every write action):
+  today is editable until completed; **past days are locked** (missed or left
+  in progress) until an `isManager` user **unlocks** that day (`unlockDay` —
+  creates a blank sheet for a missed day). While unlocked, anyone with workflow
+  access can edit; **Lock** (`lockDay`) or Mark complete ends it. Future days
+  are never editable. Reopening a completed past day also unlocks it.
 - **Edit the definition/items** (`/services/[slug]/settings`, `workflowAdmin.ts`):
   `admin:services:manage`.
 - **Service catalog admin** (`/settings/services`): `isAdmin`.
@@ -93,7 +99,9 @@ UTC date), `WorkflowRow` (per room: note), `WorkflowCell` (per room × item:
 - **Print / Save as PDF.** A **Print** button on the matrix calls `window.print()`. An `@media print` stylesheet in `globals.css` reformats the grid for paper: landscape, full grid (✓/✗/blank + Notes), a print-only header (workflow name · date · counts), all interactive chrome hidden, columns un-stuck, header row repeated per page. No dependency or server code — the browser dialog produces the PDF. Works for today and any past date.
 - **Mark complete** locks the submission. Set on the matrix page (manager+), any date. Once locked, cells become read-only. A new submission auto-creates for the next day.
 - **Reopen (admin only).** A completed submission shows a **Reopen** button to admins. It flips status back to `IN_PROGRESS`, clears `completedAt`, and re-enables the cells for correction. Logged as an `UPDATE` on `WorkflowSubmission` with `status: "REOPENED"` in details.
-- **History views answer Room+Date.** "By date" lists submissions; "By room" filters all submissions touching a given room.
+- **Day list is the entry point.** The Services card opens `/services/[slug]/history`: **Today** pinned on top (Start / Continue / View), then every earlier day back to the first inspection, newest first, 30 at a time — days with no submission are shown as **Missed** blank sheets. The card also shows today's date and an "Open today →" shortcut.
+- **Performance tab** (replaced "By room"; permission `workflows:performance:view`, `src/lib/workflow-performance.ts` + `WorkflowPerformance.tsx`). Period 7 / 30 / 90 days (`?view=performance&range=`). Score = OK ÷ (OK + Issue) — blanks excluded; green ≥ 95%, amber ≥ 80%, red below, always with icon + label. Summary tiles (overall OK, issues, days inspected, most common issue); **Rooms** scoreboard worst-first with a daily-issues sparkline, trend vs the previous period and top problem; tap a room for a day-by-day strip (links to each sheet), issues per checklist item, latest notes and a link to the room history page (managers); **Problem map** heatmap rooms × items (number = issues, shade = share of checks with an issue). Read-only; computed only when the tab is open. **Export:** an *Excel* button downloads `/api/exports/workflow-performance/[slug]?range=` (sheets Summary, Rooms, Problem map, Issue log — every issue with date, room, item, that day's room note and who marked it); *Print / PDF* prints the summary, room cards and problem map (problem map on its own page; filters hidden).
+- **Date bar on the sheet.** Big date with a **Today** / **Past date** label, ◀ / ▶ to step a day, a date picker (max = today) and "Back to today". Future or malformed `?date=` redirects to today.
 - **Item text snapshot in cells.** `WorkflowCell.itemText` is copied at edit time so historical cells stay readable even if an admin edits or archives an item later.
 - **Storage path:** `workflows/<slug>/<submissionId>/<rowId>/<uuid>.<ext>` in the same private `inspection-photos` bucket. Reuses `src/lib/storage.ts`.
 - **Per-cell audit log entries are deliberately chatty.** Cell taps (and blank-clears) log on every change — this is the input the future per-room status timeline feature will consume.
@@ -132,3 +140,12 @@ private `inspection-photos` bucket; images only, ≤ 10 MB; signed URLs (1 h).
 - 2026-08-05 · Access moved to DB-backed RBAC; `rolesAllowed` now references role keys (multi-role users pass if any role matches).
 - 2026-09-29 · Daily Cleanliness created by the deploy seed (the 2026-06-30 manual SQL had never been applied to the new Supabase DB).
 - 2026-09-30 · Shared `/settings/rooms` page; Next 16 async params.
+- 2026-10-08 · **Day list + day lock** (v4.8.0): card opens the day list (today
+  on top, missed days as blank sheets); date bar with ◀ / ▶ / picker on the
+  sheet; past days locked until a manager unlocks them (`WorkflowSubmission.unlockedAt`).
+  Fixes a bug where tapping a cell on a past day with no submission silently
+  wrote into **today's** submission. Supersedes the 2026-07-02 "past dates
+  editable" rule.
+- 2026-10-08 · **Performance tab** replaces "By room" (scoreboard, room detail,
+  problem map); new permission `workflows:performance:view`, granted once to
+  Admin + Manager by the seed (`INTRODUCED_GRANTS`).

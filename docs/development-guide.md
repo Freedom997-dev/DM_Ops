@@ -105,8 +105,11 @@ history in [history/2026-09-housekeeping-qa-status.md](history/2026-09-housekeep
 2. If built-in roles should get it on **fresh** installs, add it to
    `src/lib/rbac/defaults.ts`.
 3. Guard the page/action with the new key.
-4. Existing databases (production!): the seed won't add it to existing roles —
-   grant it in **Settings → Roles & permissions** after deploy, and say so in the PR.
+4. Existing databases (production!): the seed won't add it to existing roles by
+   itself. To grant it automatically on the next deploy, add it to
+   `INTRODUCED_GRANTS` in `defaults.ts` — applied **once**, later removals stick
+   ([details](roles-and-permissions.md#introducing-a-permission-to-existing-roles)).
+   Otherwise grant it in **Settings → Roles & permissions** after deploy, and say so in the PR.
 5. Update [roles-and-permissions.md](roles-and-permissions.md).
 
 ### Add a field or model

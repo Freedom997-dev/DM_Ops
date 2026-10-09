@@ -29,8 +29,8 @@ All `/services/*` and `/settings/*` pages also pass `proxy.ts` (signed in) and
 | `/services/housekeeping` | Live board: room tasks + daily tasks, toolbar, drawers, polling | `housekeeping:board:view` |
 | `/services/housekeeping/settings` | Tabs: status actions, daily-task templates + checklists, room checklist, rooms, retention & instructions | `housekeeping:settings:configure` (else → board) |
 | **Workflow services** | | |
-| `/services/[slug]` | Matrix for today or `?date=YYYY-MM-DD`; print; mark complete; reopen | `requireWorkflowAccess(slug)` (`rolesAllowed`) |
-| `/services/[slug]/history` | Past submissions — by date / by room | `requireWorkflowAccess(slug)` |
+| `/services/[slug]` | Sheet for today or `?date=YYYY-MM-DD` (future → today); date bar ◀ / ▶ / picker; print; mark complete; unlock / lock (manager); reopen (admin) | `requireWorkflowAccess(slug)` (`rolesAllowed`) |
+| `/services/[slug]/history` | **Day list** (the card's target): today pinned on top, then every past day incl. missed ones. `?view=performance&range=7\|30\|90` → Performance tab (scoreboard, room detail, problem map) | `requireWorkflowAccess(slug)`; Performance also `workflows:performance:view` |
 | `/services/[slug]/settings` | Name, description, allowed roles, items | `admin:services:manage` |
 | **Room Condition V1** (hidden from catalog, still routable) | | |
 | `/services/pm` | Room status dashboard, filters (`?view=`), repair breakdown, exports | `pm:dashboard:view` |
@@ -57,6 +57,7 @@ workflow must never use those slugs.
 |---|---|---|---|
 | `/api/auth/[...nextauth]` | GET/POST | NextAuth (sign-in, session, sign-out) | NextAuth |
 | `/api/exports/pm-v2?q=YYYY-Qn` | GET | PM V2 quarter workbook (Summary, Rooms, Open issues, Fixed) | `pmv2:reports:view` |
+| `/api/exports/workflow-performance/[slug]?range=7\|30\|90` | GET | Daily Cleanliness performance workbook (Summary, Rooms, Problem map, Issue log) | workflow access + `workflows:performance:view` (404 otherwise) |
 | `/api/exports/repairs` | GET | PM V1 open repairs `.xlsx` | `pm:inspections:view` |
 | `/api/exports/status-report` | GET | PM V1 full status workbook (Summary, Rooms, Repairs, Awaiting verification) | `pm:inspections:view` |
 | `/api/local-images/[...path]` | GET | Dev-only file server for the FS storage driver; **404 when Supabase is configured** | `housekeeping:board:view` for `housekeeping/*`, else `pm:inspections:view`; 404 on deny |
@@ -112,7 +113,8 @@ All are `"use server"`. Each re-checks auth itself. Return shape is
 ### `workflows.ts` / `workflowAdmin.ts`
 | Action | Guard |
 |---|---|
-| `getOrCreateTodaySubmission(slug)`, `updateCell`, `saveRow` (photos), `saveRowNote`, `markSubmissionComplete` | `requireWorkflowAccess(slug)` — refused once COMPLETED |
+| `getOrCreateSubmission(slug, day)`, `updateCell`, `saveRow` (photos), `saveRowNote`, `markSubmissionComplete` | `requireWorkflowAccess(slug)` — refused unless the day is editable (today, or a past day while unlocked; never once COMPLETED) |
+| `unlockDay(slug, day)`, `lockDay(submissionId)` | `requireWorkflowAccess(slug)` + `isManager`; past days only |
 | `reopenSubmission`, `deleteRowImage` | `requireAdmin()` |
 | `createWorkflowItem`, `updateWorkflowItem`, `archiveWorkflowItem`, `updateWorkflowDefinition`, `archiveWorkflowDefinition` | `admin:services:manage` |
 
