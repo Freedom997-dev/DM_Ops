@@ -137,6 +137,16 @@ export const NOTIFICATION_EVENTS: NotificationEventDef[] = [
     mutable: true,
   },
   {
+    type: "dc.day_unlocked",
+    group: "Daily Cleanliness",
+    label: "Past day unlocked",
+    description: "A manager unlocked a past day so it can be filled in or corrected.",
+    recipients: "direct",
+    recipientsLabel: "roles allowed to run the service",
+    defaultEnabled: true,
+    mutable: true,
+  },
+  {
     type: "dc.missed",
     group: "Daily Cleanliness",
     label: "Yesterday's inspection missed",

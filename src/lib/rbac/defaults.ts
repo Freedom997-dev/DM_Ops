@@ -98,4 +98,7 @@ export const DEFAULT_ROLES: RoleSeed[] = [
 // Append here whenever a new key should reach existing roles.
 export const INTRODUCED_GRANTS: { permission: string; roles: string[] }[] = [
   { permission: "workflows:performance:view", roles: [ROLE_KEYS.ADMIN, ROLE_KEYS.MANAGER] },
+  { permission: "admin:notifications:manage", roles: [ROLE_KEYS.ADMIN] },
+  { permission: "comms:announcements:send", roles: [ROLE_KEYS.ADMIN, ROLE_KEYS.MANAGER] },
+  { permission: "comms:messages:moderate", roles: [ROLE_KEYS.ADMIN] },
 ];

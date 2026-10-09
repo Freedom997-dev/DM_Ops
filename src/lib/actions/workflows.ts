@@ -7,7 +7,9 @@ import { prisma } from "@/lib/db";
 import { requireWorkflowAccess, requireUser, requireAdmin, isManager } from "@/lib/session";
 import { logAudit } from "@/lib/audit";
 import { uploadImage, deleteImages } from "@/lib/storage";
-import { motelTodayUTC } from "@/lib/business-date";
+import { motelTodayUTC, formatBusinessDate } from "@/lib/business-date";
+import { parseRolesAllowed } from "@/lib/permissions";
+import { notify } from "@/lib/notifications/notify";
 import { sheetState, lockMessage, parseDateKey } from "@/lib/workflow-lock";
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
@@ -136,6 +138,21 @@ export async function unlockDay(workflowSlug: string, day: string): Promise<{ ok
     entity: "WorkflowSubmission",
     entityId: submission.id,
     details: { workflowSlug, date: day, status: "UNLOCKED", createdBlank: !existing },
+  });
+  const staff = await prisma.user.findMany({
+    where: { active: true, roles: { some: { role: { key: { in: parseRolesAllowed(workflow.rolesAllowed) } } } } },
+    select: { id: true },
+  });
+  await notify({
+    type: "dc.day_unlocked",
+    actorId: user.id,
+    userIds: staff.map((u) => u.id),
+    collapse: true,
+    title: `${formatBusinessDate(date, { weekday: "short", month: "short", day: "numeric" })} unlocked for editing`,
+    body: `${user.name} unlocked this day of ${workflow.name}. You can fill it in or correct it until it's locked again.`,
+    href: `/services/${workflowSlug}?date=${day}`,
+    entityType: "WorkflowDay",
+    entityId: `${workflow.id}:${day}`,
   });
   revalidateWorkflow(workflowSlug);
   return { ok: true };

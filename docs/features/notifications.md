@@ -50,13 +50,13 @@ notification for the same entity (chats, daily reminders).
 | `msg.announcement` | the announcement's audience (not mutable) | `postAnnouncement` |
 | `msg.comment` | task assignee, assigner, creator + earlier commenters (collapsed) | `postComment` |
 | `dc.not_started` | users with a role in the service's `rolesAllowed` | cron 15:00 UTC — `remindNotStarted` |
+| `dc.day_unlocked` | users with a role in the service's `rolesAllowed` | `unlockDay` (manager unlocks a past day) |
 | `dc.missed` | Super Admin, Admin, Manager | cron 08:00 UTC — `reportYesterday` |
 | `dc.issues_summary` (off by default) | Super Admin, Admin, Manager | cron 08:00 UTC — `reportYesterday` |
 | `pmv2.repairs_found` | Super Admin, Admin, Manager | `pmv2SetDone` (complete with ≥ 1 Repair/Replace/Missing) |
 | `pmv2.repair_fixed` | whoever last recorded the inspection | `pmv2MarkFixed` |
 
-⏳ When `feature/daily-inspection-updates` and `feature/user-account` merge, add
-"past day unlocked" and "password / email changed" events the same way.
+⏳ When `feature/user-account` merges, add "password / email changed" events the same way.
 
 Links open the right place: housekeeping notifications use
 `/services/housekeeping?task=<id>`, which opens that task's panel.
@@ -70,9 +70,9 @@ Links open the right place: housekeeping notifications use
 | `comms:messages:moderate` | Delete others' messages in groups, announcements and comments (never direct chats) | Admin |
 
 Everyone signed in has their own `/notifications` page (list, phone-push switch,
-mutes). Production roles seeded before this need the key granted once — via
-`INTRODUCED_GRANTS` after `feature/daily-inspection-updates` merges, or by hand in
-Settings → Roles & permissions; Super Admin has it regardless.
+mutes). Existing production roles receive `admin:notifications:manage`,
+`comms:announcements:send` and `comms:messages:moderate` once on the next deploy
+via `INTRODUCED_GRANTS` (`src/lib/rbac/defaults.ts`).
 
 ## Phone push
 
