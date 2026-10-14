@@ -5,6 +5,7 @@ the `dm-ops-production` move). Add an entry with every feature or notable fix.
 
 ## 2026-10 — Daily Cleanliness: All OK
 
+- **2026-10-14** · Login: **show / hide password** (eye button) so staff can check what they typed.
 - **2026-10-14** · **All OK per room** on the Daily Cleanliness sheet: one tap marks a room's empty boxes OK (issues are kept), with Undo.
 
 ## 2026-10 — Housekeeping
