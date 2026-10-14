@@ -3,7 +3,8 @@
 import { Fragment, useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import clsx from "clsx";
-import { Check, ChevronDown, Loader2, Lock, LockOpen, Printer, RefreshCw } from "lucide-react";
+import { Check, CheckCheck, ChevronDown, Loader2, Lock, LockOpen, Printer, RefreshCw } from "lucide-react";
+import { useToast } from "@/components/Toast";
 import { WorkflowCellButton, type CellStatus } from "@/components/WorkflowCellButton";
 import { WorkflowNoteCell } from "@/components/WorkflowNoteCell";
 import { WorkflowMatrixRowPanel, type RowImage } from "@/components/WorkflowMatrixRowPanel";
@@ -13,6 +14,8 @@ import {
   reopenSubmission,
   unlockDay,
   lockDay,
+  markRoomAllOk,
+  undoRoomAllOk,
 } from "@/lib/actions/workflows";
 import { lockMessage, type SheetState } from "@/lib/workflow-lock";
 
@@ -103,6 +106,61 @@ export function WorkflowMatrix({
     for (const c of seedCells) m.set(`${c.roomId}::${c.itemId}`, { status: c.status, lastUpdatedBy: c.lastUpdatedBy });
     return m;
   }, [seedCells]);
+
+  // What each cell shows right now: taps since the last refresh override the
+  // seed. "All OK" uses it to know a room's blanks and re-renders that room by
+  // bumping its revision (cells only read their initial status on mount).
+  const toast = useToast();
+  const [live, setLive] = useState<Map<string, CellStatus | null>>(new Map());
+  const [roomRev, setRoomRev] = useState<Record<string, number>>({});
+  const [bulkRoom, setBulkRoom] = useState<string | null>(null);
+  useEffect(() => setLive(new Map()), [seedCells]);
+  const statusOf = (roomId: string, itemId: string): CellStatus | null => {
+    const k = `${roomId}::${itemId}`;
+    if (live.has(k)) return live.get(k) ?? null;
+    const s = cellMap.get(k)?.status ?? null;
+    return s === "NA" ? null : s;
+  };
+  const setCells = (roomId: string, itemIds: string[], status: CellStatus | null) => {
+    setLive((cur) => {
+      const next = new Map(cur);
+      for (const id of itemIds) next.set(`${roomId}::${id}`, status);
+      return next;
+    });
+    setRoomRev((cur) => ({ ...cur, [roomId]: (cur[roomId] ?? 0) + 1 }));
+  };
+
+  async function handleAllOk(room: Room) {
+    if (locked || bulkRoom) return;
+    setError(null);
+    setBulkRoom(room.id);
+    try {
+      const sid = await ensureSubmission();
+      if (!sid) return;
+      const res = await markRoomAllOk(sid, room.id);
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      if (res.filled.length === 0) {
+        toast.show(`Room ${room.number}: nothing blank to mark.`);
+        return;
+      }
+      setCells(room.id, res.filled, "OK");
+      router.refresh();
+      toast.show(`Room ${room.number}: ${res.filled.length} item${res.filled.length === 1 ? "" : "s"} marked OK`, "success", {
+        label: "Undo",
+        onClick: async () => {
+          const undo = await undoRoomAllOk(sid, room.id, res.filled);
+          if (!undo.ok) return toast.show(undo.error, "error");
+          setCells(room.id, res.filled, null);
+          router.refresh();
+        },
+      });
+    } finally {
+      setBulkRoom(null);
+    }
+  }
 
   const rowMap = useMemo(() => {
     const m = new Map<string, MatrixRowSeed>();
@@ -406,19 +464,41 @@ export function WorkflowMatrix({
                           )}
                         />
                       </button>
+                      {!locked && (() => {
+                        const blanks = items.filter((it) => statusOf(room.id, it.id) === null).length;
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => handleAllOk(room)}
+                            disabled={blanks === 0 || !!bulkRoom}
+                            className={clsx(
+                              "no-print mx-auto mt-1 flex h-6 w-10 items-center justify-center rounded-md border text-emerald-700 transition",
+                              blanks === 0
+                                ? "border-slate-100 text-slate-300"
+                                : "border-emerald-300 bg-emerald-50 hover:bg-emerald-100",
+                            )}
+                            title={blanks === 0 ? "No blank items left" : `Mark all ${blanks} blank item${blanks === 1 ? "" : "s"} OK`}
+                            aria-label={`Room ${room.number}: mark all blank items OK`}
+                          >
+                            {bulkRoom === room.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCheck className="h-4 w-4" strokeWidth={2.5} />}
+                          </button>
+                        );
+                      })()}
                     </th>
                     {items.map((item) => {
                       const cell = cellMap.get(`${room.id}::${item.id}`);
                       return (
                         <td key={item.id} className="border-b border-l border-slate-100 p-0">
                           <WorkflowCellButton
+                            key={`${item.id}:${roomRev[room.id] ?? 0}`}
                             submissionId={submissionId}
                             ensureSubmission={ensureSubmission}
                             roomId={room.id}
                             itemId={item.id}
-                            initialStatus={cell?.status ?? null}
+                            initialStatus={statusOf(room.id, item.id)}
                             lastUpdatedBy={cell?.lastUpdatedBy ?? null}
-                            disabled={locked}
+                            disabled={locked || bulkRoom === room.id}
+                            onChange={(s) => setLive((cur) => new Map(cur).set(`${room.id}::${item.id}`, s))}
                           />
                         </td>
                       );

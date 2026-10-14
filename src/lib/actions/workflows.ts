@@ -441,6 +441,91 @@ export async function saveRowNote(
 }
 
 // ---------------------------------------------------------------------------
+// "All OK" for one room: fill every BLANK cell of the room with OK in one go.
+// Issues and existing OKs are never touched. Returns the items it filled, so
+// the client can offer Undo (undoRoomAllOk clears exactly those, if still OK).
+// ---------------------------------------------------------------------------
+
+type AllOkResult = { ok: true; filled: string[] } | { ok: false; error: string };
+
+async function loadEditableSubmission(submissionId: string) {
+  const submission = await prisma.workflowSubmission.findUnique({
+    where: { id: submissionId },
+    include: { workflow: true },
+  });
+  if (!submission) return { error: "Submission not found." } as const;
+  const lockedErr = editError(submission);
+  if (lockedErr) return { error: lockedErr } as const;
+  const { user } = await requireWorkflowAccess(submission.workflow.slug);
+  return { submission, user } as const;
+}
+
+export async function markRoomAllOk(submissionId: string, roomId: string): Promise<AllOkResult> {
+  const loaded = await loadEditableSubmission(submissionId);
+  if ("error" in loaded) return { ok: false, error: loaded.error ?? "Not allowed." };
+  const { submission, user } = loaded;
+
+  const room = await prisma.room.findFirst({ where: { id: roomId, archived: false }, select: { number: true } });
+  if (!room) return { ok: false, error: "Room not found." };
+
+  const [items, existing] = await Promise.all([
+    prisma.workflowItem.findMany({
+      where: { workflowId: submission.workflowId, archived: false },
+      select: { id: true, text: true },
+    }),
+    prisma.workflowCell.findMany({ where: { submissionId, roomId }, select: { itemId: true } }),
+  ]);
+  const marked = new Set(existing.map((c) => c.itemId));
+  const blanks = items.filter((i) => !marked.has(i.id));
+  if (blanks.length === 0) return { ok: true, filled: [] };
+
+  await prisma.workflowCell.createMany({
+    data: blanks.map((i) => ({
+      submissionId,
+      roomId,
+      itemId: i.id,
+      itemText: i.text,
+      status: "OK",
+      lastUpdatedById: user.id,
+    })),
+    skipDuplicates: true, // a cell tapped at the same moment wins
+  });
+
+  await logAudit({
+    userId: user.id,
+    action: "UPDATE",
+    entity: "WorkflowCell",
+    details: { submissionId, roomId, roomNumber: room.number, bulk: "ALL_OK", filled: blanks.length },
+  });
+  revalidatePath(`/services/${submission.workflow.slug}`);
+  return { ok: true, filled: blanks.map((i) => i.id) };
+}
+
+export async function undoRoomAllOk(
+  submissionId: string,
+  roomId: string,
+  itemIds: string[],
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const loaded = await loadEditableSubmission(submissionId);
+  if ("error" in loaded) return { ok: false, error: loaded.error ?? "Not allowed." };
+  const { submission, user } = loaded;
+  if (!Array.isArray(itemIds) || itemIds.length === 0) return { ok: true };
+
+  // Only cells still OK — anything changed since (e.g. to Issue) is kept.
+  const { count } = await prisma.workflowCell.deleteMany({
+    where: { submissionId, roomId, itemId: { in: itemIds.slice(0, 200) }, status: "OK" },
+  });
+  await logAudit({
+    userId: user.id,
+    action: "UPDATE",
+    entity: "WorkflowCell",
+    details: { submissionId, roomId, bulk: "UNDO_ALL_OK", cleared: count },
+  });
+  revalidatePath(`/services/${submission.workflow.slug}`);
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
 // Mark submission complete
 // ---------------------------------------------------------------------------
 

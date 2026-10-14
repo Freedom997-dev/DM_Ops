@@ -3,6 +3,10 @@
 What shipped, newest first. Dates are commit dates on `main` (production since
 the `dm-ops-production` move). Add an entry with every feature or notable fix.
 
+## 2026-10 — Daily Cleanliness: All OK
+
+- **2026-10-14** · **All OK per room** on the Daily Cleanliness sheet: one tap marks a room's empty boxes OK (issues are kept), with Undo.
+
 ## 2026-10 — Housekeeping
 
 - **2026-10-09** · Photo/video evidence is now an admin setting (Housekeeping settings → Photos & instructions): required or optional, separately for rooms (default required) and daily tasks (default optional). Rooms submitted without photos show **No photos** to inspectors.

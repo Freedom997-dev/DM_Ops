@@ -5,9 +5,10 @@ import clsx from "clsx";
 import { CheckCircle2, AlertCircle, X } from "lucide-react";
 
 type ToastKind = "success" | "error";
-type ToastItem = { id: number; kind: ToastKind; message: string };
+type ToastAction = { label: string; onClick: () => void };
+type ToastItem = { id: number; kind: ToastKind; message: string; action?: ToastAction };
 
-type ToastContextValue = { show: (message: string, kind?: ToastKind) => void };
+type ToastContextValue = { show: (message: string, kind?: ToastKind, action?: ToastAction) => void };
 
 const ToastContext = createContext<ToastContextValue | null>(null);
 
@@ -25,10 +26,10 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const show = useCallback(
-    (message: string, kind: ToastKind = "success") => {
+    (message: string, kind: ToastKind = "success", action?: ToastAction) => {
       const id = Date.now() + Math.random();
-      setItems((prev) => [...prev, { id, kind, message }]);
-      setTimeout(() => dismiss(id), 3500);
+      setItems((prev) => [...prev, { id, kind, message, action }]);
+      setTimeout(() => dismiss(id), action ? 7000 : 3500); // longer when there's something to undo
     },
     [dismiss],
   );
@@ -54,6 +55,17 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               <AlertCircle className="h-4 w-4 text-red-500" />
             )}
             <span>{t.message}</span>
+            {t.action && (
+              <button
+                onClick={() => {
+                  t.action!.onClick();
+                  dismiss(t.id);
+                }}
+                className="rounded-lg px-2 py-0.5 text-sm font-semibold text-brand-600 hover:bg-brand-50"
+              >
+                {t.action.label}
+              </button>
+            )}
             <button
               onClick={() => dismiss(t.id)}
               className="ml-1 rounded p-0.5 text-slate-400 hover:bg-slate-100"

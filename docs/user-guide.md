@@ -46,6 +46,10 @@ page, which does the same in one tap.
   **Today** is at the top — tap **Start today's inspection** (or **Continue**).
 - At the top of the sheet you always see **which day** it is, with a green
   **Today** or amber **Past date** label. Use **◀ / ▶** or the date box to change day.
+- **Fast marking:** tap the **✓✓** button under a room number to mark all of that
+  room's empty boxes OK in one go, then tap only the items with a problem
+  (one tap turns ✓ into ✗). Tapped the wrong room? Press **Undo** in the message
+  at the bottom.
 - **Past days are locked.** A missed day shows as a blank sheet. If a past day
   needs filling in or fixing, ask a manager to **Unlock** it; you can then edit it
   until the manager locks it again or marks it complete.
