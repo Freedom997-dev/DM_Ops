@@ -33,9 +33,15 @@ Roles are data, not code — admins can create custom roles and toggle permissio
 |---|---|---|---|
 | **Room Condition V2 (Beta)** | `/services/pm-v2` | Live — the current PM tool | One inspection per room/area per quarter; statuses OK/Repair/Replace/Missing/Fixed/N/A; repair list; PDF/Excel/WhatsApp report. [Doc](features/pm-v2.md) |
 | **Housekeeping** | `/services/housekeeping` | Live | Live board for room turnover and daily tasks; assignment, checklist, photo evidence, inspector approval. [Doc](features/housekeeping.md) |
-| **Daily Cleanliness Inspection** | `/services/daily-cleanliness` | Live | Generic *workflow* service: rooms × 18 items matrix, one submission per day. [Doc](features/platform-foundation.md) |
+| **Daily Cleanliness Inspection** | `/services/daily-cleanliness` | Live | Generic *workflow* service: rooms × 18 items matrix, one sheet per day. Day list (today on top, missed days shown), past days locked unless a manager unlocks them, "All OK" per room, Performance tab with Excel/PDF export. [Doc](features/platform-foundation.md) |
 | **Room Condition (PM V1)** | `/services/pm` | **Hidden** from portal (code + data retained) | Original 95-item per-room inspection with immutable history. [Doc](features/room-condition-inspection.md) |
-| **Settings** | `/settings` | Live | Staff, roles & permissions, rooms, service catalog, activity log |
+| **Settings** | `/settings` | Live | Staff, roles & permissions, rooms, service catalog, notifications, activity log |
+
+Always available in the header (not catalog tiles): the **bell** (`/notifications`
+— event notifications, phone-push switch, mutes) and **Messages** (`/messages` —
+direct chats, role groups, announcements). [Doc](features/notifications.md).
+Staff install the portal on their phone as the **DMO** app from `/install`
+([user-guide.md](user-guide.md)).
 
 ## Core concepts / glossary
 
@@ -53,21 +59,31 @@ Roles are data, not code — admins can create custom roles and toggle permissio
 | **Task** (HK) | `HousekeepingTask` — either `ROOM_CLEANING` (room turnover) or `GENERAL` (daily job like laundry). |
 | **Status action** (HK) | Admin-defined reason for checking a room out ("Checkout", "Request for cleaning"). |
 | **Submission** (workflow) | One day's run of a workflow service (`WorkflowSubmission`, unique per workflow + date). |
+| **Day lock** (workflow) | Past days are read-only until a manager **unlocks** that day; today is editable until marked complete. |
+| **Performance** (workflow) | Manager tab scoring each room: OK ÷ (OK + Issue) over 7 / 30 / 90 days. |
+| **Notification event** | A catalog entry (`hk.task.assigned`, `msg.direct`, …) that `notify()` sends to the right people — bell + phone push. |
+| **Conversation** | A messaging thread: direct chat, role group, announcement, or comments on a task/room. |
+| **Business date** | A calendar day in the motel's timezone (`America/New_York`), stored as UTC midnight. |
 | **Carry-forward** (PM V1) | Repair/Fixed/N/A states copied into the next inspection of the same room. |
 | **Snapshot** | Copying a label into a history row at write time so later edits don't rewrite history. |
-| **Retention sweep** | Nightly cron that deletes housekeeping media older than N days. |
+| **Media rule** (HK) | Admin setting: is a photo/video required to submit a room / complete a daily task. |
 
 ## What it deliberately is not
 
 - Not a PMS / booking system — no reservations, guests or payments. Housekeeping
   check-outs are triggered manually, not by a booking feed.
 - Not multi-property / multi-tenant — one motel per deployment.
-- No push notifications or realtime sockets — boards poll (Housekeeping every 12 s).
-- No native mobile app — responsive web only.
+- No realtime sockets — screens poll (Housekeeping board 12 s, notification bell
+  30 s, an open chat 5 s). Phone notifications use standard Web Push.
+- No app-store app — it's an installable web app (PWA) named **DMO**.
+- No email yet — password resets are done by an admin (self-service reset is on
+  the unmerged `feature/user-account` branch, waiting for email sending).
 
 ## Project timeline (high level)
 
 See [changelog.md](changelog.md) for the dated list. In short: PM V1 (Jun 2026) →
 photos (Jun) → platform foundation + Daily Cleanliness (Jul) → Housekeeping (Jul) →
 RBAC + security hardening (Aug–Sep) → move to Supabase/Vercel `dm-ops-production`
-(Sep) → PM V2 (Sep) → Next.js 16 migration and PM V1 hidden (Sep 2026).
+(Sep) → PM V2 (Sep) → Next.js 16 migration and PM V1 hidden (Sep 2026) → Oct 2026:
+timezone fix, installable DMO app, Daily Cleanliness day list / lock / Performance /
+export / All OK, notifications + messaging, configurable photo requirement.

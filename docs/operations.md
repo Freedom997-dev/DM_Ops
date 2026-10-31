@@ -12,7 +12,14 @@ Running, maintaining and troubleshooting production. For shipping changes see
 | Create a custom role | Settings → Roles & permissions | `admin:roles:add` (Super Admin) |
 | Add / archive a room | Settings → Rooms (or HK Settings → Rooms) | `pm:rooms:add` / `housekeeping:settings:configure` |
 | Add a PM V2 area or edit checklists | Room Condition V2 → Setup | `pmv2:setup:configure` |
-| Change HK check-out reasons, templates, checklists, retention | Housekeeping → Settings | `housekeeping:settings:configure` |
+| Change HK check-out reasons, templates, checklists, instructions | Housekeeping → Settings | `housekeeping:settings:configure` |
+| Make photo/video required or optional (rooms / daily tasks) | Housekeeping → Settings → **Photos & instructions** | `housekeeping:settings:configure` |
+| Unlock / lock a past Daily Cleanliness day | Open that day's sheet → **Unlock for editing** / **Lock** | Manager+ |
+| Room performance, Excel / PDF report | Daily Cleanliness → **Performance** tab → Excel / Print | `workflows:performance:view` |
+| Turn notification events on/off, pick receiving roles | Settings → Notifications | `admin:notifications:manage` |
+| Post an announcement to staff | Messages → **Announcement** | `comms:announcements:send` |
+| Remove an inappropriate message (groups / comments) | Hover the message → delete | `comms:messages:moderate` |
+| Send staff the app install link | https://dm-ops-production.vercel.app/install | — |
 | Change who can run Daily Cleanliness | Service ⚙ → settings → allowed roles | `admin:services:manage` |
 | Review who did what | Settings → Activity | Admin/Manager |
 
@@ -31,7 +38,8 @@ existing email it re-attaches Super Admin but does **not** reset the password.)
 
 | Job | Code | What it does | If it doesn't run |
 |---|---|---|---|
-| Daily task reset | `src/lib/jobs/housekeeping-recurrence.ts` | `recurring` GENERAL tasks not in TODO → TODO, unassigned, all stamps cleared, checklist → PENDING | Yesterday's recurring tasks stay "Done" |
+| Daily reset — `/api/cron/housekeeping-daily-reset`, 08:00 UTC | `src/lib/jobs/housekeeping-recurrence.ts`, `daily-reminders.ts` (`reportYesterday`) | Recurring GENERAL tasks → TODO, unassigned, checklist → PENDING; Daily Cleanliness "missed yesterday" (+ optional issue summary) to managers; delete notifications > 90 days | Recurring tasks stay "Done"; no missed-day notice |
+| Daily reminder — `/api/cron/daily-reminders`, 15:00 UTC | `src/lib/jobs/daily-reminders.ts` (`remindNotStarted`) | "Today's inspection not started" to roles allowed to run Daily Cleanliness | No reminder |
 
 Check them in Vercel → Project → Cron Jobs (last run, status). Trigger manually:
 
@@ -39,8 +47,13 @@ Check them in Vercel → Project → Cron Jobs (last run, status). Trigger manua
 curl -H "Authorization: Bearer $CRON_SECRET" https://dm-ops-production.vercel.app/api/cron/housekeeping-daily-reset
 ```
 
-Both return JSON (`{ ok, deleted }` / `{ ok, reset }`); 401 means `CRON_SECRET` is
-missing or wrong.
+```bash
+curl -H "Authorization: Bearer $CRON_SECRET" https://dm-ops-production.vercel.app/api/cron/daily-reminders
+```
+
+Both return JSON (`{ ok, reset, purgedNotifications, yesterday }` /
+`{ ok, reminded }`); 401 means `CRON_SECRET` is missing or wrong. Re-running is
+safe — reminder notifications replace their own unread copy.
 
 ## Storage
 
@@ -90,7 +103,11 @@ There is no external error tracker or uptime monitor yet.
 | Deploy fails at `prisma db push` | Non-additive schema change, or `DIRECT_URL` missing | Make the change additive / set `DIRECT_URL` |
 | Deploy fails at seed | `SEED_ADMIN_PASSWORD` not set in Production | Set it |
 | Photos don't upload from phones | Housekeeping uploads go direct to Supabase: check the bucket exists and its size limit/allow-list (synced on deploy). Other forms: Vercel's ~4.5 MB cap | See features/housekeeping.md → Media |
-| Images broken on the board | Signed URL expired (board open > 6 h) or object swept | Refresh; check retention days |
+| Images broken on the board | Signed URL expired (board open > 6 h) | Refresh |
+| Phone notifications don't arrive | VAPID keys not set in Vercel; the person didn't tap **Turn on** on that device; iPhone not using the home-screen DMO app; notifications blocked in phone settings; the type muted | Check Vercel env, then `/notifications` on that phone |
+| Someone didn't get a notification they expected | Event switched off or routed to other roles in Settings → Notifications; they muted it; they caused the event themselves | Check Settings → Notifications and their mutes |
+| A past Daily Cleanliness day can't be edited | Past days are locked by design | A manager opens the day → **Unlock for editing** |
+| Date looks a day off | Code displaying a UTC-midnight date in the browser's timezone | Use `formatBusinessDate()` (known-issues TZ-1) |
 | A role can't see a service | Role lacks the catalog key (e.g. `pmv2:*` on older DBs) or not in `rolesAllowed` | Grant in Roles & permissions / service settings |
 | Can't assign a person to cleaning | They don't hold the HOUSEKEEPER role or are inactive | Add role in Staff |
 | Recurring task didn't reset | Task not flagged `recurring`, or cron 401 | Check task + `CRON_SECRET` |

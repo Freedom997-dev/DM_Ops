@@ -15,6 +15,7 @@
 | Validation | zod | 3.23 | Server-action input parsing |
 | File storage | Supabase Storage | supabase-js ^2.108 | Private bucket `inspection-photos`; local FS driver in dev |
 | Excel | exceljs | ^4.4 | Report exports |
+| Phone push | web-push | 3.6.7 | Web Push (VAPID) from server actions; service worker `public/sw.js` |
 | IDs | `cuid` (app) / `@default(cuid())` (DB) | | App-side IDs when storage paths need them before the insert |
 | Hosting | Vercel | — | Project `dm-ops-production`; cron via `vercel.json` |
 
@@ -24,51 +25,64 @@
 
 ```
 DM_Ops_project/
-├── proxy.ts                      # Next 16 "proxy" (ex-middleware): auth gate for /services, /settings
-├── next.config.mjs               # serverActions.bodySizeLimit = 55mb
+├── proxy.ts                      # Next 16 "proxy" (ex-middleware): auth gate for /services, /settings, /notifications, /messages
+├── next.config.mjs               # serverActions.bodySizeLimit = 55mb; NEXT_PUBLIC_APP_VERSION from package.json
+├── public/sw.js                  # push-only service worker (no fetch handler — never caches pages)
+├── public/icons/                 # app icons (from scripts/generate-icons.mjs)
 ├── vercel.json                   # framework, build command, cron schedules
 ├── docker-compose.yml            # local Postgres 16 on :5433
 ├── prisma/
 │   ├── schema.prisma             # all models (see data-model.md)
 │   ├── seed.ts                   # roles, admin, PM V1 checklist, rooms, Daily Cleanliness, PM V2
-│   ├── seedHousekeeping.ts       # HK defaults (not run on deploy)
+│   ├── seedHousekeeping.ts       # HK defaults (idempotent; also run on prod deploy)
 │   ├── seedWorkflows.ts          # Daily Cleanliness definition + 18 items (called by seed.ts)
 │   ├── pmv2Import.ts             # PM V2 config seed + one-off artifact import
 │   ├── pmv2-seed.json            # PM V2 checklists + 66 areas
 │   └── manual-migrations/        # historical SQL (2026-06-30 foundation) — superseded by db push
 ├── scripts/
 │   ├── provision-db.mjs          # deploy-time: db push + seed + bucket, ONLY when VERCEL_ENV=production
-│   └── ensure-storage-bucket.ts  # idempotent private bucket creation
+│   ├── ensure-storage-bucket.ts  # idempotent private bucket creation
+│   └── generate-icons.mjs        # favicon / iOS / Android icons from one SVG
 ├── src/
 │   ├── app/
 │   │   ├── layout.tsx            # <html>/<body>, metadata, Providers, Footer
 │   │   ├── providers.tsx         # NextAuth SessionProvider
 │   │   ├── page.tsx              # "/" → /services or /login
-│   │   ├── login/page.tsx        # credentials form (+ lockout message)
+│   │   ├── login/page.tsx        # credentials form (+ lockout message, show/hide password)
+│   │   ├── install/page.tsx      # public "install the DMO app" instructions
+│   │   ├── manifest.ts, icon.svg, apple-icon.png   # web app manifest + icons
 │   │   ├── (app)/                # signed-in shell: layout.tsx runs requireUser(), renders Nav + Toast
 │   │   │   ├── services/
 │   │   │   │   ├── page.tsx              # service catalog
 │   │   │   │   ├── pm/…                  # PM V1 (hidden from catalog)
 │   │   │   │   ├── pm-v2/…               # PM V2 (board, inspect, issues, report, setup)
 │   │   │   │   ├── housekeeping/…        # HK board + settings
-│   │   │   │   └── [slug]/…              # generic workflow service (matrix, history, settings)
-│   │   │   └── settings/…                # staff, access (roles), rooms, services, activity
+│   │   │   │   └── [slug]/…              # workflow service: sheet (matrix), history = day list + Performance, settings
+│   │   │   ├── notifications/            # my notifications, phone-push switch, mutes
+│   │   │   ├── messages/…                # list, new, announce, [id] conversation
+│   │   │   └── settings/…                # staff, access (roles), rooms, services, notifications, activity
 │   │   └── api/
 │   │       ├── auth/[...nextauth]/       # NextAuth handler
-│   │       ├── cron/…                    # CRON_SECRET-guarded jobs
-│   │       ├── exports/…                 # .xlsx downloads
+│   │       ├── cron/…                    # CRON_SECRET-guarded jobs (daily reset, daily reminders)
+│   │       ├── exports/…                 # .xlsx downloads (incl. workflow-performance)
+│   │       ├── notifications/            # bell poll: unread + unread chats
+│   │       ├── messages/…                # chat + comment polling
 │   │       └── local-images/[...path]/   # dev-only file server (404 in prod)
 │   ├── components/               # UI; client components marked "use client"
-│   │   └── pmv2/                 # PM V2 UI
+│   │   ├── pmv2/                 # PM V2 UI
+│   │   ├── notifications/, messages/, install/, auth/   # bell, chat, install prompts
 │   ├── lib/
 │   │   ├── actions/              # "use server" mutations, one file per domain
-│   │   ├── jobs/                 # cron job bodies (NOT server actions)
+│   │   ├── jobs/                 # cron job bodies (NOT server actions): housekeeping-recurrence, daily-reminders
+│   │   ├── notifications/        # catalog (events), notify(), push (web-push)
+│   │   ├── messaging/            # access rules (canAccess), members, unread counts, DTOs
 │   │   ├── rbac/                 # catalog, defaults, pure can() helpers
 │   │   ├── session.ts            # getCurrentUser + require* guards
 │   │   ├── auth.ts               # NextAuth options
 │   │   ├── db.ts, storage.ts, audit.ts, password.ts, login-attempts.ts, roles.ts, permissions.ts
 │   │   ├── housekeeping.ts, hk-view.ts            # HK domain
 │   │   ├── pmv2.ts, pmv2-data.ts, pmv2-messages.ts # PM V2 domain
+│   │   ├── business-date.ts, workflow-lock.ts, workflow-performance.ts  # workflow dates, day lock, Performance
 │   │   └── status.ts, reports.ts                   # PM V1 domain
 │   └── types/next-auth.d.ts      # session.user.id typing
 └── docs/                         # this documentation
@@ -78,7 +92,7 @@ DM_Ops_project/
 
 ```
 Browser ──► proxy.ts (withAuth)                       fast gate: no session cookie → /login
-             matcher: /services/:path*, /settings/:path*
+             matcher: /services, /settings, /notifications, /messages (…/:path*)
         ──► (app)/layout.tsx  requireUser()           JWT → user id → DB load (roles + permissions)
         ──► page.tsx          requirePermission(...)  per-page gate → redirect /services if denied
              prisma queries, getSignedUrl(...)        server-rendered, force-dynamic
@@ -165,8 +179,25 @@ Static segments (`pm`, `pm-v2`, `housekeeping`) win over the dynamic `[slug]`.
 
 ### 10. Polling instead of realtime
 The Housekeeping board calls `router.refresh()` every 12 s (paused while a drawer
-or modal is open or an action is running). PM V2 auto-saves each tap and
-revalidates. No websockets or Supabase Realtime.
+or modal is open or an action is running). The header bell polls
+`/api/notifications` every 30 s (and on tab focus) and re-broadcasts the unread-chat
+count to the Messages icon (`dmo:counts` window event); an open chat or comment
+thread polls every 5 s. PM V2 auto-saves each tap and revalidates. No websockets
+or Supabase Realtime.
+
+### 11. Events → `notify()`
+Server actions and cron jobs call `notify({ type, actorId, userIds?, … })`
+(`src/lib/notifications/notify.ts`). It resolves recipients from the event catalog
+(direct people, or an audience by permission/roles, overridable in Settings →
+Notifications), drops the actor / inactive / muted users, stores `Notification`
+rows, then sends Web Push **after** the response (`after()` from `next/server`).
+It never throws, so a notification problem can't break the action.
+
+### 12. Business dates and the day lock
+Workflow days are calendar days in `America/New_York`, stored as UTC midnight
+(`src/lib/business-date.ts`: `motelTodayUTC()`, `formatBusinessDate()` renders in
+UTC). Every workflow write goes through `sheetState()` (`src/lib/workflow-lock.ts`):
+today editable until complete, past days only while unlocked, future never.
 
 ## Environment variables
 
@@ -182,15 +213,20 @@ revalidates. No websockets or Supabase Realtime.
 | `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` / `SEED_ADMIN_NAME` | `prisma/seed.ts` | Password required in prod | Seed refuses to run in prod without a password |
 | `VERCEL_ENV` | `provision-db.mjs`, seed | Set by Vercel | Gates DB provisioning to `production` |
 | `LOCAL_STORAGE_DIR` | `storage.ts` | Optional | Override local storage folder |
+| `NEXT_PUBLIC_VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | `notifications/push.ts`, `/notifications` page | For phone push | Without them push is off (bell still works). Changing them drops every saved device |
+| `NEXT_PUBLIC_APP_VERSION` | footer | Auto | Set by `next.config.mjs` from `package.json` `version` |
 | `SUPABASE_ANON_KEY`, `POSTGRES_*`, `NEXT_PUBLIC_SUPABASE_*` | — | — | Injected by the Vercel–Supabase integration; unused by the app |
 
 ## Configuration files worth knowing
 
 - **`next.config.mjs`** — `experimental.serverActions.bodySizeLimit: "55mb"` so phone
   photos/videos pass the default 1 MB Server Action limit.
-- **`vercel.json`** — `buildCommand: npm run build:deploy`; crons at `0 3 * * *`
-  (photo sweep) and `0 8 * * *` (daily task reset, ≈ 3–4 AM US Eastern).
+- **`vercel.json`** — `buildCommand: npm run build:deploy`; crons at `0 8 * * *`
+  (daily task reset + Daily Cleanliness "missed / summary" + notification purge,
+  ≈ 3–4 AM US Eastern) and `0 15 * * *` (Daily Cleanliness "not started" reminder,
+  ≈ 10–11 AM Eastern).
 - **`proxy.ts`** — `withAuth` from `next-auth/middleware`, sign-in page `/login`.
+  Public routes (not in the matcher): `/login`, `/install`, `/manifest.webmanifest`, `/sw.js`, icons.
 - **`.vercelignore` / `.gitignore`** — block every `.env*`, `.local-storage/`,
   `prod_backup_*`, `*.local.md`.
 
@@ -206,7 +242,9 @@ GitHub main ──push──► Vercel build (npm run build:deploy)
                         └─ next build
                       ► Serverless functions ──► Supabase Postgres (pooled DATABASE_URL)
                                             └──► Supabase Storage (service-role key)
-Vercel Cron ──► /api/cron/housekeeping-daily-reset
+Vercel Cron ──► /api/cron/housekeeping-daily-reset (08:00 UTC)
+            └──► /api/cron/daily-reminders         (15:00 UTC)
+Server actions ──after()──► Web Push services (FCM / Apple / Mozilla) ──► staff phones
 ```
 
 Details: [deployment.md](deployment.md).

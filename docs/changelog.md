@@ -1,7 +1,11 @@
 # Changelog
 
 What shipped, newest first. Dates are commit dates on `main` (production since
-the `dm-ops-production` move). Add an entry with every feature or notable fix.
+the `dm-ops-production` move). Add an entry with every feature or notable fix,
+prefixed with the version it shipped in once the version is bumped.
+
+> Everything from 2026-10-08 onwards is live but still reports **v4.8.0** — the
+> version wasn't bumped (known-issues VER-1). Next release: v4.9.0.
 
 ## 2026-10 — Daily Cleanliness: All OK
 

@@ -15,7 +15,9 @@ Services: **Room Condition V2** (quarterly per-area inspections, `/services/pm-v
 **Housekeeping** (live cleaning board, `/services/housekeeping`), and generic
 **workflow services** such as **Daily Cleanliness** (rooms × items matrix,
 `/services/[slug]`). **PM V1** (`/services/pm`) still exists in code but is hidden
-from the portal. Global admin lives at `/settings`. Access is **DB-backed RBAC**
+from the portal. Global admin lives at `/settings`. Every signed-in page has a
+**notification bell** and **Messages** (staff chat). Staff install it as the **DMO**
+web app (`/install`). Access is **DB-backed RBAC**
 with permission keys `app:feature:action`. Production = Vercel + Supabase
 (Postgres + Storage); local = Docker Postgres + filesystem storage.
 
@@ -66,7 +68,7 @@ with permission keys `app:feature:action`. Production = Vercel + Supabase
 | Current user + guards | `src/lib/session.ts` → `getCurrentUser`, `requireUser`, `requirePermission`, `requireAnyPermission`, `requireWorkflowAccess`, `requireAdmin`, `requireManager` |
 | Pure permission checks | `src/lib/rbac/can.ts` → `can`, `canAny`, `canAll`, `canAccessApp` |
 | Permission catalog | `src/lib/rbac/catalog.ts` (`APPS`) |
-| Default role grants (seed) | `src/lib/rbac/defaults.ts` |
+| Default role grants (seed) | `src/lib/rbac/defaults.ts` (`DEFAULT_ROLES` for fresh DBs; `INTRODUCED_GRANTS` to give a new key to existing roles once) |
 | Role keys | `src/lib/roles.ts` (`ROLE_KEYS`) |
 | NextAuth config, lockout | `src/lib/auth.ts`, `src/lib/login-attempts.ts` |
 | Password policy | `src/lib/password.ts` |
@@ -75,7 +77,10 @@ with permission keys `app:feature:action`. Production = Vercel + Supabase
 | File storage (Supabase / local FS) | `src/lib/storage.ts` |
 | PM V2 domain | `src/lib/pmv2.ts` (client-safe), `src/lib/pmv2-data.ts` (server loaders), `src/lib/pmv2-messages.ts`, `src/lib/actions/pmv2.ts`, `src/components/pmv2/*` |
 | Housekeeping domain | `src/lib/housekeeping.ts`, `src/lib/hk-view.ts`, `src/lib/actions/housekeeping.ts`, `src/components/Hk*.tsx`, `HousekeepingDashboard.tsx` |
-| Workflows (Daily Cleanliness) | `src/lib/actions/workflows.ts`, `workflowAdmin.ts`, `src/components/Workflow*.tsx` |
+| Workflows (Daily Cleanliness) | `src/lib/actions/workflows.ts`, `workflowAdmin.ts`, `src/components/Workflow*.tsx`; dates `src/lib/business-date.ts`; day lock `src/lib/workflow-lock.ts`; Performance `src/lib/workflow-performance.ts` + `/api/exports/workflow-performance/[slug]` |
+| Notifications | `src/lib/notifications/{catalog,notify,push}.ts`, `src/lib/actions/notifications.ts`, `src/components/notifications/*`, `public/sw.js` |
+| Messaging & comments | `src/lib/messaging/{server,dto}.ts` (access rules), `src/lib/actions/messages.ts`, `src/app/(app)/messages/**`, `src/components/messages/*` |
+| Installable app | `src/app/manifest.ts`, `src/app/install/`, `src/components/install/*`, `scripts/generate-icons.mjs` |
 | PM V1 | `src/lib/actions/{inspections,photos,checklist,rooms}.ts`, `src/lib/status.ts`, `src/lib/reports.ts`, `src/components/{InspectForm,InspectionHistory,ChecklistManager,...}.tsx` |
 | Cron jobs | `src/lib/jobs/*` + `src/app/api/cron/*` + `vercel.json` |
 | Schema | `prisma/schema.prisma` |
@@ -115,7 +120,15 @@ with permission keys `app:feature:action`. Production = Vercel + Supabase
   per-tap auto-saves (only milestones are logged).
 - **PM V2 dates are client-local strings** (`"YYYY-MM-DD"`, quarter `"YYYY-Qn"`),
   sent by the browser so "today" is the inspector's day. Workflow submission dates
-  are **UTC midnight** `DateTime`s. Don't mix the two conventions.
+  are **UTC midnight of the motel's calendar day** — get "today" from
+  `motelTodayUTC()` and display with `formatBusinessDate()` (renders in UTC; plain
+  `toLocaleDateString()` shows the previous day in US browsers). Don't mix the two.
+- **Workflow writes go through the day lock** (`editError` / `sheetState` in
+  `workflows.ts` + `workflow-lock.ts`). A new workflow mutation must call it.
+- **Notify, don't hand-roll.** Send event notifications with `notify()` and add
+  the event to `NOTIFICATION_EVENTS` first. It never throws; push runs in `after()`.
+- **Messaging access is `canAccess()`** (`src/lib/messaging/server.ts`) on every
+  read and send. Direct chats are private — no admin read path, by design.
 - **`src/lib/db.ts`** appends `pgbouncer=true&connection_limit=1` and only sets a
   datasource override when `DATABASE_URL` exists (preview builds have no DB). Don't
   make the override unconditional.
@@ -131,6 +144,11 @@ with permission keys `app:feature:action`. Production = Vercel + Supabase
 - [ ] Schema change? Additive only? `data-model.md` updated? Restart dev server
       after `prisma db push` (cached client on `globalThis`).
 - [ ] New audited entity? Add it to the `entity` union in `src/lib/audit.ts`.
+- [ ] New permission? Catalog + `DEFAULT_ROLES` + `INTRODUCED_GRANTS` (so existing
+      production roles get it once).
+- [ ] Should someone hear about it? Add a catalog event + `notify()` call.
+- [ ] Bump `package.json` `version` (patch / minor) when the change ships — see
+      [deployment.md](deployment.md#versioning).
 - [ ] New storage path prefix? Update the domain→permission mapping in
       `src/app/api/local-images/[...path]/route.ts`.
 - [ ] Uploads: within the 10 MB image / 50 MB video limits, and remember Vercel's
@@ -155,6 +173,12 @@ with permission keys `app:feature:action`. Production = Vercel + Supabase
 - Storage falls back to `.local-storage/` automatically when `SUPABASE_URL` isn't
   a real `https://…supabase.co` URL.
 - Windows: stop the dev server before `prisma generate` (EPERM on the locked engine DLL).
+- The local DB is shared by every branch you check out. `prisma db push` on a
+  branch that lacks another branch's tables will offer to **drop** them — instead
+  generate `prisma migrate diff --from-url … --to-schema-datamodel … --script` and
+  apply only the `CREATE` / `ADD` statements.
+- Phone push locally needs dev VAPID keys in `.env.local` and a normal Chrome
+  window (embedded preview browsers block notifications).
 - Local logins (dev DB only): `admin@divyamotel.com` / `ChangeMe123!` (Super Admin).
   Create role-specific test users in **Settings → Staff** to test non-admin paths.
 
@@ -169,5 +193,8 @@ with permission keys `app:feature:action`. Production = Vercel + Supabase
 | New user sees nothing / can't be assigned cleaning | Code reads `UserRole`, not deprecated `User.role` | Assign roles via Settings → Staff |
 | Upload fails / "This page couldn't load" on submit | Housekeeping: signed upload URL or ticket problem (check browser network tab for the PUT). Other forms: Vercel 4.5 MB cap | See features/housekeeping.md → Media, known-issues P1 |
 | Preview deploy 500s | Previews have no DB env vars by design | Use previews for build validation only |
+| Date shows one day early | `toLocaleDateString()` on a UTC-midnight workflow date | `formatBusinessDate()` |
+| New permission works only for Super Admin in prod | Seed never edits existing roles | Add it to `INTRODUCED_GRANTS` |
+| Phone notifications never arrive | VAPID env vars missing, device not turned on at `/notifications`, or iPhone not using the installed app | features/notifications.md → Phone push |
 | `next lint` errors | `next lint` was removed in Next 16 | See known-issues |
 | Hydration warning overlay in dev | Browser extensions (Grammarly) mutate `<body>` | Already suppressed; test in incognito |

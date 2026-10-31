@@ -158,7 +158,7 @@ Tabs (admin only):
 | Room checklist | Room-cleaning checklist items |
 | Templates | Daily-task templates and each template's checklist |
 | Rooms | Add a room (shared `Room` table) |
-| Photos & instructions | Note that media is kept until deleted; cleaning **instructions** shown to housekeepers |
+| Photos & instructions | Photo/video **required** switches (rooms default on, daily tasks default off); note that media is kept until deleted; cleaning **instructions** shown to housekeepers |
 
 The tab strip scrolls horizontally on mobile with the active tab scrolled into view (F8).
 
@@ -181,8 +181,8 @@ in a `"use server"` file so it can't be invoked from a browser.
 ## Seeding
 
 `prisma/seedHousekeeping.ts` (idempotent) creates the settings singleton, 2 status
-actions, 5 templates and a 7-item room checklist. **It is not run by the deploy
-seed** — see known-issues **HK-SEED**.
+actions, 5 templates and a 7-item room checklist. It runs on every production
+deploy (`scripts/provision-db.mjs`) and only fills empty tables; run it by hand locally.
 
 ## Key files
 
@@ -196,9 +196,19 @@ seed** — see known-issues **HK-SEED**.
 - `src/components/HkMediaPicker.tsx`, `PhotoLightbox.tsx` — capture + viewing.
 - `src/components/HkConfigManager.tsx`, `HousekeepingSettingsForm.tsx` — settings tabs.
 
+## Notifications & comments
+
+- Events (see [notifications.md](notifications.md)): **task assigned to you**
+  (grouped per action), **room ready for inspection** (reviewers), **room sent
+  back** with the reason and **room approved** (the housekeeper), **rooms waiting
+  for a housekeeper** (people who can assign). Nobody is notified about their own action.
+- Links use `/services/housekeeping?task=<id>`, which opens that task's drawer.
+- The drawer has a **Comments** thread (shared messaging engine) — the assignee,
+  assigner, creator and earlier commenters are notified of new comments.
+
 ## Out of scope / ideas
 
-Booking/PMS-driven checkouts, notifications, SLA/overdue timers, per-housekeeper
+Booking/PMS-driven checkouts, SLA/overdue timers, per-housekeeper
 zones, long-term photo archive, CSV export, resumable (TUS) uploads for very large videos.
 
 ## Change log
@@ -211,3 +221,5 @@ zones, long-term photo archive, CSV export, resumable (TUS) uploads for very lar
 - **2026-10-02** · Photos/videos upload directly to Supabase via signed URLs (fixes production upload crash, P1); client-side photo compression; deploy now seeds housekeeping defaults; bucket limits + HEIC synced on deploy.
 - **2026-10-02** · Media kept until deleted (no delete on approve/reject, retention sweep + cron removed); **Room history** page `/settings/rooms/[id]` (managers+), linked from Settings → Rooms and the task drawer.
 - **2026-10-02** · "Ready to Rent" renamed "Cleaned" in the UI; board shows one card per room (old Cleaned card hidden once the room is re-checked-out).
+- **2026-10-09** · Notifications for assignment / inspection / send-back / approval; `?task=` deep link; Comments in the task drawer.
+- **2026-10-09** · Photo/video requirement is an admin setting (rooms / daily tasks); "No photos" label for inspectors.

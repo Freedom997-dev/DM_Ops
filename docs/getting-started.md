@@ -54,6 +54,11 @@ SEED_ADMIN_PASSWORD="ChangeMe123!"
 
 # Only needed to call the cron endpoints locally
 CRON_SECRET="devsecret"
+
+# Optional — phone notifications (Web Push). Generate with: npx web-push generate-vapid-keys
+# NEXT_PUBLIC_VAPID_PUBLIC_KEY="…"
+# VAPID_PRIVATE_KEY="…"
+# VAPID_SUBJECT="mailto:you@example.com"
 ```
 
 `DIRECT_URL` is required because `schema.prisma` declares `directUrl`; locally it
@@ -71,6 +76,7 @@ npx prisma db push                  # create every table
 npx tsx prisma/seed.ts              # roles, Super Admin, PM V1 checklist, sample rooms,
                                     # Daily Cleanliness workflow, PM V2 checklists + 66 areas
 npx tsx prisma/seedHousekeeping.ts  # HK settings, status actions, task templates, room checklist
+                                    # (production deploys run this automatically)
 ```
 
 (PowerShell: `$env:DATABASE_URL="..."; $env:DIRECT_URL=$env:DATABASE_URL`.)
@@ -122,7 +128,12 @@ route. Upload, preview and delete all work exactly as in production.
 
 ```bash
 curl -H "Authorization: Bearer devsecret" http://localhost:3001/api/cron/housekeeping-daily-reset
+curl -H "Authorization: Bearer devsecret" http://localhost:3001/api/cron/daily-reminders
 ```
+
+The first resets recurring tasks, sends Daily Cleanliness "missed yesterday" /
+summary notifications and purges old notifications; the second sends "today's
+inspection not started".
 
 ## Common gotchas
 
@@ -136,6 +147,8 @@ curl -H "Authorization: Bearer devsecret" http://localhost:3001/api/cron/houseke
 | Housekeeping check-out panel has no buttons | `seedHousekeeping.ts` not run (no status actions) — run it or add actions in HK Settings |
 | Hydration error overlay | Browser extension (e.g. Grammarly) — try incognito |
 | Can't reach the DB | `docker compose ps`; port is **5433**, not 5432 |
+| `prisma db push` warns it will **drop** a table/column | The local DB has tables from another branch you worked on | Don't accept; apply only the new `CREATE`/`ADD` statements (see [AI_GUIDE.md](AI_GUIDE.md) §6) |
+| "Phone notifications … blocked" on `/notifications` | Embedded/preview browsers block notifications | Use a normal Chrome window |
 
 ## Next steps
 

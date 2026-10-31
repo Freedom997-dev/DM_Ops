@@ -11,11 +11,15 @@ describes what that style is.
 3. Make the change + update docs in the same branch.
 4. `npx tsc --noEmit` and `npm run build` must pass.
 5. Verify in the browser **as each affected role** (Super Admin hides permission bugs).
-6. Push → preview build green → merge to `main` (= production).
+6. Bump `package.json` `version` for the release ([deployment.md](deployment.md#versioning)).
+7. Push → preview build green → merge to `main` (= production). A feature branch
+   that's behind `main` is updated by merging `main` into it and resolving
+   conflicts there; `main` then moves forward with `git merge --ff-only`.
 
 Commit messages follow Conventional Commits: `feat(scope): …`, `fix(…)`,
 `chore(…)`, `docs(…)`. Scopes in use: `pm`, `pmv2`, `housekeeping`, `workflow`,
-`rooms`, `services`, `auth`, `deploy`, `seed`, `next16`, `security`.
+`rooms`, `services`, `auth`, `deploy`, `seed`, `next16`, `security`,
+`notifications`, `messages`, `workflows`, `login`, `docs`.
 
 ## Conventions
 
@@ -160,6 +164,17 @@ Items/roles can then be edited at `/services/<slug>/settings`.
    `dynamic = "force-dynamic"`, `runtime = "nodejs"`.
 3. Add the schedule (UTC) to `vercel.json` `crons`.
 4. Document in [operations.md](operations.md) and [deployment.md](deployment.md).
+
+### Add a notification event
+1. Add an entry to `NOTIFICATION_EVENTS` in `src/lib/notifications/catalog.ts`:
+   `type` (`area.thing.happened`), group, label, description, `recipients`
+   (`direct` = you pass `userIds`; `audience` = `defaultPermission` or
+   `defaultRoles`), `defaultEnabled`, `mutable` (false only for security notices).
+2. Call `await notify({ type, actorId: user.id, userIds?, title, body, href, entityType, entityId })`
+   after the change succeeds. Keep titles short; never include secrets.
+   Use `collapse: true` for chatty sources (one unread entry per entity).
+3. The event appears automatically in Settings → Notifications and in each user's
+   mute list. Document it in [features/notifications.md](features/notifications.md).
 
 ### Add an Excel export
 Follow `src/app/api/exports/pm-v2/route.ts`: guard with `requirePermission`, load

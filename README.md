@@ -5,11 +5,14 @@ services their role allows, and run them:
 
 - **Room Condition V2** — quarterly inspections of every room and common area, repair list, PDF/Excel/WhatsApp reports
 - **Housekeeping** — live board for room turnover and daily tasks with assignment, checklists, photo evidence and inspector approval
-- **Daily Cleanliness** — rooms × items matrix, one submission per day
-- **Settings** — staff, roles & permissions, rooms, services, activity log
+- **Daily Cleanliness** — rooms × items matrix, one sheet per day: day list, past-day lock, "All OK" per room, Performance tab with Excel/PDF export
+- **Notifications & Messages** — bell + phone push for events (assigned, ready to inspect, sent back, reminders…), staff chat, role groups, announcements, comments on tasks/rooms
+- **Settings** — staff, roles & permissions, rooms, services, notifications, activity log
+
+Staff install it on their phone as the **DMO** app: https://dm-ops-production.vercel.app/install
 
 **Stack:** Next.js 16 (App Router) · TypeScript · Tailwind · Prisma 5 · Postgres
-(Supabase) · NextAuth · Supabase Storage · Vercel.
+(Supabase) · NextAuth · Supabase Storage · Web Push · Vercel.
 **Production:** https://dm-ops-production.vercel.app (deploys from `main`).
 
 ## Quick start

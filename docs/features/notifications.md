@@ -10,7 +10,7 @@ on housekeeping tasks and rooms.
 
 | | |
 |---|---|
-| **Shipped on** | — (phases 1–3 on `feature/notifications`, 2026-10-09) |
+| **Shipped on** | 2026-10-09 — phases 1–3, merged to `main` in `37d2e80` (phone push live once VAPID keys are set — known-issues NOTIF-1) |
 | **Live URL path(s)** | `/notifications`, `/settings/notifications`, `/messages`, `/messages/new`, `/messages/announce`, `/messages/[id]`, `GET /api/notifications`, `GET /api/messages/[id]`, `GET /api/messages/thread`, `/api/cron/daily-reminders` |
 
 ## How an event reaches people

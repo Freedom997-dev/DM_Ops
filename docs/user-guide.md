@@ -36,7 +36,7 @@ page, which does the same in one tap.
 - You still sign in with your email and password. You stay signed in for 7 days.
 - It needs an internet connection.
 - **Old icon or name?** Delete the shortcut, reload the portal in the browser, and add it again.
-- The app version is shown at the bottom of every page (e.g. `v4.7.6`).
+- The app version is shown at the bottom of every page (e.g. `v4.8.0`).
 - On a phone, the Services page shows an "Add to home screen" card until the app
   is installed. Tap **✕** to hide it on that phone.
 
@@ -57,6 +57,16 @@ page, which does the same in one tap.
   doing over the last 7, 30 or 90 days — a score per room (green / amber / red),
   its trend, the checklist items that fail most, and a problem map of all rooms.
   Tap a room for its day-by-day record; tap a day to open that sheet.
+
+## Housekeeping
+
+- The board shows your rooms and daily tasks. Open one, work through the checklist
+  (Done / Not done / N/A for every item), then **Submit for inspection**
+  (rooms) or **Mark done** (daily tasks).
+- **Photos / videos:** the photo section says **required** or **optional** — your
+  manager decides. If a room goes without photos, the inspector checks it in person.
+- A room **sent back** comes with the inspector's reason — you'll also get a
+  notification. Use **Comments** in the task to ask or explain.
 
 ## Notifications
 
@@ -84,6 +94,8 @@ page, which does the same in one tap.
 
 - Use the email your manager set up. Five wrong passwords in 15 minutes locks the
   account for a few minutes.
+- Not sure you typed the password right? Tap the **eye** in the password box to
+  show it, and again to hide it.
 - Forgot your password? Ask a manager to reset it.
 
 <!-- Maintainers: the in-app steps live in src/components/install/InstallSteps.tsx

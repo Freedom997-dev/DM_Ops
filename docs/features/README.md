@@ -11,7 +11,7 @@ files, behaviour notes and a change log.
 | Housekeeping (HKT) | [housekeeping.md](housekeeping.md) | Live |
 | Platform Foundation + Daily Cleanliness | [platform-foundation.md](platform-foundation.md) | Live — `/services`, `/settings`, workflow matrix |
 | RBAC & Security | [rbac-and-security.md](rbac-and-security.md) | Live |
-| Notifications & messaging | [notifications.md](notifications.md) | Built on `feature/notifications` (bell, phone push, events, messaging, comments, reminders) |
+| Notifications & messaging | [notifications.md](notifications.md) | Live — bell, phone push (needs VAPID keys, known-issues NOTIF-1), events, messaging, comments, reminders |
 
 ## Retained but hidden (PM V1)
 
@@ -28,7 +28,7 @@ files, behaviour notes and a change log.
 - Retire PM V1 ([checklist](pm-v2.md#removing-v1-later))
 - Create workflow services from the UI; Excel export for workflow submissions
 - Per-room status timeline across services (the chatty per-cell audit entries were designed to feed it)
-- Notifications (e.g. room ready to inspect)
+- Self-service password reset by email (`feature/user-account`, waiting for an email sender — known-issues EMAIL-1)
 
 ## Authoring a new feature doc
 

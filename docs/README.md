@@ -8,8 +8,9 @@ every staff member.
 Everything needed to understand, run, change, deploy, or hand over this project
 lives in this folder. The root `README.md` is only a short landing page.
 
-> **Last full review:** 2026-10-01, against `main` @ `0c0b5e7`
-> (Next.js 16.3, Prisma 5.22, RBAC v2, PM V2 live, PM V1 hidden from the portal).
+> **Last full review:** 2026-10-15, against `main` @ `7e9c045` (app **v4.8.0**)
+> (Next.js 16.3, Prisma 5.22, RBAC v2, PM V2 live, PM V1 hidden, Daily Cleanliness
+> day lock + Performance, notifications + staff messaging, installable "DMO" app).
 
 ---
 
@@ -54,6 +55,7 @@ docs/
 ├── operations.md              ← day-2 ops: storage, retention, backups, troubleshooting
 ├── known-issues.md            ← open bugs, tech debt, pending decisions
 ├── changelog.md               ← dated history of what shipped
+├── user-guide.md              ← for motel staff: links, install the app, how to use each part
 ├── features/                  ← one doc per feature (living)
 │   ├── README.md
 │   ├── _template.md
@@ -61,6 +63,7 @@ docs/
 │   ├── housekeeping.md                ← Housekeeping board (HKT)
 │   ├── platform-foundation.md         ← /services catalog, workflows, Daily Cleanliness
 │   ├── rbac-and-security.md           ← roles, permissions, lockout, password policy
+│   ├── notifications.md               ← bell, phone push, events, messaging, comments, reminders
 │   ├── room-condition-inspection.md   ← PM V1 (hidden from portal, code retained)
 │   ├── inspection-photos.md           ← PM V1 photo evidence
 │   └── pm-item-search.md              ← PM V1 Ctrl+F on the inspect form

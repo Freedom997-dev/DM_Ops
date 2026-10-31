@@ -3,7 +3,7 @@
 Living list. Add items when found; strike them (move to *Resolved*) with the date
 and commit when fixed. Severity: 🔴 high · 🟠 medium · 🟢 low.
 
-_Last reviewed: 2026-10-01._
+_Last reviewed: 2026-10-15 (`main` @ `7e9c045`)._
 
 ## Open — functional
 
@@ -12,8 +12,10 @@ _Last reviewed: 2026-10-01._
 | **P1** | ✅ | Large uploads fail in production | **Fixed 2026-10-02 for Housekeeping**: media uploads straight to Supabase via signed URLs (see features/housekeeping.md → Media). The Daily Cleanliness row photos and PM V1 inspection photos still go through Server Actions; they compress photos client-side and refuse batches over 4 MB with a clear message. |
 | **HEIC** | ✅ | iPhone HEIC photos rejected in prod | **Fixed 2026-10-02**: `image/heic`/`image/heif` added to the bucket allow-list, and `ensure-storage-bucket.ts` now syncs limits on every production deploy. Browsers that can decode HEIC (Safari) also convert it to JPEG during compression. |
 | **TZ-1** | ✅ | Daily Cleanliness dates off by one day | **Fixed 2026-10-03**: History showed every date one day early (UTC midnight rendered in the browser's US timezone), and "today" flipped at UTC midnight (~8 PM Eastern). Both now go through `src/lib/business-date.ts` (motel timezone `America/New_York`; display in UTC). Submissions created after ~8 PM Eastern before the fix are stored under the next day. |
-| **HK-SEED** | 🟠 | Housekeeping defaults not created on deploy | `prisma/seedHousekeeping.ts` is not called by `prisma/seed.ts`, so a fresh production DB has no status actions / templates / room checklist (check-out panel shows no buttons; room tasks get no checklist). Fix: call it from `seed.ts` (it's idempotent). |
-| **PMV2-PERMS** | 🟠 | PM V2 may be invisible to Admin/Inspector in prod | The seed never edits permissions of existing roles; `pmv2:*` keys were added after prod roles existed. Grant them in Settings → Roles & permissions. |
+| **PMV2-PERMS** | 🟠 | PM V2 may be invisible to Admin/Inspector in prod | The seed never edits permissions of existing roles; `pmv2:*` keys were added after prod roles existed. Grant them in Settings → Roles & permissions, or add them to `INTRODUCED_GRANTS` (`src/lib/rbac/defaults.ts`) so the next deploy grants them once. |
+| **NOTIF-1** | 🟠 | Phone notifications need VAPID keys in production | Until `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` are set in Vercel Production, the bell works but nobody gets phone alerts (`/notifications` says "not set up on the server yet"). Generate once with `npx web-push generate-vapid-keys`; never rotate casually (it drops every saved device). |
+| **EMAIL-1** | 🟠 | No outgoing email | Self-service password reset / change and email-change notices are built on `feature/user-account` but **not merged**: they need an email sender (planned: dedicated Gmail account + SMTP app password). Until then admins reset passwords in Settings → Staff. |
+| **VER-1** | 🟢 | Version not bumped since v4.8.0 | Notifications, messaging, export, photo setting, All OK and the login eye shipped without a version bump; the footer still says v4.8.0. Bump on the next release (suggest **v4.9.0**) per [deployment.md](deployment.md#versioning). |
 | **P2** | 🟢 | Upload path not validated against real Supabase on a deployed build since the body-limit fix | Validate a phone upload on production after the next deploy. |
 | **TZ-2** | 🟢 | PM V2 default quarter uses server time | `quarterFromParams` falls back to `quarterOf(new Date())` on the server (UTC); for a few hours around a quarter boundary the default may differ from the inspector's local quarter. Writes use the client's date, so data is correct. |
 | **DEV-IMG** | 🟢 | Local dev only: workflow row photos need `pm:inspections:view` | `/api/local-images` maps every non-`housekeeping/` path to `pm:inspections:view`, so a Manager running Daily Cleanliness locally can't see row photos. Production uses Supabase signed URLs and is unaffected. Add a `workflows/` branch to the route. |
@@ -27,7 +29,7 @@ _Last reviewed: 2026-10-01._
 | **SEC-2** | 🟠 | Dependabot alerts on `main` | Many cleared by the Next 16 migration; re-check GitHub → Security. Don't use `npm audit fix --force`; verify bumps on a preview. |
 | **P4** | 🟠 | `CRON_SECRET` must exist in Vercel Production | Otherwise both crons 401 silently. Confirm after any env change. |
 | **OPS-1** | 🟢 | No error tracking / uptime monitoring | Consider Vercel Observability or Sentry. |
-| **OPS-2** | 🟢 | `AuditLog` and `LoginAttempt` grow forever | Failed attempts for emails that never succeed are never cleared. Add a periodic purge (e.g. >90 days) as a cron job. |
+| **OPS-2** | 🟢 | `AuditLog` and `LoginAttempt` grow forever | Failed attempts for emails that never succeed are never cleared. Add a periodic purge (e.g. >90 days) to the nightly cron (it already purges notifications > 90 days). Chat messages are kept indefinitely by design. |
 
 ## Tech debt
 
@@ -52,7 +54,6 @@ These were implemented with a reasonable default during the Housekeeping QA
 |---|---|---|
 | **F1** | Hard gate: a room can't be submitted until every checklist item is Done or N/A | Warn only |
 | **F3** | Only HOUSEKEEPER-role users can be assigned cleaning | Allow managers too |
-| **F6** | Rejecting a room deletes the submitted photos (fresh evidence on re-submit) | Keep rejected photos, labelled |
 | **F12** | Seeded daily tasks are one-time unless flagged recurring | Make seeded daily templates recurring by default |
 
 <!-- OWNER: record decisions here, e.g. "F1 — confirmed hard gate (Latesh, 2026-10-xx)". -->
@@ -61,6 +62,16 @@ These were implemented with a reasonable default during the Housekeeping QA
 
 | Date | Item | Commit |
 |---|---|---|
+| 2026-10-14 | Show/hide password on login | `7e9c045` |
+| 2026-10-14 | Daily Cleanliness "All OK" per room (+ Undo) | `874c704` |
+| 2026-10-09 | Housekeeping photo/video requirement is an admin setting | `0854c27` |
+| 2026-10-09 | Notifications, staff messaging, comments, Daily Cleanliness reminders (merged with day lock) | `73e7b4f`, `c0882aa`, `37d2e80` |
+| 2026-10-09 | Performance report export (Excel / PDF) | `b5ee129` |
+| 2026-10-08 | Daily Cleanliness day list, day lock (fixes past-day taps saved into today), Performance tab | `3c870a4`, `37130fd` |
+| 2026-10-06 | Installable DMO app: icons, manifest, `/install`, version in footer | `5f4eae4`, `2e56f94` |
+| 2026-10-03 | **TZ-1** Daily Cleanliness dates off by one day | `dc75994` |
+| 2026-10-02 | **HK-SEED** Housekeeping defaults now seeded on every production deploy (`provision-db.mjs` runs `seedHousekeeping.ts`) | — |
+| 2026-10-02 | **F6** decided: rejected-room photos are **kept** (shown as "Earlier submission"), not deleted | — |
 | 2026-09-30 | PM V1 hidden from portal; shared `/settings/rooms` page | `07435e7`, `0c0b5e7` |
 | 2026-09-30 | Next.js 16 migration (async params, `proxy.ts`, Turbopack trace hints) | `4134d11` |
 | 2026-09-29 | Daily Cleanliness created on prod deploy (manual SQL had never been applied) | `49e2343` |

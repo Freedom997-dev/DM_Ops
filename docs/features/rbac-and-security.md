@@ -29,6 +29,7 @@ feature itself.
 - **API routes** authorized by permission (exports, local images).
 - **Login lockout:** 5 failures / 15 min per email, enumeration-safe.
 - **Password policy:** 8–72 chars, letter + number, common-password blocklist.
+- **Login form:** show/hide password toggle; auto-capitalise / auto-correct off on phones (2026-10-14).
 - **Sessions:** JWT lifetime 30 → 7 days; JWT carries only the user id.
 
 ## Migration behaviour (seed)
