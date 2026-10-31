@@ -7,6 +7,11 @@ prefixed with the version it shipped in once the version is bumped.
 > Everything from 2026-10-08 onwards is live but still reports **v4.8.0** — the
 > version wasn't bumped (known-issues VER-1). Next release: v4.9.0.
 
+## 2026-10 — Housekeeping board tabs
+
+- **2026-10-31** · Housekeeping board: **My tasks / All** tabs; housekeepers open on **My tasks** (their assigned rooms and tasks, with their own counts); managers and inspectors open on All.
+- **2026-10-31** · Housekeeping **takeover requests**: a room assigned to someone else can't be started or submitted by another housekeeper; they tap **Request this room**, managers get a popup to **Approve** (reassigns it, so the record shows who cleaned it) or **Decline**. New table `HousekeepingTakeoverRequest`.
+
 ## 2026-10 — Daily Cleanliness: All OK
 
 - **2026-10-14** · Login: **show / hide password** (eye button) so staff can check what they typed.

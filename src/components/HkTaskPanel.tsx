@@ -3,13 +3,14 @@
 import { useRef, useState, useTransition } from "react";
 import {
   Loader2, Check, X, Send, Play, CheckCircle2, Camera, CameraOff, Clock, ListChecks, Save, Minus, Trash2, ImageOff,
+  Hand, Lock,
 } from "lucide-react";
 import clsx from "clsx";
 import { HkMediaPicker } from "@/components/HkMediaPicker";
 import { PhotoLightbox } from "@/components/PhotoLightbox";
 import {
   startTask, submitForInspection, completeGeneralTask, reviewTask, saveTaskItems,
-  deleteHousekeepingTask, requestHkMediaUploads,
+  deleteHousekeepingTask, requestHkMediaUploads, requestTakeover, decideTakeover,
 } from "@/lib/actions/housekeeping";
 import { HK_STATUS_META } from "@/lib/housekeeping";
 import { CommentsSection } from "@/components/messages/CommentsSection";
@@ -71,8 +72,12 @@ export function HkTaskPanel({
 
   const isRoom = task.kind === "ROOM_CLEANING";
   const timeline = buildTimeline(task);
-  const editable =
-    caps.submit && (task.status === "READY_TO_CLEAN" || task.status === "IN_PROGRESS" || task.status === "TODO");
+  const isOpen = task.status === "READY_TO_CLEAN" || task.status === "IN_PROGRESS" || task.status === "TODO";
+  // Someone else's task: a housekeeper must request it and wait for a manager
+  // (the server enforces the same rule).
+  const othersTask = !caps.manage && !!task.assignedTo && task.assignedTo.id !== currentUserId;
+  const canWork = caps.submit && !othersTask;
+  const editable = canWork && isOpen;
   const images = task.photos.filter((p) => p.mediaType === "IMAGE");
 
   // Media is only added on submit. While a task is open again, everything
@@ -141,6 +146,27 @@ export function HkTaskPanel({
       const res = await fn();
       if (!res.ok) { setError(res.error); return; }
       onDone();
+    });
+  }
+
+  function doRequest() {
+    setError(null);
+    start(async () => {
+      const res = await requestTakeover(task.id, note);
+      if (!res.ok) { setError(res.error); return; }
+      setNote("");
+      onChanged();
+    });
+  }
+
+  function doDecide(outcome: "APPROVE" | "REJECT") {
+    if (!task.takeover) return;
+    const requestId = task.takeover.id;
+    setError(null);
+    start(async () => {
+      const res = await decideTakeover(requestId, outcome);
+      if (!res.ok) { setError(res.error); return; }
+      onChanged();
     });
   }
 
@@ -220,8 +246,61 @@ export function HkTaskPanel({
 
   return (
     <div className="space-y-4 rounded-b-2xl border-x border-b border-slate-200 bg-slate-50/70 p-4">
+      {/* Someone else's task: ask a manager for it instead of working on it */}
+      {caps.submit && othersTask && isOpen && (
+        <div className="space-y-2 rounded-xl border border-violet-200 bg-violet-50 p-3">
+          <p className="flex items-start gap-2 text-sm text-violet-900">
+            <Lock className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>
+              Assigned to <span className="font-semibold">{task.assignedTo?.name}</span>. To work on it,
+              ask a manager — you can start once they approve.
+            </span>
+          </p>
+          {task.takeover?.byId === currentUserId ? (
+            <p className="flex items-center gap-1.5 text-sm font-semibold text-violet-700">
+              <Clock className="h-4 w-4" /> Request sent — waiting for a manager.
+            </p>
+          ) : task.takeover ? (
+            <p className="text-sm text-violet-700">{task.takeover.byName} has already asked for this one.</p>
+          ) : (
+            <>
+              <input
+                className="input text-sm"
+                placeholder="Reason (optional) — e.g. Ana is off today"
+                value={note}
+                maxLength={300}
+                onChange={(e) => setNote(e.target.value)}
+                disabled={pending}
+              />
+              <button type="button" onClick={doRequest} disabled={pending} className="btn-primary w-full">
+                {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Hand className="h-4 w-4" />}
+                Request this {isRoom ? "room" : "task"}
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Manager: answer an open takeover request right here too */}
+      {caps.manage && task.takeover && isOpen && (
+        <div className="space-y-2 rounded-xl border border-violet-200 bg-violet-50 p-3">
+          <p className="text-sm text-violet-900">
+            <span className="font-semibold">{task.takeover.byName}</span> asked to take this over from{" "}
+            {task.assignedTo?.name ?? "the assigned housekeeper"}.
+          </p>
+          <div className="flex gap-2">
+            <button type="button" onClick={() => doDecide("APPROVE")} disabled={pending} className="btn-primary">
+              {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} Approve
+            </button>
+            <button type="button" onClick={() => doDecide("REJECT")} disabled={pending} className="btn-secondary">
+              <X className="h-4 w-4" /> Decline
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Start first, so it's the first thing a housekeeper sees */}
-      {caps.submit && (task.status === "READY_TO_CLEAN" || task.status === "TODO") && (
+      {canWork && (task.status === "READY_TO_CLEAN" || task.status === "TODO") && (
         <button type="button" onClick={doStart} disabled={pending} className="btn-primary w-full">
           {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
           {isRoom ? "Start cleaning" : "Start task"}
@@ -289,7 +368,7 @@ export function HkTaskPanel({
       )}
 
       {/* --- Actions --- */}
-      {caps.submit && (task.status === "IN_PROGRESS" || task.status === "READY_TO_CLEAN" || task.status === "TODO") && (
+      {canWork && (task.status === "IN_PROGRESS" || task.status === "READY_TO_CLEAN" || task.status === "TODO") && (
         <div className="space-y-2 border-t border-slate-200 pt-3">
           <div className="flex items-center gap-1.5 text-xs font-medium text-slate-500">
             <Camera className="h-3.5 w-3.5" />

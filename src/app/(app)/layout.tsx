@@ -1,6 +1,7 @@
-import { requireUser, isManager } from "@/lib/session";
+import { requireUser, isManager, can } from "@/lib/session";
 import { Nav } from "@/components/Nav";
 import { ToastProvider } from "@/components/Toast";
+import { TakeoverRequestsPopup } from "@/components/housekeeping/TakeoverRequestsPopup";
 
 export default async function AppLayout({
   children,
@@ -21,6 +22,7 @@ export default async function AppLayout({
           }}
         />
         <main className="mx-auto w-full max-w-6xl px-4 py-6">{children}</main>
+        {can(user, "housekeeping:tasks:manage") && <TakeoverRequestsPopup />}
       </div>
     </ToastProvider>
   );

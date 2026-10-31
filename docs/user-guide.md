@@ -60,7 +60,15 @@ page, which does the same in one tap.
 
 ## Housekeeping
 
-- The board shows your rooms and daily tasks. Open one, work through the checklist
+- The board opens on **My tasks** — only the rooms and daily tasks assigned to
+  you, with your own counts. Tap **All** to see the whole team's board.
+- **A room assigned to someone else?** You can't start it yourself. Open it, tap
+  **Request this room** (add a reason if you like) and wait — a manager gets a
+  pop-up to approve. Once approved the room is yours and shows your name.
+- **Managers:** takeover requests pop up on any page — **Approve** gives the room
+  to the person who asked, **Decline** keeps it; **Later** hides the pop-up (you
+  can still answer from the room on the board).
+- Open a room or task, work through the checklist
   (Done / Not done / N/A for every item), then **Submit for inspection**
   (rooms) or **Mark done** (daily tasks).
 - **Photos / videos:** the photo section says **required** or **optional** — your

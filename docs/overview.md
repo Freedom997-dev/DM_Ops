@@ -22,7 +22,7 @@ in, see the services their role allows, and open one.
 | Owner / general manager | Super Admin / Admin | Configure services, staff, roles; read reports; approve work |
 | Front desk / supervisor | Manager | Check rooms out for cleaning, assign housekeepers, review cleaning, run daily checks |
 | Maintenance inspector | Inspector | Quarterly room-condition walk-throughs, mark repairs, review cleaning |
-| Housekeeping staff | Housekeeper | See assigned rooms/tasks, work the checklist, submit photo evidence |
+| Housekeeping staff | Housekeeper | See assigned rooms/tasks, work the checklist, submit photo evidence; request someone else's room (manager approves) |
 
 Roles are data, not code — admins can create custom roles and toggle permissions
 (see [roles-and-permissions.md](roles-and-permissions.md)).

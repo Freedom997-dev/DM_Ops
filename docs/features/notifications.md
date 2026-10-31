@@ -44,6 +44,8 @@ notification for the same entity (chats, daily reminders).
 | `hk.task.rejected` | assignee (else submitter), with the reason | `reviewTask` / `bulkReview` |
 | `hk.task.approved` | assignee (else submitter) | `reviewTask` / `bulkReview` |
 | `hk.rooms.unassigned` | holders of `housekeeping:tasks:manage` | `checkOutRooms` with no assignee |
+| `hk.takeover.requested` | holders of `housekeeping:tasks:manage` | `requestTakeover` |
+| `hk.takeover.decided` | requester (approved / declined) + previous assignee on approval | `decideTakeover` |
 | `account.password.reset` | that user (not mutable) | `resetPassword` (admin) |
 | `msg.direct` | the other person (collapsed per chat) | `sendMessage` |
 | `msg.group` | group members except those who muted the chat (collapsed) | `sendMessage` |

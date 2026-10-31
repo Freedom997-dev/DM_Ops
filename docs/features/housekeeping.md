@@ -55,8 +55,8 @@ open cleaning task (check-out skips busy rooms). `READY_TO_RENT` is shown to use
 | Permission | Allows | Default roles |
 |---|---|---|
 | `housekeeping:board:view` | See the board and its media | Admin, Manager, Inspector, Housekeeper |
-| `housekeeping:tasks:manage` | Check out rooms, create/delete tasks, assign, auto-assign | Admin, Manager |
-| `housekeeping:tasks:submit` | Start, edit checklist, submit room, complete general task | Admin, Manager, Housekeeper |
+| `housekeeping:tasks:manage` | Check out rooms, create/delete tasks, assign, auto-assign, approve/decline takeover requests, work on any task | Admin, Manager |
+| `housekeeping:tasks:submit` | Start, edit checklist, submit room, complete general task — **own or unassigned tasks only** (without `manage`); request a takeover of someone else's | Admin, Manager, Housekeeper |
 | `housekeeping:cleaning:review` | Approve / reject (single + bulk) | Admin, Manager, Inspector |
 | `housekeeping:settings:configure` | Settings page, delete individual photos | Admin |
 
@@ -66,7 +66,22 @@ open cleaning task (check-out skips busy rooms). `READY_TO_RENT` is shown to use
 
 ## Board (`/services/housekeeping`)
 
-- Summary cards: counts per status, plus open daily tasks.
+- Two tabs: **My tasks (n)** (assigned to me) and **All (n)**. Housekeepers —
+  users who can submit cleaning but not assign or inspect — open on **My tasks**;
+  managers and inspectors open on **All**. Both tabs are always available.
+- **Someone else's task (takeover):** a housekeeper can only start, fill the
+  checklist, upload or submit on tasks assigned to them or unassigned (enforced
+  in every work action by `othersTaskError`). On another person's task the panel
+  shows **Request this room** with an optional reason (`requestTakeover`; one
+  open request per task). Managers (`housekeeping:tasks:manage`) get a **popup on
+  any page** (`TakeoverRequestsPopup` in the app layout, polls
+  `GET /api/housekeeping/takeover-requests` every 15 s; **Later** hides it until a
+  new request) and can also answer from the task panel. **Approve** reassigns the
+  task to the requester (`decideTakeover`), so the record shows who really
+  cleaned it; **Decline** keeps it. A manager reassigning by hand cancels open
+  requests. Tiles show "<name> asked to take it" while a request is open.
+- Summary cards: counts per status, plus open daily tasks — **for the selected
+  tab**; tapping a card filters by that status within the tab.
 - Tiles for every open task + anything closed in the last 24 h.
 - Toolbar (managers): **Check out rooms**, **New task**, **Auto-assign**, bulk
   select → assign / approve / reject.
@@ -175,7 +190,8 @@ in a `"use server"` file so it can't be invoked from a browser.
 
 `HousekeepingTask`, `HousekeepingTaskItem`, `HousekeepingPhoto`,
 `HousekeepingSetting` (singleton), `HousekeepingStatusAction`,
-`HousekeepingTaskTemplate`, `HousekeepingChecklistItem`. Details in
+`HousekeepingTaskTemplate`, `HousekeepingChecklistItem`,
+`HousekeepingTakeoverRequest`. Details in
 [data-model.md](../data-model.md#housekeeping-hkt).
 
 ## Seeding
@@ -192,7 +208,9 @@ deploy (`scripts/provision-db.mjs`) and only fills empty tables; run it by hand 
 - `src/lib/jobs/housekeeping-*.ts` — cron bodies.
 - `src/app/(app)/services/housekeeping/page.tsx` — loads tasks/rooms/roster/settings, signs URLs.
 - `src/components/HousekeepingDashboard.tsx` — board, toolbar, modals, polling.
-- `src/components/HkTaskPanel.tsx` — drawer: checklist, actions, timeline.
+- `src/components/HkTaskPanel.tsx` — drawer: checklist, actions, timeline, takeover request / decision box.
+- `src/components/housekeeping/TakeoverRequestsPopup.tsx` — managers' takeover popup (mounted in `src/app/(app)/layout.tsx`).
+- `src/app/api/housekeeping/takeover-requests/route.ts` — open requests for the popup.
 - `src/components/HkMediaPicker.tsx`, `PhotoLightbox.tsx` — capture + viewing.
 - `src/components/HkConfigManager.tsx`, `HousekeepingSettingsForm.tsx` — settings tabs.
 
@@ -223,3 +241,5 @@ zones, long-term photo archive, CSV export, resumable (TUS) uploads for very lar
 - **2026-10-02** · "Ready to Rent" renamed "Cleaned" in the UI; board shows one card per room (old Cleaned card hidden once the room is re-checked-out).
 - **2026-10-09** · Notifications for assignment / inspection / send-back / approval; `?task=` deep link; Comments in the task drawer.
 - **2026-10-09** · Photo/video requirement is an admin setting (rooms / daily tasks); "No photos" label for inspectors.
+- **2026-10-31** · Board tabs **My tasks / All**; housekeepers open on My tasks; summary counts follow the tab.
+- **2026-10-31** · **Takeover requests:** housekeepers can't work on a task assigned to someone else until a manager approves their request (popup for managers); approval reassigns the task.

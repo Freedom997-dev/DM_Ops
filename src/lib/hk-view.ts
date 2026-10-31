@@ -59,6 +59,8 @@ export type HkTaskView = {
   closedAt: string | null;
   photos: HkPhotoView[];
   subtasks: HkSubtask[];
+  /** Open request from another housekeeper to take this task over (manager decides). */
+  takeover: { id: string; byId: string; byName: string } | null;
 };
 
 export type HkRoomOption = {

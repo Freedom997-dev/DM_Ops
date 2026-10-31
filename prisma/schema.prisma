@@ -45,6 +45,8 @@ model User {
   hkSubmitted      HousekeepingTask[]  @relation("HKSubmitted")
   hkReviewed       HousekeepingTask[]  @relation("HKReviewed")
   hkPhotosUploaded HousekeepingPhoto[] @relation("HKPhotoUploaded")
+  hkTakeoverAsked   HousekeepingTakeoverRequest[] @relation("HKTakeoverBy")
+  hkTakeoverDecided HousekeepingTakeoverRequest[] @relation("HKTakeoverDecidedBy")
 
   // PM V2 back-relation
   pmV2InspectionsUpdated PmV2Inspection[] @relation("PmV2InspUpdated")
@@ -386,8 +388,9 @@ model HousekeepingTask {
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 
-  photos HousekeepingPhoto[]
-  items  HousekeepingTaskItem[]
+  photos    HousekeepingPhoto[]
+  items     HousekeepingTaskItem[]
+  takeovers HousekeepingTakeoverRequest[]
 
   @@index([roomId])
   @@index([status])
@@ -409,6 +412,27 @@ model HousekeepingPhoto {
 
   @@index([taskId])
   @@index([createdAt]) // for the retention sweep
+}
+
+// A housekeeper asking for a task assigned to someone else. Work on another
+// person's task is blocked until a manager approves, which reassigns it — so the
+// record always shows who actually cleaned the room.
+model HousekeepingTakeoverRequest {
+  id            String           @id @default(cuid())
+  taskId        String
+  task          HousekeepingTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  requestedById String
+  requestedBy   User             @relation("HKTakeoverBy", fields: [requestedById], references: [id])
+  fromUserId    String? // assignee when asked (snapshot; no relation needed)
+  note          String?
+  status        String           @default("PENDING") // PENDING | APPROVED | REJECTED | CANCELLED
+  decidedById   String?
+  decidedBy     User?            @relation("HKTakeoverDecidedBy", fields: [decidedById], references: [id])
+  decidedAt     DateTime?
+  createdAt     DateTime         @default(now())
+
+  @@index([status])
+  @@index([taskId])
 }
 
 model HousekeepingSetting {

@@ -43,6 +43,11 @@ export default async function HousekeepingPage({
         reviewedBy: { select: { name: true } },
         photos: { select: { id: true, storagePath: true, mediaType: true, createdAt: true } },
         items: { orderBy: { order: "asc" }, select: { id: true, label: true, status: true, note: true } },
+        takeovers: {
+          where: { status: "PENDING" },
+          take: 1,
+          select: { id: true, requestedById: true, requestedBy: { select: { name: true } } },
+        },
       },
     }),
     prisma.room.findMany({
@@ -130,6 +135,9 @@ export default async function HousekeepingPage({
         status: it.status as "PENDING" | "DONE" | "NOT_DONE" | "NA",
         note: it.note,
       })),
+      takeover: t.takeovers[0]
+        ? { id: t.takeovers[0].id, byId: t.takeovers[0].requestedById, byName: t.takeovers[0].requestedBy.name }
+        : null,
     })),
   );
 

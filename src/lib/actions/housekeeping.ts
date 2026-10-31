@@ -73,6 +73,18 @@ async function labelsFor(taskIds: string[]): Promise<TaskLabel[]> {
   });
 }
 
+// --- Who may work on a task -------------------------------------------------
+// A housekeeper works only on their own or unassigned tasks; someone else's
+// needs a takeover request approved by a manager (requestTakeover below), so
+// the record shows who really did the work. Managers aren't restricted.
+type SessionUser = Awaited<ReturnType<typeof requireUser>>;
+
+function othersTaskError(user: SessionUser, task: { assignedHousekeeperId: string | null }): string | null {
+  if (can(user, "housekeeping:tasks:manage")) return null;
+  if (!task.assignedHousekeeperId || task.assignedHousekeeperId === user.id) return null;
+  return "This is assigned to another housekeeper. Request it first — a manager approves.";
+}
+
 // ===========================================================================
 // Creation — check out rooms (room-clean tasks) + general daily tasks
 // ===========================================================================
@@ -275,6 +287,11 @@ export async function assignTasks(
     if (!hk) return { ok: false, error: "That person isn't on the housekeeper roster." };
   }
 
+  // A manager reassigning by hand answers any open takeover request.
+  await prisma.housekeepingTakeoverRequest.updateMany({
+    where: { taskId: { in: taskIds }, status: "PENDING" },
+    data: { status: "CANCELLED", decidedById: user.id, decidedAt: new Date() },
+  });
   await prisma.housekeepingTask.updateMany({
     where: { id: { in: taskIds } },
     data: {
@@ -395,6 +412,8 @@ export async function startTask(taskId: string): Promise<Result> {
   if (task.status !== "READY_TO_CLEAN" && task.status !== "TODO") {
     return { ok: false, error: "This task can't be started." };
   }
+  const blocked = othersTaskError(user, task);
+  if (blocked) return { ok: false, error: blocked };
 
   // Optimistic lock: only transition if the status is still what we read.
   const started = await prisma.housekeepingTask.updateMany({
@@ -422,6 +441,137 @@ export async function startTask(taskId: string): Promise<Result> {
   return { ok: true };
 }
 
+// --- Takeover: a housekeeper asks for someone else's task; a manager decides ---
+const TAKEOVER_OPEN = ["READY_TO_CLEAN", "IN_PROGRESS", "TODO"];
+
+export async function requestTakeover(taskId: string, note?: string): Promise<Result> {
+  const user = await requireUser();
+  if (!can(user, "housekeeping:tasks:submit")) return { ok: false, error: "Not allowed." };
+
+  const task = await prisma.housekeepingTask.findUnique({
+    where: { id: taskId },
+    select: {
+      id: true, kind: true, title: true, status: true, assignedHousekeeperId: true,
+      room: { select: { number: true } },
+      assignedHousekeeper: { select: { name: true } },
+    },
+  });
+  if (!task) return { ok: false, error: "Task not found." };
+  if (!TAKEOVER_OPEN.includes(task.status)) return { ok: false, error: "This task is no longer open." };
+  if (!task.assignedHousekeeperId || task.assignedHousekeeperId === user.id) {
+    return { ok: false, error: "You can already work on this — no request needed." };
+  }
+
+  // One open request per task, so managers see a single clear decision.
+  const pending = await prisma.housekeepingTakeoverRequest.findFirst({
+    where: { taskId, status: "PENDING" },
+    select: { requestedById: true, requestedBy: { select: { name: true } } },
+  });
+  if (pending) {
+    return {
+      ok: false,
+      error: pending.requestedById === user.id
+        ? "You already asked — waiting for a manager."
+        : `${pending.requestedBy.name} already asked for this one.`,
+    };
+  }
+
+  const reason = note?.trim().slice(0, 300) || null;
+  const req = await prisma.housekeepingTakeoverRequest.create({
+    data: { taskId, requestedById: user.id, fromUserId: task.assignedHousekeeperId, note: reason },
+  });
+  await logAudit({
+    userId: user.id, action: "CREATE", entity: "HousekeepingTakeoverRequest", entityId: req.id,
+    details: { taskId, roomNumber: task.room?.number ?? null, from: task.assignedHousekeeperId },
+  });
+  await notify({
+    type: "hk.takeover.requested",
+    actorId: user.id,
+    title: `${user.name} asks to take ${taskName(task)}`,
+    body: `Assigned to ${task.assignedHousekeeper?.name ?? "someone else"}${reason ? ` · "${reason}"` : ""}`,
+    href: hkHref(taskId),
+    entityType: "HousekeepingTask",
+    entityId: taskId,
+  });
+
+  refresh();
+  return { ok: true };
+}
+
+export async function decideTakeover(requestId: string, outcome: "APPROVE" | "REJECT"): Promise<Result> {
+  const user = await requireUser();
+  if (!can(user, "housekeeping:tasks:manage")) return { ok: false, error: "Not allowed." };
+
+  const req = await prisma.housekeepingTakeoverRequest.findUnique({
+    where: { id: requestId },
+    include: {
+      requestedBy: { select: { id: true, name: true, active: true } },
+      task: {
+        select: { id: true, kind: true, title: true, status: true, assignedHousekeeperId: true, room: { select: { number: true } } },
+      },
+    },
+  });
+  if (!req) return { ok: false, error: "Request not found." };
+  if (req.status !== "PENDING") return { ok: false, error: "This request was already answered." };
+
+  const name = taskName(req.task);
+  const close = (status: string) =>
+    prisma.housekeepingTakeoverRequest.updateMany({
+      where: { id: requestId, status: "PENDING" },
+      data: { status, decidedById: user.id, decidedAt: new Date() },
+    });
+  const tell = (userId: string, title: string, body: string) =>
+    notify({
+      type: "hk.takeover.decided", actorId: user.id, userIds: [userId], title, body,
+      href: hkHref(req.taskId), entityType: "HousekeepingTask", entityId: req.taskId,
+    });
+
+  if (outcome === "REJECT") {
+    if ((await close("REJECTED")).count === 0) return { ok: false, error: "This request was already answered." };
+    await logAudit({
+      userId: user.id, action: "UPDATE", entity: "HousekeepingTakeoverRequest", entityId: requestId,
+      details: { outcome: "REJECTED", taskId: req.taskId },
+    });
+    await tell(req.requestedById, `Request for ${name} declined`, `${user.name} kept it with the assigned housekeeper.`);
+    refresh();
+    return { ok: true };
+  }
+
+  if (!TAKEOVER_OPEN.includes(req.task.status) || !req.requestedBy.active) {
+    await close("CANCELLED");
+    refresh();
+    return { ok: false, error: `${name} has moved on — request closed.` };
+  }
+  const previous = req.task.assignedHousekeeperId;
+  try {
+    await prisma.$transaction(async (tx) => {
+      const closed = await tx.housekeepingTakeoverRequest.updateMany({
+        where: { id: requestId, status: "PENDING" },
+        data: { status: "APPROVED", decidedById: user.id, decidedAt: new Date() },
+      });
+      if (closed.count === 0) throw new Error("This request was already answered.");
+      const moved = await tx.housekeepingTask.updateMany({
+        where: { id: req.taskId, status: { in: TAKEOVER_OPEN } },
+        data: { assignedHousekeeperId: req.requestedById, assignedById: user.id, assignedAt: new Date() },
+      });
+      if (moved.count === 0) throw new Error(`${name} just changed — refresh and try again.`);
+    });
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Could not approve." };
+  }
+  await logAudit({
+    userId: user.id, action: "UPDATE", entity: "HousekeepingTakeoverRequest", entityId: requestId,
+    details: { outcome: "APPROVED", taskId: req.taskId, from: previous, to: req.requestedById },
+  });
+  await tell(req.requestedById, `You can take ${name}`, `${user.name} approved your request.`);
+  if (previous && previous !== req.requestedById) {
+    await tell(previous, `${name} moved to ${req.requestedBy.name}`, `Reassigned by ${user.name}.`);
+  }
+
+  refresh();
+  return { ok: true };
+}
+
 // --- Direct uploads: issue signed upload URLs for a task's photos/videos ---
 // Media goes browser -> storage (Vercel caps function bodies at ~4.5 MB). The
 // browser asks for one URL per file, uploads, then sends only the returned
@@ -441,9 +591,11 @@ export async function requestHkMediaUploads(
 
   const task = await prisma.housekeepingTask.findUnique({
     where: { id: taskId },
-    select: { kind: true, status: true, room: { select: { number: true } } },
+    select: { kind: true, status: true, assignedHousekeeperId: true, room: { select: { number: true } } },
   });
   if (!task) return { ok: false, error: "Task not found." };
+  const blocked = othersTaskError(user, task);
+  if (blocked) return { ok: false, error: blocked };
   const open = task.kind === "ROOM_CLEANING"
     ? task.status === "READY_TO_CLEAN" || task.status === "IN_PROGRESS"
     : task.status === "TODO" || task.status === "IN_PROGRESS";
@@ -491,6 +643,8 @@ export async function submitForInspection(form: FormData): Promise<Result> {
   if (task.status !== "READY_TO_CLEAN" && task.status !== "IN_PROGRESS") {
     return { ok: false, error: "This room is not being cleaned." };
   }
+  const blocked = othersTaskError(user, task);
+  if (blocked) return { ok: false, error: blocked };
 
   // Quality gate: every checklist item must be resolved (Done or N/A) before a
   // room can be sent for inspection — an unresolved list makes the checklist
@@ -567,6 +721,8 @@ export async function completeGeneralTask(form: FormData): Promise<Result> {
   if (task.status !== "TODO" && task.status !== "IN_PROGRESS") {
     return { ok: false, error: "This task is already done." };
   }
+  const blocked = othersTaskError(user, task);
+  if (blocked) return { ok: false, error: blocked };
 
   const media = await collectUploadedMedia(form, taskId);
   if (!media.ok) return { ok: false, error: media.error };
@@ -896,9 +1052,11 @@ export async function saveTaskItems(
   // Checklist is only editable while the task is actively being worked — not on
   // a closed (Ready-to-Rent / Done) or under-inspection task (F4).
   const parent = await prisma.housekeepingTask.findUnique({
-    where: { id: taskId }, select: { status: true },
+    where: { id: taskId }, select: { status: true, assignedHousekeeperId: true },
   });
   if (!parent) return { ok: false, error: "Task not found." };
+  const blocked = othersTaskError(user, parent);
+  if (blocked) return { ok: false, error: blocked };
   if (!["READY_TO_CLEAN", "IN_PROGRESS", "TODO"].includes(parent.status)) {
     return { ok: false, error: "This checklist can no longer be edited." };
   }

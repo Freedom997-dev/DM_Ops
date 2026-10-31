@@ -16,7 +16,9 @@ import {
   checkOutRooms, createGeneralTask, assignTasks, autoAssign, bulkReview,
 } from "@/lib/actions/housekeeping";
 
-type Filter = "all" | HkStatus | "general" | "mine";
+type Filter = "all" | HkStatus | "general";
+// Which tasks the board shows; the summary cards filter by status within it.
+type Scope = "all" | "mine";
 
 const POLL_MS = 12_000;
 
@@ -55,6 +57,10 @@ export function HousekeepingDashboard({
   currentUserId: string;
 }) {
   const router = useRouter();
+  // Housekeepers (can clean, but don't assign or inspect) open on their own
+  // tasks; managers and inspectors open on the whole board. Both tabs stay available.
+  const isHousekeeper = caps.submit && !caps.manage && !caps.review;
+  const [scope, setScope] = useState<Scope>(isHousekeeper ? "mine" : "all");
   const [filter, setFilter] = useState<Filter>("all");
   const [openId, setOpenId] = useState<string | null>(initialOpenId ?? null);
   // A notification link while already on the board (?task= changes) opens that task too.
@@ -72,26 +78,28 @@ export function HousekeepingDashboard({
     return () => clearInterval(t);
   }, [openId, modal, busy, router]);
 
+  const myTasks = useMemo(() => tasks.filter((t) => t.assignedTo?.id === currentUserId), [tasks, currentUserId]);
+  const scoped = scope === "mine" ? myTasks : tasks;
+
+  // Summary counts follow the selected tab (a housekeeper sees their own numbers).
   const counts = useMemo(() => {
     const c: Record<string, number> = {
       READY_TO_CLEAN: 0, IN_PROGRESS: 0, READY_FOR_INSPECTION: 0, READY_TO_RENT: 0, general: 0,
     };
-    for (const t of tasks) {
+    for (const t of scoped) {
       if (t.status in c) c[t.status]++;
       // Count only open daily tasks, matching the four status cards which all
       // count open work (not completed) (F7).
       if (t.kind === "GENERAL" && t.status !== "DONE") c.general++;
     }
     return c;
-  }, [tasks]);
+  }, [scoped]);
 
   const visible = useMemo(() => {
-    let list = tasks;
-    if (filter === "mine") list = list.filter((t) => t.assignedTo?.id === currentUserId);
-    else if (filter === "general") list = list.filter((t) => t.kind === "GENERAL");
-    else if (filter !== "all") list = list.filter((t) => t.status === filter);
-    return list;
-  }, [tasks, filter, currentUserId]);
+    if (filter === "general") return scoped.filter((t) => t.kind === "GENERAL");
+    if (filter !== "all") return scoped.filter((t) => t.status === filter);
+    return scoped;
+  }, [scoped, filter]);
 
   const openTask = openId ? tasks.find((t) => t.id === openId) ?? null : null;
 
@@ -166,12 +174,12 @@ export function HousekeepingDashboard({
 
       {/* ---- Filter chips ---- */}
       <div className="flex flex-wrap items-center gap-2">
-        <Chip active={filter === "all"} onClick={() => setFilter("all")}>All ({tasks.length})</Chip>
         {caps.submit && (
-          <Chip active={filter === "mine"} onClick={() => setFilter(filter === "mine" ? "all" : "mine")}>
-            <Users className="mr-1 inline h-3.5 w-3.5" /> My tasks
+          <Chip active={scope === "mine"} onClick={() => { setScope("mine"); setFilter("all"); }}>
+            <Users className="mr-1 inline h-3.5 w-3.5" /> My tasks ({myTasks.length})
           </Chip>
         )}
+        <Chip active={scope === "all"} onClick={() => { setScope("all"); setFilter("all"); }}>All ({tasks.length})</Chip>
         {caps.review && counts.READY_FOR_INSPECTION > 0 && selected.size > 0 && (
           <div className="ml-auto flex gap-2">
             <button onClick={() => run(() => bulkReview(selectedList, "APPROVE"))} disabled={busy} className="btn-primary !py-1.5">
@@ -185,8 +193,15 @@ export function HousekeepingDashboard({
       {visible.length === 0 ? (
         <div className="card flex flex-col items-center justify-center gap-2 p-12 text-center">
           <Sparkles className="h-9 w-9 text-slate-300" />
-          <p className="text-slate-600">Nothing here.</p>
-          {caps.manage && filter === "all" && (
+          <p className="text-slate-600">
+            {scope === "mine" && filter === "all" ? "Nothing assigned to you right now." : "Nothing here."}
+          </p>
+          {scope === "mine" && (
+            <button type="button" onClick={() => { setScope("all"); setFilter("all"); }} className="text-sm font-semibold text-brand-600 hover:underline">
+              See all tasks
+            </button>
+          )}
+          {caps.manage && scope === "all" && filter === "all" && (
             <p className="text-sm text-slate-400">Check out rooms or create a task to get started.</p>
           )}
         </div>
@@ -311,6 +326,11 @@ function TaskTile({
           {task.recurring && (
             <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
               Repeats daily
+            </span>
+          )}
+          {task.takeover && (
+            <span className="rounded-full bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-700">
+              {task.takeover.byName.split(" ")[0]} asked to take it
             </span>
           )}
         </div>

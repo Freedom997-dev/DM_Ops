@@ -18,6 +18,7 @@ type AuditInput = {
     | "HousekeepingTask"
     | "HousekeepingPhoto"
     | "HousekeepingSetting"
+    | "HousekeepingTakeoverRequest"
     | "Role"
     | "UserRole"
     | "PmV2Setting"

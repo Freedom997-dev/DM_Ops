@@ -91,6 +91,11 @@ label/description), so production may differ — check `/settings/access` for tr
 ✱ = wildcard bypass. All five are `isSystem` (cannot be deleted). Custom roles can
 be created by holders of `admin:roles:add` (Super Admin by default).
 
+Housekeeping: `housekeeping:tasks:submit` alone covers only the user's **own or
+unassigned** tasks; someone else's needs a takeover request approved by a holder of
+`housekeeping:tasks:manage` (who can also work on any task). No new permission keys —
+see [features/housekeeping.md](features/housekeeping.md#board-serviceshousekeeping).
+
 > **Production note:** PM V2 permissions were added to the catalog after the
 > production roles were seeded. If Admins/Inspectors can't see Room Condition V2,
 > grant the `pmv2:*` keys in Settings → Roles & permissions.

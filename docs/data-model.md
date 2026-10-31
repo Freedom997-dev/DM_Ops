@@ -19,7 +19,8 @@ application code and listed below.
  │ PM V1                 │ Workflows                     │ Housekeeping         │ PM V2
  │ Section─Question      │ WorkflowDefinition─Item       │ HousekeepingTask     │ PmV2Checklist─Section─Item
  │ Inspection─Item─Image │ Submission─Row─RowImage       │  ├ TaskItem          │ PmV2Area ─(opt)→ Room
- │        │              │          └Cell                │  └ Photo             │ PmV2Inspection─Result
+ │        │              │          └Cell                │  ├ Photo             │ PmV2Inspection─Result
+ │        │              │                               │  └ TakeoverRequest   │
  │        └──── Room ◄───┴──────────── Room ◄────────────┴── Room               │ PmV2Setting (singleton)
  │                                                         Setting (singleton)  │
  │                                                         StatusAction         │
@@ -214,6 +215,13 @@ Task media (images **and** videos — table name kept for stability). `mediaType
 Kept until a manager deletes it (single photo or whole task) — never auto-deleted
 since 2026-10-02, so it stays in the room history. `createdAt` also separates a
 sent-back submission's media from the latest one in the task panel.
+
+### HousekeepingTakeoverRequest
+A housekeeper asking for a task assigned to someone else. `taskId` (cascade),
+`requestedById`, `fromUserId?` (assignee when asked, snapshot), `note?`,
+`status` = `PENDING | APPROVED | REJECTED | CANCELLED`, `decidedById?`,
+`decidedAt?`. At most one `PENDING` per task (enforced in `requestTakeover`).
+Approval reassigns the task to the requester.
 
 ### HousekeepingSetting (singleton, `id = "singleton"`)
 `instructions?`; `requireRoomMedia` (default true) and `requireTaskMedia` (default

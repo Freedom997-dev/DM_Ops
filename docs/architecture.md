@@ -182,7 +182,8 @@ The Housekeeping board calls `router.refresh()` every 12 s (paused while a drawe
 or modal is open or an action is running). The header bell polls
 `/api/notifications` every 30 s (and on tab focus) and re-broadcasts the unread-chat
 count to the Messages icon (`dmo:counts` window event); an open chat or comment
-thread polls every 5 s. PM V2 auto-saves each tap and revalidates. No websockets
+thread polls every 5 s. Managers' takeover popup polls
+`/api/housekeeping/takeover-requests` every 15 s. PM V2 auto-saves each tap and revalidates. No websockets
 or Supabase Realtime.
 
 ### 11. Events → `notify()`

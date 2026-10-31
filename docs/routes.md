@@ -63,6 +63,7 @@ workflow must never use those slugs.
 | `/api/local-images/[...path]` | GET | Dev-only file server for the FS storage driver; **404 when Supabase is configured** | `housekeeping:board:view` for `housekeeping/*`, else `pm:inspections:view`; 404 on deny |
 | `/api/cron/housekeeping-daily-reset` | GET | Reset recurring GENERAL tasks to TODO/unassigned; Daily Cleanliness missed / issue summary for yesterday; delete notifications older than 90 days | `Bearer CRON_SECRET` (401 otherwise) |
 | `/api/notifications` | GET | `{ unread, messagesUnread }` for the header; `?list=1` adds the latest 20 | signed in (401 otherwise) |
+| `/api/housekeeping/takeover-requests` | GET | `{ requests }` — open takeover requests on still-open tasks (managers' popup, polled every 15 s) | signed in (401); empty list without `housekeeping:tasks:manage` |
 | `/api/messages/[id]` | GET | Messages of a conversation; `?after=<ISO>` for new ones (polled every 5 s) | `canAccess` (404 otherwise) |
 | `/api/messages/thread` | GET | Comments for `?type=HK_TASK\|ROOM&id=` (+ `after`) | board viewers / managers |
 | `/api/cron/daily-reminders` | GET | Daily Cleanliness "not started" reminder | `Bearer CRON_SECRET` |
@@ -94,9 +95,11 @@ All are `"use server"`. Each re-checks auth itself. Return shape is
 | `checkOutRooms(roomIds, assignee?, reason?)` | `housekeeping:tasks:manage` | Creates READY_TO_CLEAN tasks; skips busy rooms; snapshots room checklist |
 | `createGeneralTask({title, assignee?, templateId?, recurring?…})` | manage | Snapshots the template's checklist |
 | `deleteHousekeepingTask` | manage | Deletes media then row |
-| `assignTasks(ids, hkId\|null)` | manage | Assignee must be an active HOUSEKEEPER |
+| `assignTasks(ids, hkId\|null)` | manage | Assignee must be an active HOUSEKEEPER; cancels open takeover requests on those tasks |
 | `autoAssign(ids?)` | manage | Balanced least-loaded distribution |
-| `startTask` | `housekeeping:tasks:submit` | → IN_PROGRESS; self-assigns if unassigned |
+| `requestTakeover(taskId, note?)` | submit | Someone else's open task only; one PENDING request per task; notifies managers |
+| `decideTakeover(requestId, APPROVE\|REJECT)` | manage | Approve reassigns the task to the requester (closed/inactive → request CANCELLED); notifies requester + previous assignee |
+| `startTask` | `housekeeping:tasks:submit` | → IN_PROGRESS; self-assigns if unassigned. Start, checklist, uploads, submit and complete refuse **another housekeeper's** task unless the user has `manage` |
 | `saveTaskItems(taskId, items)` | submit | Only while READY_TO_CLEAN / IN_PROGRESS / TODO |
 | `submitForInspection(FormData)` | submit | Requires all items DONE/NA + ≥1 media; → READY_FOR_INSPECTION |
 | `completeGeneralTask(FormData)` | submit | → DONE; media optional |
