@@ -7,6 +7,10 @@ prefixed with the version it shipped in once the version is bumped.
 > Everything from 2026-10-08 onwards is live but still reports **v4.8.0** — the
 > version wasn't bumped (known-issues VER-1). Next release: v4.9.0.
 
+## 2026-11 — Housekeeping board sorting
+
+- **2026-11-09** · Housekeeping board: **Sort** by room number, status or latest activity with an **Ascending / Descending** toggle, and **By housekeeper** grouping (one section per housekeeper, Unassigned last). Remembered per device.
+
 ## 2026-10 — Housekeeping board tabs
 
 - **2026-10-31** · Housekeeping board: **My tasks / All** tabs; housekeepers open on **My tasks** (their assigned rooms and tasks, with their own counts); managers and inspectors open on All.

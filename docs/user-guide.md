@@ -62,6 +62,10 @@ page, which does the same in one tap.
 
 - The board opens on **My tasks** — only the rooms and daily tasks assigned to
   you, with your own counts. Tap **All** to see the whole team's board.
+- **Sort** the board by room number, status or latest activity, and tap
+  **Ascending / Descending** to flip the order. On **All**, tap **By housekeeper**
+  to see each housekeeper's rooms in their own section (Unassigned at the end).
+  Your choice is remembered on that phone or computer.
 - **A room assigned to someone else?** You can't start it yourself. Open it, tap
   **Request this room** (add a reason if you like) and wait — a manager gets a
   pop-up to approve. Once approved the room is yours and shows your name.

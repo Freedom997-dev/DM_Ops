@@ -7,6 +7,7 @@ import clsx from "clsx";
 import {
   BedDouble, Sparkles, DoorOpen, Plus, Wand2, UserPlus, X, Loader2,
   CheckCircle2, Clock3, ClipboardCheck, ShieldCheck, Users, Check, History, CameraOff,
+  ArrowUpNarrowWide, ArrowDownWideNarrow,
 } from "lucide-react";
 import { HK_STATUS_META, taskLabel, type HkStatus } from "@/lib/housekeeping";
 import { submittedWithoutMedia } from "@/lib/hk-view";
@@ -17,6 +18,77 @@ import {
 } from "@/lib/actions/housekeeping";
 
 type Filter = "all" | HkStatus | "general";
+
+// --- Board order: sort + optional grouping by housekeeper --------------------
+type SortKey = "room" | "status" | "activity";
+type SortDir = "asc" | "desc";
+type BoardView = { sort: SortKey; dir: SortDir; byHousekeeper: boolean };
+const DEFAULT_VIEW: BoardView = { sort: "room", dir: "asc", byHousekeeper: false };
+const VIEW_KEY = "dmo:hk-board-view";
+const SORT_LABEL: Record<SortKey, string> = { room: "Room no.", status: "Status", activity: "Latest activity" };
+
+// Workflow order: waiting → being cleaned → waiting for inspection → finished.
+const STATUS_RANK: Record<string, number> = {
+  READY_TO_CLEAN: 0, TODO: 0, IN_PROGRESS: 1, READY_FOR_INSPECTION: 2, READY_TO_RENT: 3, DONE: 3,
+};
+
+// Rooms in natural number order (101, 102 … 1001), then daily tasks by title.
+function byRoom(a: HkTaskView, b: HkTaskView): number {
+  if (a.roomNumber && b.roomNumber) return a.roomNumber.localeCompare(b.roomNumber, undefined, { numeric: true });
+  if (a.roomNumber || b.roomNumber) return a.roomNumber ? -1 : 1;
+  return (a.title ?? "").localeCompare(b.title ?? "");
+}
+
+function lastActivity(t: HkTaskView): number {
+  return Math.max(
+    ...[t.createdAt, t.assignedAt, t.startedAt, t.submittedAt, t.reviewedAt, t.closedAt]
+      .filter((d): d is string => !!d)
+      .map((d) => new Date(d).getTime()),
+  );
+}
+
+function sortTasks(list: HkTaskView[], sort: SortKey, dir: SortDir): HkTaskView[] {
+  const sign = dir === "asc" ? 1 : -1;
+  return [...list].sort((a, b) => {
+    // Rooms always come before daily tasks, whichever direction is chosen.
+    if (sort === "room" && !a.roomNumber !== !b.roomNumber) return a.roomNumber ? -1 : 1;
+    const primary =
+      sort === "status" ? (STATUS_RANK[a.status] ?? 9) - (STATUS_RANK[b.status] ?? 9)
+      : sort === "activity" ? lastActivity(a) - lastActivity(b)
+      : byRoom(a, b);
+    // Ties (same status / same time) always fall back to room order, ascending.
+    return primary !== 0 ? primary * sign : byRoom(a, b);
+  });
+}
+
+type Group = { key: string; name: string; tasks: HkTaskView[] };
+
+// One section per housekeeper (A–Z), Unassigned last.
+function groupByHousekeeper(list: HkTaskView[]): Group[] {
+  const groups = new Map<string, Group>();
+  for (const t of list) {
+    const key = t.assignedTo?.id ?? "";
+    if (!groups.has(key)) groups.set(key, { key, name: t.assignedTo?.name ?? "Unassigned", tasks: [] });
+    groups.get(key)!.tasks.push(t);
+  }
+  return [...groups.values()].sort((a, b) =>
+    !a.key ? 1 : !b.key ? -1 : a.name.localeCompare(b.name),
+  );
+}
+
+function readView(): BoardView {
+  try {
+    const v = JSON.parse(localStorage.getItem(VIEW_KEY) ?? "null") as Partial<BoardView> | null;
+    if (!v) return DEFAULT_VIEW;
+    return {
+      sort: v.sort && v.sort in SORT_LABEL ? v.sort : DEFAULT_VIEW.sort,
+      dir: v.dir === "desc" ? "desc" : "asc",
+      byHousekeeper: !!v.byHousekeeper,
+    };
+  } catch {
+    return DEFAULT_VIEW;
+  }
+}
 // Which tasks the board shows; the summary cards filter by status within it.
 type Scope = "all" | "mine";
 
@@ -95,11 +167,32 @@ export function HousekeepingDashboard({
     return c;
   }, [scoped]);
 
+  // Sort / group choice is remembered on this device only.
+  const [view, setViewState] = useState<BoardView>(DEFAULT_VIEW);
+  useEffect(() => setViewState(readView()), []);
+  function setView(patch: Partial<BoardView>) {
+    setViewState((cur) => {
+      const next = { ...cur, ...patch };
+      try {
+        localStorage.setItem(VIEW_KEY, JSON.stringify(next));
+      } catch {
+        // storage blocked — the choice just isn't remembered
+      }
+      return next;
+    });
+  }
+
   const visible = useMemo(() => {
-    if (filter === "general") return scoped.filter((t) => t.kind === "GENERAL");
-    if (filter !== "all") return scoped.filter((t) => t.status === filter);
-    return scoped;
-  }, [scoped, filter]);
+    const list =
+      filter === "general" ? scoped.filter((t) => t.kind === "GENERAL")
+      : filter !== "all" ? scoped.filter((t) => t.status === filter)
+      : scoped;
+    return sortTasks(list, view.sort, view.dir);
+  }, [scoped, filter, view.sort, view.dir]);
+
+  // "My tasks" is a single person already, so grouping only applies to All.
+  const grouped = view.byHousekeeper && scope === "all";
+  const groups = useMemo(() => (grouped ? groupByHousekeeper(visible) : null), [grouped, visible]);
 
   const openTask = openId ? tasks.find((t) => t.id === openId) ?? null : null;
 
@@ -180,6 +273,38 @@ export function HousekeepingDashboard({
           </Chip>
         )}
         <Chip active={scope === "all"} onClick={() => { setScope("all"); setFilter("all"); }}>All ({tasks.length})</Chip>
+
+        {/* Sort + group */}
+        <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+          <label className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500">
+            Sort
+            <select
+              value={view.sort}
+              onChange={(e) => setView({ sort: e.target.value as SortKey })}
+              className="rounded-full border border-slate-200 bg-white py-1 pl-3 pr-7 text-xs font-semibold text-slate-700"
+              aria-label="Sort by"
+            >
+              {(Object.keys(SORT_LABEL) as SortKey[]).map((k) => (
+                <option key={k} value={k}>{SORT_LABEL[k]}</option>
+              ))}
+            </select>
+          </label>
+          <button
+            type="button"
+            onClick={() => setView({ dir: view.dir === "asc" ? "desc" : "asc" })}
+            className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+            title={view.dir === "asc" ? "Ascending — tap for descending" : "Descending — tap for ascending"}
+          >
+            {view.dir === "asc" ? <ArrowUpNarrowWide className="h-3.5 w-3.5" /> : <ArrowDownWideNarrow className="h-3.5 w-3.5" />}
+            {view.dir === "asc" ? "Ascending" : "Descending"}
+          </button>
+          {scope === "all" && (
+            <Chip active={view.byHousekeeper} onClick={() => setView({ byHousekeeper: !view.byHousekeeper })}>
+              <Users className="mr-1 inline h-3.5 w-3.5" /> By housekeeper
+            </Chip>
+          )}
+        </div>
+
         {caps.review && counts.READY_FOR_INSPECTION > 0 && selected.size > 0 && (
           <div className="ml-auto flex gap-2">
             <button onClick={() => run(() => bulkReview(selectedList, "APPROVE"))} disabled={busy} className="btn-primary !py-1.5">
@@ -205,19 +330,20 @@ export function HousekeepingDashboard({
             <p className="text-sm text-slate-400">Check out rooms or create a task to get started.</p>
           )}
         </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {visible.map((t) => (
-            <TaskTile
-              key={t.id}
-              task={t}
-              caps={caps}
-              selected={selected.has(t.id)}
-              onSelect={() => toggleSel(t.id)}
-              onOpen={() => setOpenId(t.id)}
-            />
+      ) : groups ? (
+        <div className="space-y-6">
+          {groups.map((g) => (
+            <section key={g.key || "unassigned"} className="space-y-2">
+              <GroupHeader group={g} />
+              <TileGrid
+                tasks={g.tasks} caps={caps} selected={selected}
+                onSelect={toggleSel} onOpen={setOpenId}
+              />
+            </section>
           ))}
         </div>
+      ) : (
+        <TileGrid tasks={visible} caps={caps} selected={selected} onSelect={toggleSel} onOpen={setOpenId} />
       )}
 
       {/* ---- Drawer: task detail + actions + timeline ---- */}
@@ -404,6 +530,57 @@ function Drawer({
 // ===========================================================================
 // Small pieces
 // ===========================================================================
+function TileGrid({
+  tasks, caps, selected, onSelect, onOpen,
+}: {
+  tasks: HkTaskView[];
+  caps: HkCaps;
+  selected: Set<string>;
+  onSelect: (id: string) => void;
+  onOpen: (id: string) => void;
+}) {
+  return (
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      {tasks.map((t) => (
+        <TaskTile
+          key={t.id}
+          task={t}
+          caps={caps}
+          selected={selected.has(t.id)}
+          onSelect={() => onSelect(t.id)}
+          onOpen={() => onOpen(t.id)}
+        />
+      ))}
+    </div>
+  );
+}
+
+// Section header for "By housekeeper": name, total, and a count per status.
+function GroupHeader({ group }: { group: Group }) {
+  const perStatus = new Map<HkStatus, number>();
+  for (const t of group.tasks) perStatus.set(t.status, (perStatus.get(t.status) ?? 0) + 1);
+  return (
+    <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-2">
+      <span className={clsx(
+        "flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold",
+        group.key ? "bg-brand-100 text-brand-700" : "bg-slate-100 text-slate-500",
+      )}>
+        {group.key ? initials(group.name) : "?"}
+      </span>
+      <h3 className="font-bold text-slate-900">{group.name}</h3>
+      <span className="text-sm text-slate-500">({group.tasks.length})</span>
+      <div className="flex flex-wrap gap-1.5">
+        {[...perStatus].map(([status, n]) => (
+          <span key={status} className={clsx("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold", HK_STATUS_META[status].chip)}>
+            <span className={clsx("h-1.5 w-1.5 rounded-full", HK_STATUS_META[status].dot)} />
+            {n} {HK_STATUS_META[status].short}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Chip({
   active, onClick, children,
 }: {

@@ -69,6 +69,14 @@ open cleaning task (check-out skips busy rooms). `READY_TO_RENT` is shown to use
 - Two tabs: **My tasks (n)** (assigned to me) and **All (n)**. Housekeepers —
   users who can submit cleaning but not assign or inspect — open on **My tasks**;
   managers and inspectors open on **All**. Both tabs are always available.
+- **Sort & group** (beside the tabs): **Sort** by Room no. (natural order:
+  101, 102 … 1001; daily tasks after rooms), Status (To Clean/To Do → In
+  Progress → Inspect → Cleaned/Done) or Latest activity, with an
+  **Ascending / Descending** toggle; ties fall back to room order. **By
+  housekeeper** (All tab only) splits the board into one section per
+  housekeeper (A–Z, Unassigned last), each headed by name, count and per-status
+  counts. Default Room no. ascending; the choice is remembered per device
+  (`localStorage` key `dmo:hk-board-view`). Client-side only.
 - **Someone else's task (takeover):** a housekeeper can only start, fill the
   checklist, upload or submit on tasks assigned to them or unassigned (enforced
   in every work action by `othersTaskError`). On another person's task the panel
@@ -242,4 +250,5 @@ zones, long-term photo archive, CSV export, resumable (TUS) uploads for very lar
 - **2026-10-09** · Notifications for assignment / inspection / send-back / approval; `?task=` deep link; Comments in the task drawer.
 - **2026-10-09** · Photo/video requirement is an admin setting (rooms / daily tasks); "No photos" label for inspectors.
 - **2026-10-31** · Board tabs **My tasks / All**; housekeepers open on My tasks; summary counts follow the tab.
+- **2026-11-09** · Board **Sort** (Room no. / Status / Latest activity, ascending or descending) and **By housekeeper** grouping.
 - **2026-10-31** · **Takeover requests:** housekeepers can't work on a task assigned to someone else until a manager approves their request (popup for managers); approval reassigns the task.
