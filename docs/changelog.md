@@ -9,6 +9,7 @@ prefixed with the version it shipped in once the version is bumped.
 
 ## 2026-11 — Housekeeping board sorting & day report
 
+- **2026-11-12** · Housekeeping photo/video: the **Library** button is gone — housekeepers can only take a photo or record a video with the camera.
 - **2026-11-12** · Housekeeping **Today's summary** (Admin and above): per housekeeper, rooms by check-out reason, carried over, cleaned, pending — live on the board. **Day report** for any date (`/services/housekeeping/report`) with room-by-room assigned / cleaned / inspected times and who, plus Excel export. New permission `housekeeping:reports:view`, granted once to Admin on deploy.
 
 - **2026-11-09** · Housekeeping board: **Sort** by room number, status or latest activity with an **Ascending / Descending** toggle, and **By housekeeper** grouping (one section per housekeeper, Unassigned last). Remembered per device.

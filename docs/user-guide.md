@@ -81,7 +81,8 @@ page, which does the same in one tap.
 - Open a room or task, work through the checklist
   (Done / Not done / N/A for every item), then **Submit for inspection**
   (rooms) or **Mark done** (daily tasks).
-- **Photos / videos:** the photo section says **required** or **optional** — your
+- **Photos / videos:** tap **Photo** or **Video** to use the camera — pictures
+  from the gallery can't be added. The photo section says **required** or **optional** — your
   manager decides. If a room goes without photos, the inspector checks it in person.
 - A room **sent back** comes with the inspector's reason — you'll also get a
   notification. Use **Comments** in the task to ask or explain.

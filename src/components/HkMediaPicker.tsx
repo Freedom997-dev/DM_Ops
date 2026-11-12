@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Camera, Images, Video, X, AlertTriangle, Loader2 } from "lucide-react";
+import { Camera, Video, X, AlertTriangle, Loader2 } from "lucide-react";
 import { compressImage, formatMB, MAX_IMAGE_BYTES, MAX_VIDEO_BYTES } from "@/lib/upload-limits";
 
 // Media uploads go straight to storage, so these are per-file storage limits
@@ -17,7 +17,6 @@ type Props = {
 export function HkMediaPicker({ id, files, onChange }: Props) {
   const photoInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
-  const libraryInputRef = useRef<HTMLInputElement>(null);
   const [previews, setPreviews] = useState<{ url: string; video: boolean }[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [preparing, setPreparing] = useState(false);
@@ -101,16 +100,9 @@ export function HkMediaPicker({ id, files, onChange }: Props) {
           <Video className="h-4 w-4" />
           <span className="text-[11px]">Video</span>
         </button>
-        <button
-          type="button"
-          onClick={() => libraryInputRef.current?.click()}
-          className="flex h-16 w-16 flex-col items-center justify-center gap-0.5 rounded-md border border-dashed border-slate-300 text-slate-500 hover:border-slate-400 hover:text-slate-700"
-          aria-label={`Add photo or video from library to ${id}`}
-        >
-          <Images className="h-4 w-4" />
-          <span className="text-[11px]">Library</span>
-        </button>
-        {/* Three separate single-purpose inputs, not one combined picker:
+        {/* Camera only — no Library/gallery option, so evidence is taken on the
+            spot rather than picked from old photos.
+            Two separate single-purpose inputs, not one combined picker:
             (1) `capture` + `multiple` together is unreliable on mobile browsers
             (many ignore `capture` and fall back to the file/library chooser), so
             live-capture inputs must not also request multi-select; and
@@ -131,14 +123,6 @@ export function HkMediaPicker({ id, files, onChange }: Props) {
           type="file"
           accept="video/*"
           capture="environment"
-          hidden
-          onChange={handlePick}
-        />
-        <input
-          ref={libraryInputRef}
-          type="file"
-          accept="image/*,video/*"
-          multiple
           hidden
           onChange={handlePick}
         />

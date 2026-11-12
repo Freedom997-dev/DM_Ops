@@ -95,7 +95,8 @@ open cleaning task (check-out skips busy rooms). `READY_TO_RENT` is shown to use
 - Toolbar (managers): **Check out rooms**, **New task**, **Auto-assign**, bulk
   select → assign / approve / reject.
 - Task drawer (`HkTaskPanel`): checklist with Done / Not done / N/A + note per
-  item, media picker (camera photo, camera video, library), actions for the
+  item, media picker (camera photo, camera video — **no library/gallery** since
+  2026-11-12, so evidence is taken on the spot), actions for the
   current status, and an **activity timeline** (`buildTimeline`: created →
   assigned → started → submitted → approved/sent back).
 - **Polling**: `router.refresh()` every **12 s**, paused while a drawer/modal is
@@ -281,6 +282,7 @@ zones, long-term photo archive, CSV export, resumable (TUS) uploads for very lar
 - **2026-10-09** · Notifications for assignment / inspection / send-back / approval; `?task=` deep link; Comments in the task drawer.
 - **2026-10-09** · Photo/video requirement is an admin setting (rooms / daily tasks); "No photos" label for inspectors.
 - **2026-10-31** · Board tabs **My tasks / All**; housekeepers open on My tasks; summary counts follow the tab.
+- **2026-11-12** · Media picker: **Library** option removed — photos/videos only from the camera.
 - **2026-11-12** · **Today's summary** on the board and an on-demand **day report** (any date, Excel) — per housekeeper by reason, carried over, cleaned, pending; new permission `housekeeping:reports:view` (Admin).
 - **2026-11-09** · Board **Sort** (Room no. / Status / Latest activity, ascending or descending) and **By housekeeper** grouping.
 - **2026-10-31** · **Takeover requests:** housekeepers can't work on a task assigned to someone else until a manager approves their request (popup for managers); approval reassigns the task.
