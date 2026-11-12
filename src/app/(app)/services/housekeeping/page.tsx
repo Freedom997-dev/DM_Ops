@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft, Settings, Sparkles } from "lucide-react";
+import { ArrowLeft, CalendarDays, Settings, Sparkles } from "lucide-react";
+import { motelTodayUTC, formatBusinessDate } from "@/lib/business-date";
+import { getHkDayReport } from "@/lib/hk-day-report";
+import { HkDaySummary } from "@/components/housekeeping/HkDaySummary";
 import { prisma } from "@/lib/db";
 import { requirePermission, can, isManager } from "@/lib/session";
 import { getSignedUrl } from "@/lib/storage";
@@ -141,6 +144,9 @@ export default async function HousekeepingPage({
     })),
   );
 
+  // Admin and above (housekeeping:reports:view); refreshed with the board's polling.
+  const daySummary = can(user, "housekeeping:reports:view") ? await getHkDayReport(motelTodayUTC()) : null;
+
   const roster: HkPerson[] = housekeepers.map((h) => ({ id: h.id, name: h.name }));
   const actions: HkStatusAction[] = statusActions.map((a) => ({ id: a.id, label: a.label }));
   const templates: HkTaskTemplate[] = taskTemplates.map((t) => ({ id: t.id, label: t.label }));
@@ -175,6 +181,22 @@ export default async function HousekeepingPage({
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           <span className="font-semibold">Cleaning instructions: </span>{setting.instructions}
         </div>
+      )}
+
+      {daySummary && (
+        <details open className="card overflow-hidden">
+          <summary className="flex cursor-pointer flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
+            <span className="inline-flex items-center gap-2 font-bold text-slate-900">
+              <CalendarDays className="h-4 w-4 text-brand-600" />
+              Today&apos;s summary
+              <span className="text-sm font-normal text-slate-500">· {formatBusinessDate(motelTodayUTC(), { weekday: "short", month: "short", day: "numeric" })}</span>
+            </span>
+            <Link href={`/services/housekeeping/report?date=${daySummary.dateKey}`} className="text-sm font-semibold text-brand-600 hover:underline">
+              Day report &amp; other dates →
+            </Link>
+          </summary>
+          <HkDaySummary report={daySummary} compact />
+        </details>
       )}
 
       <HousekeepingDashboard

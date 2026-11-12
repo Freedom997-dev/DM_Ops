@@ -76,6 +76,7 @@ label/description), so production may differ — check `/settings/access` for tr
 | `housekeeping:tasks:manage` | ✱ | ✅ | ✅ | — | — |
 | `housekeeping:tasks:submit` | ✱ | ✅ | ✅ | — | ✅ |
 | `housekeeping:cleaning:review` | ✱ | ✅ | ✅ | ✅ | — |
+| `housekeeping:reports:view` | ✱ | ✅ | — | — | — |
 | `housekeeping:settings:configure` | ✱ | ✅ | — | — | — |
 | `workflows:performance:view` | ✱ | ✅ | ✅ | — | — |
 | `admin:staff:view` | ✱ | ✅ | ✅ | — | — |
@@ -107,7 +108,9 @@ Super Admin. List it in `INTRODUCED_GRANTS` (`src/lib/rbac/defaults.ts`) with it
 default roles: the deploy seed grants it **once** and writes a marker row to
 `AuditLog` (`entity: "Role"`, `details: {"seedGrant": "<key>"}`). Later removals
 in the roles matrix stick — the grant is never re-applied. First used for
-`workflows:performance:view` (Admin, Manager).
+`workflows:performance:view` (Admin, Manager); also `housekeeping:reports:view` (Admin).
+To let Managers see the housekeeping day summary/report, tick it for Manager in
+Settings → Roles & permissions.
 
 ## Workflow-service access (separate mechanism)
 

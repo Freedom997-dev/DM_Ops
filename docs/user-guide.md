@@ -66,6 +66,12 @@ page, which does the same in one tap.
   **Ascending / Descending** to flip the order. On **All**, tap **By housekeeper**
   to see each housekeeper's rooms in their own section (Unassigned at the end).
   Your choice is remembered on that phone or computer.
+- **Admins:** **Today's summary** at the top of the board shows, per housekeeper,
+  how many rooms are Check Out Clean / Stay Over (and other reasons), carried over
+  from earlier days, cleaned and still pending. Tap any number to see those rooms.
+  **Day report & other dates** opens the full report for any date — every room
+  with when it was assigned, cleaned and inspected, and by whom — and **Excel**
+  downloads it.
 - **A room assigned to someone else?** You can't start it yourself. Open it, tap
   **Request this room** (add a reason if you like) and wait — a manager gets a
   pop-up to approve. Once approved the room is yours and shows your name.

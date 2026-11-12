@@ -58,6 +58,7 @@ open cleaning task (check-out skips busy rooms). `READY_TO_RENT` is shown to use
 | `housekeeping:tasks:manage` | Check out rooms, create/delete tasks, assign, auto-assign, approve/decline takeover requests, work on any task | Admin, Manager |
 | `housekeeping:tasks:submit` | Start, edit checklist, submit room, complete general task — **own or unassigned tasks only** (without `manage`); request a takeover of someone else's | Admin, Manager, Housekeeper |
 | `housekeeping:cleaning:review` | Approve / reject (single + bulk) | Admin, Manager, Inspector |
+| `housekeeping:reports:view` | Today's summary on the board, day report page + Excel | Admin (granted once to existing Admin roles via `INTRODUCED_GRANTS`) |
 | `housekeeping:settings:configure` | Settings page, delete individual photos | Admin |
 
 **Assignment roster** = active users holding the **HOUSEKEEPER** role (dropdown,
@@ -171,6 +172,34 @@ Every transition (`startTask`, submit, complete, approve, reject) uses
 `updateMany({ where: { id, status: <expected> } })`. If 0 rows change, the user
 sees "This room just changed — refresh and try again." (F9).
 
+## Day summary & day report (`housekeeping:reports:view`)
+
+One loader, `getHkDayReport(day)` (`src/lib/hk-day-report.ts`), feeds three views:
+
+- **Today's summary** — collapsible card above the board (Admin and above). Rows
+  = housekeepers (A–Z) + Unassigned + Total; columns = one per check-out reason
+  used that day (status actions in settings order, then older/renamed reasons,
+  then "Other" for none), **Carried over**, **Total**, **Cleaned**, **Pending**.
+  Refreshes with the board's 12 s polling. Every number links to the day report
+  filtered to those rooms.
+- **Day report** — `/services/housekeeping/report?date=YYYY-MM-DD` (default and
+  maximum: today; ◀ / date picker). Same summary, then one row per room: reason,
+  housekeeper, checked out / assigned / started / submitted / inspected times
+  (motel time; date shown when not the report day), inspected by, result (Cleaned,
+  or Not cleaned / live status for today; "Sent back" flag). Filters from the
+  summary links: `hk` (user id or `none`), `reason`, `carried=1`,
+  `state=cleaned|pending`.
+- **Excel** — `GET /api/exports/housekeeping-day?date=` → Summary + Rooms sheets.
+
+Rules (room-cleaning tasks only; daily tasks aren't counted):
+- A day = the motel calendar day (America/New_York, `motelDayRange`).
+- The day's rooms = checked out that day **+ carried over** (checked out earlier
+  and not cleaned when the day began).
+- **Cleaned** = approved (Ready to Rent, `closedAt`) before the day ended;
+  everything else is **Pending**. "Inspected by" is the last reviewer.
+- Housekeeper = the **current** assignee (reassignments aren't kept as history).
+- Deleted tasks disappear from past reports.
+
 ## Settings (`/services/housekeeping/settings`)
 
 Tabs (admin only):
@@ -217,6 +246,8 @@ deploy (`scripts/provision-db.mjs`) and only fills empty tables; run it by hand 
 - `src/app/(app)/services/housekeeping/page.tsx` — loads tasks/rooms/roster/settings, signs URLs.
 - `src/components/HousekeepingDashboard.tsx` — board, toolbar, modals, polling.
 - `src/components/HkTaskPanel.tsx` — drawer: checklist, actions, timeline, takeover request / decision box.
+- `src/lib/hk-day-report.ts` — day summary / report loader; `src/components/housekeeping/HkDaySummary.tsx` — the table;
+  `src/app/(app)/services/housekeeping/report/page.tsx`; `src/app/api/exports/housekeeping-day/route.ts`.
 - `src/components/housekeeping/TakeoverRequestsPopup.tsx` — managers' takeover popup (mounted in `src/app/(app)/layout.tsx`).
 - `src/app/api/housekeeping/takeover-requests/route.ts` — open requests for the popup.
 - `src/components/HkMediaPicker.tsx`, `PhotoLightbox.tsx` — capture + viewing.
@@ -250,5 +281,6 @@ zones, long-term photo archive, CSV export, resumable (TUS) uploads for very lar
 - **2026-10-09** · Notifications for assignment / inspection / send-back / approval; `?task=` deep link; Comments in the task drawer.
 - **2026-10-09** · Photo/video requirement is an admin setting (rooms / daily tasks); "No photos" label for inspectors.
 - **2026-10-31** · Board tabs **My tasks / All**; housekeepers open on My tasks; summary counts follow the tab.
+- **2026-11-12** · **Today's summary** on the board and an on-demand **day report** (any date, Excel) — per housekeeper by reason, carried over, cleaned, pending; new permission `housekeeping:reports:view` (Admin).
 - **2026-11-09** · Board **Sort** (Room no. / Status / Latest activity, ascending or descending) and **By housekeeper** grouping.
 - **2026-10-31** · **Takeover requests:** housekeepers can't work on a task assigned to someone else until a manager approves their request (popup for managers); approval reassigns the task.

@@ -74,6 +74,7 @@ export const APPS: AppDef[] = [
       { key: "board", label: "Board", actions: [A.view] },
       { key: "tasks", label: "Tasks", actions: [A.manage, A.submit] },
       { key: "cleaning", label: "Cleaning", actions: [A.review] },
+      { key: "reports", label: "Day summary & report", actions: [A.view] },
       { key: "settings", label: "Settings", actions: [A.configure] },
     ],
   },

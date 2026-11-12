@@ -101,4 +101,5 @@ export const INTRODUCED_GRANTS: { permission: string; roles: string[] }[] = [
   { permission: "admin:notifications:manage", roles: [ROLE_KEYS.ADMIN] },
   { permission: "comms:announcements:send", roles: [ROLE_KEYS.ADMIN, ROLE_KEYS.MANAGER] },
   { permission: "comms:messages:moderate", roles: [ROLE_KEYS.ADMIN] },
+  { permission: "housekeeping:reports:view", roles: [ROLE_KEYS.ADMIN] },
 ];

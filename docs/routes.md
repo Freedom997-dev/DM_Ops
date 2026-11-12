@@ -27,6 +27,7 @@ All `/services/*` and `/settings/*` pages also pass `proxy.ts` (signed in) and
 | `/services/pm-v2/setup` | Hotel name, checklists/sections/items, rooms & areas | `pmv2:setup:configure` |
 | **Housekeeping** | | |
 | `/services/housekeeping` | Live board: room tasks + daily tasks, toolbar, drawers, polling | `housekeeping:board:view` |
+| `/services/housekeeping/report?date=YYYY-MM-DD` | Day report: summary per housekeeper + room-by-room times; filters `hk`, `reason`, `carried`, `state` | `housekeeping:reports:view` (else → /services) |
 | `/services/housekeeping/settings` | Tabs: status actions, daily-task templates + checklists, room checklist, rooms, retention & instructions | `housekeeping:settings:configure` (else → board) |
 | **Workflow services** | | |
 | `/services/[slug]` | Sheet for today or `?date=YYYY-MM-DD` (future → today); date bar ◀ / ▶ / picker; print; mark complete; unlock / lock (manager); reopen (admin) | `requireWorkflowAccess(slug)` (`rolesAllowed`) |
@@ -57,6 +58,7 @@ workflow must never use those slugs.
 |---|---|---|---|
 | `/api/auth/[...nextauth]` | GET/POST | NextAuth (sign-in, session, sign-out) | NextAuth |
 | `/api/exports/pm-v2?q=YYYY-Qn` | GET | PM V2 quarter workbook (Summary, Rooms, Open issues, Fixed) | `pmv2:reports:view` |
+| `/api/exports/housekeeping-day?date=YYYY-MM-DD` | GET | Housekeeping day report workbook (Summary, Rooms); default today | `housekeeping:reports:view` |
 | `/api/exports/workflow-performance/[slug]?range=7\|30\|90` | GET | Daily Cleanliness performance workbook (Summary, Rooms, Problem map, Issue log) | workflow access + `workflows:performance:view` (404 otherwise) |
 | `/api/exports/repairs` | GET | PM V1 open repairs `.xlsx` | `pm:inspections:view` |
 | `/api/exports/status-report` | GET | PM V1 full status workbook (Summary, Rooms, Repairs, Awaiting verification) | `pm:inspections:view` |
