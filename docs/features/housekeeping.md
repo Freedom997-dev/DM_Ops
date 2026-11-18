@@ -112,6 +112,18 @@ button per **status action** (`HousekeepingStatusAction`, default *Checkout*,
 room with `requestReason` = the action label, optionally pre-assigned, and
 snapshots the **room-cleaning checklist** onto the task.
 
+**Reason look (colour + icon).** Each status action has a colour, an icon and an
+optional short name (Settings → Check-out → ✏️), so housekeepers can tell
+Checkout from Stayover at a glance. On every room card the big icon square, a bold
+badge and a thick left edge use the reason's colour; the top bar still shows the
+status. The check-out panel's buttons use the same look. Unset = automatic:
+label containing "stay" → purple bed, "check"/"departure" → blue door, "deep" →
+teal sparkles, otherwise teal → red → green → grey in turn (orange is never picked
+automatically — it reads like the orange *Ready to Clean* status). Tasks are
+matched to their action by label (case/underscore-insensitive), archived actions
+included; a reason with no matching action still gets an automatic look.
+Code: `src/lib/hk-reason-style.ts`, `src/components/housekeeping/ReasonIcon.tsx`.
+
 ## Daily tasks & templates
 
 "New task" offers quick-pick **templates** (`HousekeepingTaskTemplate`: Clean
@@ -282,6 +294,7 @@ zones, long-term photo archive, CSV export, resumable (TUS) uploads for very lar
 - **2026-10-09** · Notifications for assignment / inspection / send-back / approval; `?task=` deep link; Comments in the task drawer.
 - **2026-10-09** · Photo/video requirement is an admin setting (rooms / daily tasks); "No photos" label for inspectors.
 - **2026-10-31** · Board tabs **My tasks / All**; housekeepers open on My tasks; summary counts follow the tab.
+- **2026-11-18** · **Reason colours & icons** on room cards (Checkout blue door, Stayover purple bed…), editable per status action with a short name; new nullable columns `shortLabel`, `color`, `icon` on `HousekeepingStatusAction`.
 - **2026-11-12** · Media picker: **Library** option removed — photos/videos only from the camera.
 - **2026-11-12** · **Today's summary** on the board and an on-demand **day report** (any date, Excel) — per housekeeper by reason, carried over, cleaned, pending; new permission `housekeeping:reports:view` (Admin).
 - **2026-11-09** · Board **Sort** (Room no. / Status / Latest activity, ascending or descending) and **By housekeeper** grouping.

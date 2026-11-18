@@ -66,6 +66,10 @@ page, which does the same in one tap.
   **Ascending / Descending** to flip the order. On **All**, tap **By housekeeper**
   to see each housekeeper's rooms in their own section (Unassigned at the end).
   Your choice is remembered on that phone or computer.
+- **Checkout or stayover?** Look at the colour and picture on each room card:
+  🚪 **blue door = Checkout** (guest has left), 🛏 **purple bed = Stayover** (guest
+  is still staying). Admins can change the colours and names in Housekeeping
+  Settings → Check-out (tap ✏️ next to a status).
 - **Admins:** **Today's summary** at the top of the board shows, per housekeeper,
   how many rooms are Check Out Clean / Stay Over (and other reasons), carried over
   from earlier days, cleaned and still pending. Tap any number to see those rooms.

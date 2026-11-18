@@ -110,7 +110,7 @@ All are `"use server"`. Each re-checks auth itself. Return shape is
 | `deleteHousekeepingPhoto` | `housekeeping:settings:configure` | |
 | `updateHousekeepingSettings` | configure | instructions |
 | `requestHkMediaUploads(taskId, files)` | `housekeeping:tasks:submit` | Signed upload URLs + tickets for direct-to-storage media |
-| `create/rename/archiveStatusAction` | configure | Keeps ≥1 active |
+| `createStatusAction` / `updateStatusAction(id, {label, shortLabel?, color?, icon?})` / `archiveStatusAction` | configure | Keeps ≥1 active; unknown colour/icon keys are saved as automatic |
 | `create/rename/archiveTaskTemplate` | configure | |
 | `create/rename/archiveChecklistItem(templateId\|null, …)` | configure | null = room checklist |
 | `hkCreateRoom` | configure | Shared `Room` |

@@ -14,6 +14,7 @@ import {
 } from "@/lib/housekeeping";
 import { ROLE_KEYS } from "@/lib/roles";
 import { notify } from "@/lib/notifications/notify";
+import { REASON_COLORS, REASON_ICONS } from "@/lib/hk-reason-style";
 
 type Result = { ok: true } | { ok: false; error: string };
 
@@ -950,12 +951,21 @@ export async function createStatusAction(label: string): Promise<Result> {
   return { ok: true };
 }
 
-export async function renameStatusAction(id: string, label: string): Promise<Result> {
+// Label + how its rooms look on the board. Empty shortLabel/color/icon = automatic.
+export async function updateStatusAction(
+  id: string,
+  input: { label: string; shortLabel?: string | null; color?: string | null; icon?: string | null },
+): Promise<Result> {
   const user = await requireUser();
   if (!can(user, "housekeeping:settings:configure")) return { ok: false, error: "Not allowed." };
-  const clean = label.trim();
+  const clean = input.label.trim();
   if (!clean) return { ok: false, error: "Enter a label." };
-  await prisma.housekeepingStatusAction.update({ where: { id }, data: { label: clean.slice(0, 60) } });
+  const color = input.color && (REASON_COLORS as readonly string[]).includes(input.color) ? input.color : null;
+  const icon = input.icon && (REASON_ICONS as readonly string[]).includes(input.icon) ? input.icon : null;
+  await prisma.housekeepingStatusAction.update({
+    where: { id },
+    data: { label: clean.slice(0, 60), shortLabel: input.shortLabel?.trim().slice(0, 20) || null, color, icon },
+  });
   revalidatePath("/services/housekeeping/settings");
   refresh();
   return { ok: true };

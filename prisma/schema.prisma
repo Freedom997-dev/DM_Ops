@@ -452,9 +452,14 @@ model HousekeepingSetting {
 // (e.g. Checkout, Request for cleaning). Applying one creates a Ready-to-Clean
 // room task tagged with the action's label as its requestReason.
 model HousekeepingStatusAction {
-  id        String   @id @default(cuid())
-  label     String
-  order     Int      @default(0)
+  id         String   @id @default(cuid())
+  label      String
+  // How tasks with this reason look on the board (src/lib/hk-reason-style.ts).
+  // null = picked automatically from the label ("stay" → purple bed, "check" → blue door).
+  shortLabel String? // e.g. "Stayover" for "Stay_Over_Service"
+  color      String? // palette key: blue | violet | emerald | amber | rose | teal | slate
+  icon       String? // icon key: door | bed | sparkles | brush | star | wrench
+  order      Int      @default(0)
   archived  Boolean  @default(false)
   createdAt DateTime @default(now())
 }

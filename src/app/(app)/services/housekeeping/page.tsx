@@ -66,10 +66,10 @@ export default async function HousekeepingPage({
       select: { id: true, name: true },
     }),
     prisma.housekeepingSetting.findUnique({ where: { id: "singleton" } }),
+    // Archived ones too: older tasks still carry their reason's colour/icon.
     prisma.housekeepingStatusAction.findMany({
-      where: { archived: false },
       orderBy: { order: "asc" },
-      select: { id: true, label: true },
+      select: { id: true, label: true, shortLabel: true, color: true, icon: true, archived: true },
     }),
     prisma.housekeepingTaskTemplate.findMany({
       where: { archived: false },
@@ -148,7 +148,7 @@ export default async function HousekeepingPage({
   const daySummary = can(user, "housekeeping:reports:view") ? await getHkDayReport(motelTodayUTC()) : null;
 
   const roster: HkPerson[] = housekeepers.map((h) => ({ id: h.id, name: h.name }));
-  const actions: HkStatusAction[] = statusActions.map((a) => ({ id: a.id, label: a.label }));
+  const actions: HkStatusAction[] = statusActions;
   const templates: HkTaskTemplate[] = taskTemplates.map((t) => ({ id: t.id, label: t.label }));
 
   return (

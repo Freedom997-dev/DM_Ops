@@ -13,6 +13,8 @@ import { HK_STATUS_META, taskLabel, type HkStatus } from "@/lib/housekeeping";
 import { submittedWithoutMedia } from "@/lib/hk-view";
 import type { HkTaskView, HkRoomOption, HkPerson, HkCaps, HkStatusAction, HkTaskTemplate, HkMediaRules } from "@/lib/hk-view";
 import { HkTaskPanel } from "@/components/HkTaskPanel";
+import { ReasonIconView } from "@/components/housekeeping/ReasonIcon";
+import { REASON_COLOR_CLASSES, reasonStyleLookup, type ReasonStyle } from "@/lib/hk-reason-style";
 import {
   checkOutRooms, createGeneralTask, assignTasks, autoAssign, bulkReview,
 } from "@/lib/actions/housekeeping";
@@ -123,12 +125,14 @@ export function HousekeepingDashboard({
   tasks: HkTaskView[];
   rooms: HkRoomOption[];
   housekeepers: HkPerson[];
-  statusActions: HkStatusAction[];
+  statusActions: HkStatusAction[]; // all, archived included (styles for older tasks)
   taskTemplates: HkTaskTemplate[];
   caps: HkCaps;
   currentUserId: string;
 }) {
   const router = useRouter();
+  const styleOf = useMemo(() => reasonStyleLookup(statusActions), [statusActions]);
+  const activeActions = useMemo(() => statusActions.filter((a) => !a.archived), [statusActions]);
   // Housekeepers (can clean, but don't assign or inspect) open on their own
   // tasks; managers and inspectors open on the whole board. Both tabs stay available.
   const isHousekeeper = caps.submit && !caps.manage && !caps.review;
@@ -336,14 +340,14 @@ export function HousekeepingDashboard({
             <section key={g.key || "unassigned"} className="space-y-2">
               <GroupHeader group={g} />
               <TileGrid
-                tasks={g.tasks} caps={caps} selected={selected}
+                tasks={g.tasks} caps={caps} selected={selected} styleOf={styleOf}
                 onSelect={toggleSel} onOpen={setOpenId}
               />
             </section>
           ))}
         </div>
       ) : (
-        <TileGrid tasks={visible} caps={caps} selected={selected} onSelect={toggleSel} onOpen={setOpenId} />
+        <TileGrid tasks={visible} caps={caps} selected={selected} styleOf={styleOf} onSelect={toggleSel} onOpen={setOpenId} />
       )}
 
       {/* ---- Drawer: task detail + actions + timeline ---- */}
@@ -370,7 +374,8 @@ export function HousekeepingDashboard({
         <CheckoutModal
           rooms={rooms}
           housekeepers={housekeepers}
-          statusActions={statusActions}
+          statusActions={activeActions}
+          styleOf={styleOf}
           canConfigure={caps.admin}
           onClose={() => setModal(null)}
           onDone={() => { setModal(null); router.refresh(); }}
@@ -400,10 +405,11 @@ export function HousekeepingDashboard({
 // Tile
 // ===========================================================================
 function TaskTile({
-  task, caps, selected, onSelect, onOpen,
+  task, caps, reason, selected, onSelect, onOpen,
 }: {
   task: HkTaskView;
   caps: HkCaps;
+  reason: ReasonStyle | null; // check-out reason look (Checkout / Stayover…)
   selected: boolean;
   onSelect: () => void;
   onOpen: () => void;
@@ -414,7 +420,11 @@ function TaskTile({
     (caps.manage) || (caps.review && task.status === "READY_FOR_INSPECTION");
 
   return (
-    <div className={clsx("card group relative overflow-hidden transition hover:shadow-md", selected && "ring-2 ring-brand-300")}>
+    <div className={clsx(
+      "card group relative overflow-hidden transition hover:shadow-md",
+      reason && clsx("border-l-[6px]", REASON_COLOR_CLASSES[reason.color].edge),
+      selected && "ring-2 ring-brand-300",
+    )}>
       <span className={clsx("absolute inset-x-0 top-0 h-1.5", meta.bar)} />
       {selectable && (
         <input
@@ -427,11 +437,16 @@ function TaskTile({
       )}
       <button onClick={onOpen} className="flex w-full flex-col gap-3 p-4 pt-5 text-left">
         <div className="flex items-center gap-2.5">
-          <span className={clsx(
-            "flex h-10 w-10 items-center justify-center rounded-xl",
-            isRoom ? "bg-brand-50 text-brand-600" : "bg-slate-100 text-slate-500",
-          )}>
-            {isRoom ? <BedDouble className="h-5 w-5" /> : <Sparkles className="h-5 w-5" />}
+          {/* Big reason icon: the quickest way to tell Checkout from Stayover */}
+          <span
+            className={clsx(
+              "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl",
+              reason ? REASON_COLOR_CLASSES[reason.color].tile : isRoom ? "bg-brand-50 text-brand-600" : "bg-slate-100 text-slate-500",
+            )}
+            title={reason?.name}
+          >
+            {reason ? <ReasonIconView icon={reason.icon} className="h-6 w-6" />
+              : isRoom ? <BedDouble className="h-5 w-5" /> : <Sparkles className="h-5 w-5" />}
           </span>
           <div className="min-w-0">
             <div className="truncate font-bold text-slate-900">{taskLabel(task)}</div>
@@ -444,7 +459,11 @@ function TaskTile({
           <span className={clsx("inline-flex w-fit items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold", meta.chip)}>
             <span className={clsx("h-1.5 w-1.5 rounded-full", meta.dot)} /> {meta.label}
           </span>
-          {task.requestReason && (
+          {reason ? (
+            <span className={clsx("inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold", REASON_COLOR_CLASSES[reason.color].chip)}>
+              <ReasonIconView icon={reason.icon} className="h-3.5 w-3.5" /> {reason.name}
+            </span>
+          ) : task.requestReason && (
             <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
               {task.requestReason}
             </span>
@@ -531,11 +550,12 @@ function Drawer({
 // Small pieces
 // ===========================================================================
 function TileGrid({
-  tasks, caps, selected, onSelect, onOpen,
+  tasks, caps, selected, styleOf, onSelect, onOpen,
 }: {
   tasks: HkTaskView[];
   caps: HkCaps;
   selected: Set<string>;
+  styleOf: (label: string | null) => ReasonStyle | null;
   onSelect: (id: string) => void;
   onOpen: (id: string) => void;
 }) {
@@ -546,6 +566,7 @@ function TileGrid({
           key={t.id}
           task={t}
           caps={caps}
+          reason={t.kind === "ROOM_CLEANING" ? styleOf(t.requestReason) : null}
           selected={selected.has(t.id)}
           onSelect={() => onSelect(t.id)}
           onOpen={() => onOpen(t.id)}
@@ -645,11 +666,12 @@ function HousekeeperSelect({
 // Modals
 // ===========================================================================
 function CheckoutModal({
-  rooms, housekeepers, statusActions, canConfigure, onClose, onDone,
+  rooms, housekeepers, statusActions, styleOf, canConfigure, onClose, onDone,
 }: {
   rooms: HkRoomOption[];
   housekeepers: HkPerson[];
   statusActions: HkStatusAction[];
+  styleOf: (label: string | null) => ReasonStyle | null;
   canConfigure: boolean;
   onClose: () => void;
   onDone: () => void;
@@ -739,17 +761,21 @@ function CheckoutModal({
             </p>
           )}
           <div className="flex flex-wrap gap-2">
-            {statusActions.map((a, i) => (
-              <button
-                key={a.id}
-                onClick={() => apply(a.label)}
-                disabled={pending || sel.size === 0}
-                className={i === 0 ? "btn-primary" : "btn-secondary"}
-              >
-                {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <DoorOpen className="h-4 w-4" />}
-                {a.label}
-              </button>
-            ))}
+            {statusActions.map((a) => {
+              // Same colour/icon the rooms will carry on the board.
+              const st = styleOf(a.label)!;
+              return (
+                <button
+                  key={a.id}
+                  onClick={() => apply(a.label)}
+                  disabled={pending || sel.size === 0}
+                  className={clsx("btn hover:opacity-90", REASON_COLOR_CLASSES[st.color].chip)}
+                >
+                  {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ReasonIconView icon={st.icon} className="h-4 w-4" />}
+                  {a.label}
+                </button>
+              );
+            })}
           </div>
           <p className="mt-2 text-xs text-slate-400">
             Manage this list &amp; add rooms in{" "}

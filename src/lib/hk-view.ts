@@ -70,7 +70,15 @@ export type HkRoomOption = {
   busy: boolean; // already has an open cleaning task
 };
 
-export type HkStatusAction = { id: string; label: string };
+// Look (shortLabel/color/icon) resolved through src/lib/hk-reason-style.ts.
+export type HkStatusAction = {
+  id: string;
+  label: string;
+  shortLabel: string | null;
+  color: string | null;
+  icon: string | null;
+  archived: boolean;
+};
 export type HkTaskTemplate = { id: string; label: string };
 export type HkChecklistItem = { id: string; label: string };
 // A daily-task template plus its checklist (for the settings editor).

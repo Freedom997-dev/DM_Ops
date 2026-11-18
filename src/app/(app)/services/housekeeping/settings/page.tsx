@@ -15,9 +15,8 @@ export default async function HousekeepingSettingsPage() {
   const [setting, statusActions, taskTemplates, roomChecklist, roomCount] = await Promise.all([
     prisma.housekeepingSetting.findUnique({ where: { id: "singleton" } }),
     prisma.housekeepingStatusAction.findMany({
-      where: { archived: false },
       orderBy: { order: "asc" },
-      select: { id: true, label: true },
+      select: { id: true, label: true, shortLabel: true, color: true, icon: true, archived: true },
     }),
     prisma.housekeepingTaskTemplate.findMany({
       where: { archived: false },
@@ -36,7 +35,7 @@ export default async function HousekeepingSettingsPage() {
     }),
     prisma.room.count({ where: { archived: false } }),
   ]);
-  const actions: HkStatusAction[] = statusActions.map((a) => ({ id: a.id, label: a.label }));
+  const actions: HkStatusAction[] = statusActions;
   const templates: HkTemplateWithChecklist[] = taskTemplates.map((t) => ({
     id: t.id, label: t.label,
     checklist: t.checklistItems.map((c) => ({ id: c.id, label: c.label })),
