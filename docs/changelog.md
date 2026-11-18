@@ -9,6 +9,7 @@ prefixed with the version it shipped in once the version is bumped.
 
 ## 2026-11 — Housekeeping board sorting & day report
 
+- **2026-11-18** · Housekeeping **Today's summary / day report headline tiles**: number of rooms per reason (e.g. Check Out – full clean, Stay-Over – towels/trash, Stay-Over – full service), **Rooms cleaned** and **Cleaned, not inspected**, each linking to those rooms; also in the Excel. The table's old "Cleaned" (= approved) column is now **Approved**, next to new **Cleaned** and **Not inspected** columns. Reasons with "towel"/"trash" in the name get a pink brush automatically.
 - **2026-11-18** · Housekeeping room cards show the **reason in colour with an icon** — 🚪 blue Checkout, 🛏 purple Stayover — on the big icon, a bold badge and the card's left edge, so checkout and stayover rooms are easy to tell apart. Admins can change each reason's colour, icon and short name (e.g. "Stayover") in Housekeeping Settings → Check-out. New nullable columns on `HousekeepingStatusAction`.
 - **2026-11-12** · Housekeeping photo/video: the **Library** button is gone — housekeepers can only take a photo or record a video with the camera.
 - **2026-11-12** · Housekeeping **Today's summary** (Admin and above): per housekeeper, rooms by check-out reason, carried over, cleaned, pending — live on the board. **Day report** for any date (`/services/housekeeping/report`) with room-by-room assigned / cleaned / inspected times and who, plus Excel export. New permission `housekeeping:reports:view`, granted once to Admin on deploy.

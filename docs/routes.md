@@ -27,7 +27,7 @@ All `/services/*` and `/settings/*` pages also pass `proxy.ts` (signed in) and
 | `/services/pm-v2/setup` | Hotel name, checklists/sections/items, rooms & areas | `pmv2:setup:configure` |
 | **Housekeeping** | | |
 | `/services/housekeeping` | Live board: room tasks + daily tasks, toolbar, drawers, polling | `housekeeping:board:view` |
-| `/services/housekeeping/report?date=YYYY-MM-DD` | Day report: summary per housekeeper + room-by-room times; filters `hk`, `reason`, `carried`, `state` | `housekeeping:reports:view` (else → /services) |
+| `/services/housekeeping/report?date=YYYY-MM-DD` | Day report: summary per housekeeper + room-by-room times; filters `hk`, `reason`, `carried`, `state` (submitted / uninspected / approved / pending) | `housekeeping:reports:view` (else → /services) |
 | `/services/housekeeping/settings` | Tabs: status actions, daily-task templates + checklists, room checklist, rooms, retention & instructions | `housekeeping:settings:configure` (else → board) |
 | **Workflow services** | | |
 | `/services/[slug]` | Sheet for today or `?date=YYYY-MM-DD` (future → today); date bar ◀ / ▶ / picker; print; mark complete; unlock / lock (manager); reopen (admin) | `requireWorkflowAccess(slug)` (`rolesAllowed`) |

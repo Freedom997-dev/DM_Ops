@@ -2,8 +2,13 @@
 // Server-only: loads room-cleaning tasks for one motel business day.
 //
 // A day's rooms = rooms checked out that day + rooms carried over (checked out
-// earlier and still not cleaned when the day began). "Cleaned" = approved
-// (Ready to Rent) before the day ended; everything else is pending.
+// earlier and still not approved when the day began). For each room:
+//   submitted   — housekeeper finished (submitted for inspection) during the day
+//                 ("Rooms cleaned" tile; latest submission only)
+//   approved    — inspector approved it (Ready to Rent) before the day ended
+//   uninspected — submitted but neither approved nor sent back by the day's end
+//                 ("Cleaned, not inspected"; for today = waiting right now)
+//   pending     — not approved by the day's end
 
 import { prisma } from "@/lib/db";
 import { motelDayRange } from "@/lib/business-date";
@@ -15,7 +20,9 @@ export type HkDayCounts = {
   byReason: Record<string, number>;
   carried: number;
   total: number;
-  cleaned: number;
+  submitted: number;
+  approved: number;
+  uninspected: number;
   pending: number;
 };
 
@@ -38,13 +45,17 @@ export type HkDayRoom = {
   reviewedAt: string | null;
   reviewedBy: string | null;
   sentBack: boolean;
-  cleaned: boolean;
+  submitted: boolean;
+  approved: boolean;
+  uninspected: boolean;
   statusNow: string;
 };
 
 export type HkDayReport = {
   dateKey: string;
   reasons: string[];
+  /** Status actions (archived too) for reason colours/icons via hk-reason-style. */
+  reasonActions: { label: string; shortLabel: string | null; color: string | null; icon: string | null; archived: boolean }[];
   people: HkDayPersonRow[];
   totals: HkDayCounts;
   rooms: HkDayRoom[];
@@ -52,7 +63,7 @@ export type HkDayReport = {
 
 const empty = (reasons: string[]): HkDayCounts => ({
   byReason: Object.fromEntries(reasons.map((r) => [r, 0])),
-  carried: 0, total: 0, cleaned: 0, pending: 0,
+  carried: 0, total: 0, submitted: 0, approved: 0, uninspected: 0, pending: 0,
 });
 
 /** `day` is UTC midnight of the motel calendar day (motelTodayUTC / parseDateKey). */
@@ -75,12 +86,18 @@ export async function getHkDayReport(day: Date): Promise<HkDayReport> {
         reviewedBy: { select: { name: true } },
       },
     }),
-    prisma.housekeepingStatusAction.findMany({ orderBy: { order: "asc" }, select: { label: true } }),
+    prisma.housekeepingStatusAction.findMany({
+      orderBy: { order: "asc" },
+      select: { label: true, shortLabel: true, color: true, icon: true, archived: true },
+    }),
   ]);
 
   const rooms: HkDayRoom[] = tasks
     .map((t) => {
-      const cleaned = !!t.closedAt && t.closedAt < end;
+      const approved = !!t.closedAt && t.closedAt < end;
+      const submittedBy = (at: Date) => !!t.submittedAt && t.submittedAt < at;
+      // Sent back after its last submission, before the day ended.
+      const rejected = !!t.reviewedAt && !!t.submittedAt && t.reviewedAt >= t.submittedAt && t.reviewedAt < end && !approved;
       return {
         taskId: t.id,
         roomNumber: t.room?.number ?? "?",
@@ -96,8 +113,10 @@ export async function getHkDayReport(day: Date): Promise<HkDayReport> {
         submittedBy: t.submittedBy?.name ?? null,
         reviewedAt: t.reviewedAt?.toISOString() ?? null,
         reviewedBy: t.reviewedBy?.name ?? null,
-        sentBack: !cleaned && !!t.reviewNote && t.status === "READY_TO_CLEAN",
-        cleaned,
+        sentBack: !approved && !!t.reviewNote && t.status === "READY_TO_CLEAN",
+        submitted: submittedBy(end) && !submittedBy(start),
+        approved,
+        uninspected: submittedBy(end) && !approved && !rejected,
         statusNow: t.status,
       };
     })
@@ -121,7 +140,9 @@ export async function getHkDayReport(day: Date): Promise<HkDayReport> {
       c.byReason[r.reason]++;
       c.total++;
       if (r.carried) c.carried++;
-      if (r.cleaned) c.cleaned++;
+      if (r.submitted) c.submitted++;
+      if (r.uninspected) c.uninspected++;
+      if (r.approved) c.approved++;
       else c.pending++;
     }
   }
@@ -129,6 +150,7 @@ export async function getHkDayReport(day: Date): Promise<HkDayReport> {
   return {
     dateKey: dateKey(day),
     reasons,
+    reasonActions: actions,
     people: [...people.values()].sort((a, b) => (!a.key ? 1 : !b.key ? -1 : a.name.localeCompare(b.name))),
     totals,
     rooms,

@@ -6,7 +6,7 @@
 
 import { BedDouble, Brush, DoorOpen, Sparkles, Star, Wrench, type LucideIcon } from "lucide-react";
 
-export const REASON_COLORS = ["blue", "violet", "emerald", "amber", "rose", "teal", "slate"] as const;
+export const REASON_COLORS = ["blue", "violet", "pink", "emerald", "amber", "rose", "teal", "slate"] as const;
 export type ReasonColor = (typeof REASON_COLORS)[number];
 
 export const REASON_ICONS = ["door", "bed", "sparkles", "brush", "star", "wrench"] as const;
@@ -18,6 +18,7 @@ export const REASON_COLOR_CLASSES: Record<ReasonColor, {
 }> = {
   blue:    { label: "Blue",   tile: "bg-blue-100 text-blue-700",       chip: "bg-blue-600 text-white",    edge: "border-l-blue-500",    swatch: "bg-blue-500" },
   violet:  { label: "Purple", tile: "bg-violet-100 text-violet-700",   chip: "bg-violet-600 text-white",  edge: "border-l-violet-500",  swatch: "bg-violet-500" },
+  pink:    { label: "Pink",   tile: "bg-pink-100 text-pink-700",       chip: "bg-pink-600 text-white",    edge: "border-l-pink-500",    swatch: "bg-pink-500" },
   emerald: { label: "Green",  tile: "bg-emerald-100 text-emerald-700", chip: "bg-emerald-600 text-white", edge: "border-l-emerald-500", swatch: "bg-emerald-500" },
   amber:   { label: "Orange", tile: "bg-amber-100 text-amber-700",     chip: "bg-amber-500 text-white",   edge: "border-l-amber-500",   swatch: "bg-amber-500" },
   rose:    { label: "Red",    tile: "bg-rose-100 text-rose-700",       chip: "bg-rose-600 text-white",    edge: "border-l-rose-500",    swatch: "bg-rose-500" },
@@ -49,6 +50,8 @@ export const prettyReason = (label: string) => label.replace(/_/g, " ").replace(
 
 function guessFromLabel(label: string): { color: ReasonColor; icon: ReasonIcon } | null {
   const l = label.toLowerCase();
+  // Light stay-over service (towels / trash only) vs a full stay-over clean.
+  if (/towel|trash/.test(l)) return { color: "pink", icon: "brush" };
   if (/stay/.test(l)) return { color: "violet", icon: "bed" };
   if (/check|departure/.test(l)) return { color: "blue", icon: "door" };
   if (/deep/.test(l)) return { color: "teal", icon: "sparkles" };

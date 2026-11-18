@@ -3,6 +3,7 @@ import { requirePermission } from "@/lib/session";
 import { motelTodayUTC, formatBusinessDate, MOTEL_TIME_ZONE } from "@/lib/business-date";
 import { parseDateKey } from "@/lib/workflow-lock";
 import { getHkDayReport, type HkDayCounts } from "@/lib/hk-day-report";
+import { reasonStyleLookup } from "@/lib/hk-reason-style";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -41,20 +42,27 @@ export async function GET(req: Request) {
 
   // --- Summary --------------------------------------------------------------
   const sum = wb.addWorksheet("Summary");
-  const cols = ["Housekeeper", ...report.reasons.map((r) => r.replace(/_/g, " ")), "Carried over", "Total", "Cleaned", "Pending"];
+  const cols = ["Housekeeper", ...report.reasons.map((r) => r.replace(/_/g, " ")), "Carried over", "Total", "Cleaned", "Not inspected", "Approved", "Pending"];
   sum.columns = cols.map((_, i) => ({ width: i === 0 ? 24 : 16 }));
   sum.addRow([`Divya Motel — Housekeeping day report · ${formatBusinessDate(day)}`]).font = { bold: true, size: 13 };
   sum.addRow([`Generated ${when(new Date().toISOString())} (motel time)`]);
   sum.addRow([]);
+  // Headline numbers (same as the tiles on the board / report page).
+  const styleOf = reasonStyleLookup(report.reasonActions);
+  for (const r of report.reasons) sum.addRow([styleOf(r)!.name, report.totals.byReason[r] ?? 0]);
+  sum.addRow(["Rooms cleaned", report.totals.submitted]);
+  sum.addRow(["Cleaned, not inspected", report.totals.uninspected]);
+  sum.addRow([]);
   header(sum, cols);
   const line = (name: string, c: HkDayCounts) => [
-    name, ...report.reasons.map((r) => c.byReason[r] ?? 0), c.carried, c.total, c.cleaned, c.pending,
+    name, ...report.reasons.map((r) => c.byReason[r] ?? 0), c.carried, c.total, c.submitted, c.uninspected, c.approved, c.pending,
   ];
   for (const p of report.people) sum.addRow(line(p.name, p));
   sum.addRow(line("Total", report.totals)).font = { bold: true };
   sum.addRow([]);
-  sum.addRow(["Rooms checked out this day plus rooms carried over (checked out earlier, not cleaned when the day began)."]);
-  sum.addRow(["Cleaned = approved by an inspector before the day ended."]);
+  sum.addRow(["Rooms checked out this day plus rooms carried over (checked out earlier, not approved when the day began)."]);
+  sum.addRow(["Cleaned = housekeeper finished it this day. Not inspected = cleaned but not yet approved or sent back."]);
+  sum.addRow(["Approved = inspector approved it before the day ended. Pending = not approved by the end of the day."]);
 
   // --- Rooms ----------------------------------------------------------------
   const rooms = wb.addWorksheet("Rooms");
@@ -70,10 +78,10 @@ export async function GET(req: Request) {
       r.roomNumber, r.reason.replace(/_/g, " "), r.housekeeper ?? "Unassigned", r.carried ? "Yes" : "",
       when(r.checkedOutAt), when(r.assignedAt), when(r.startedAt),
       when(r.submittedAt), r.submittedBy ?? "", when(r.reviewedAt), r.reviewedBy ?? "",
-      r.cleaned ? "Cleaned" : "Not cleaned", r.sentBack ? "Yes" : "",
+      r.approved ? "Approved" : r.uninspected ? "Cleaned, not inspected" : "Not cleaned", r.sentBack ? "Yes" : "",
     ]);
     row.getCell(12).fill = {
-      type: "pattern", pattern: "solid", fgColor: { argb: r.cleaned ? "FFD1FAE5" : "FFFEE2E2" },
+      type: "pattern", pattern: "solid", fgColor: { argb: r.approved ? "FFD1FAE5" : r.uninspected ? "FFFEF3C7" : "FFFEE2E2" },
     };
   }
 

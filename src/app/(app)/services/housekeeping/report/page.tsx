@@ -6,7 +6,7 @@ import { motelTodayUTC, formatBusinessDate, MOTEL_TIME_ZONE } from "@/lib/busine
 import { addDays, dateKey, parseDateKey } from "@/lib/workflow-lock";
 import { getHkDayReport, type HkDayRoom } from "@/lib/hk-day-report";
 import { HK_STATUS_META, isHkStatus } from "@/lib/housekeeping";
-import { HkDaySummary } from "@/components/housekeeping/HkDaySummary";
+import { HkDaySummary, HkDayTiles } from "@/components/housekeeping/HkDaySummary";
 
 export const dynamic = "force-dynamic";
 
@@ -45,9 +45,16 @@ export default async function HousekeepingDayReportPage({ searchParams }: { sear
     rooms = rooms.filter((r) => r.carried);
     filters.push({ label: "Carried over", drop: "carried" });
   }
-  if (q.state === "cleaned" || q.state === "pending") {
-    rooms = rooms.filter((r) => r.cleaned === (q.state === "cleaned"));
-    filters.push({ label: q.state === "cleaned" ? "Cleaned" : "Pending", drop: "state" });
+  const STATE_FILTERS: Record<string, { label: string; keep: (r: HkDayRoom) => boolean }> = {
+    submitted: { label: "Cleaned", keep: (r) => r.submitted },
+    uninspected: { label: "Cleaned, not inspected", keep: (r) => r.uninspected },
+    approved: { label: "Approved", keep: (r) => r.approved },
+    pending: { label: "Pending", keep: (r) => !r.approved },
+  };
+  const stateFilter = q.state ? STATE_FILTERS[q.state] : undefined;
+  if (stateFilter) {
+    rooms = rooms.filter(stateFilter.keep);
+    filters.push({ label: stateFilter.label, drop: "state" });
   }
   const without = (drop: keyof Search) => {
     const p = new URLSearchParams();
@@ -97,11 +104,16 @@ export default async function HousekeepingDayReportPage({ searchParams }: { sear
       </div>
 
       <section className="card overflow-hidden">
+        <HkDayTiles report={report} />
+      </section>
+
+      <section className="card overflow-hidden">
         <h2 className="border-b border-slate-100 px-4 py-3 font-bold text-slate-900">Summary by housekeeper</h2>
         <HkDaySummary report={report} />
         <p className="border-t border-slate-100 px-4 py-2 text-xs text-slate-500">
-          Rooms checked out this day plus rooms <span className="font-semibold text-amber-700">carried over</span> (checked out earlier, not yet cleaned when the day began).
-          Cleaned = approved by an inspector before the day ended. Tap a number to list those rooms.
+          Rooms checked out this day plus rooms <span className="font-semibold text-amber-700">carried over</span> (checked out earlier, not approved when the day began).
+          Cleaned = housekeeper finished it this day · Not inspected = cleaned but not yet approved or sent back ·
+          Approved = inspector approved it before the day ended. Tap a number to list those rooms.
         </p>
       </section>
 
@@ -171,8 +183,11 @@ export default async function HousekeepingDayReportPage({ searchParams }: { sear
 }
 
 function ResultChip({ room, isToday }: { room: HkDayRoom; isToday: boolean }) {
-  if (room.cleaned) {
-    return <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">Cleaned</span>;
+  if (room.approved) {
+    return <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">Approved</span>;
+  }
+  if (room.uninspected) {
+    return <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">Cleaned, not inspected</span>;
   }
   // Pending at the end of the day; for today, its live status.
   const meta = isToday && isHkStatus(room.statusNow) ? HK_STATUS_META[room.statusNow] : null;

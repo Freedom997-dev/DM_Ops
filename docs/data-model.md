@@ -231,7 +231,7 @@ are **unused** since 2026-10-02 (media is kept until deleted).
 
 ### HousekeepingStatusAction
 Check-out panel options: `label`, `order`, `archived`. At least one must remain active.
-`shortLabel?`, `color?` (blue | violet | emerald | amber | rose | teal | slate) and
+`shortLabel?`, `color?` (blue | violet | pink | emerald | amber | rose | teal | slate) and
 `icon?` (door | bed | sparkles | brush | star | wrench) set how tasks with that
 reason look on the board; null = automatic (see `src/lib/hk-reason-style.ts`).
 Tasks keep the reason as text (`HousekeepingTask.requestReason`) and are matched

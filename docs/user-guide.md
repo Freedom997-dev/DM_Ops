@@ -70,9 +70,14 @@ page, which does the same in one tap.
   🚪 **blue door = Checkout** (guest has left), 🛏 **purple bed = Stayover** (guest
   is still staying). Admins can change the colours and names in Housekeeping
   Settings → Check-out (tap ✏️ next to a status).
-- **Admins:** **Today's summary** at the top of the board shows, per housekeeper,
-  how many rooms are Check Out Clean / Stay Over (and other reasons), carried over
-  from earlier days, cleaned and still pending. Tap any number to see those rooms.
+- **Admins:** **Today's summary** at the top of the board starts with big number
+  tiles: rooms per reason (e.g. **Check Out – full clean**, **Stay-Over –
+  towels/trash**, **Stay-Over – full service**), **Rooms cleaned** and **Cleaned,
+  not inspected**. Below them, the table shows the same per housekeeper, plus rooms
+  carried over from earlier days, approved and still pending. Tap any tile or
+  number to see those rooms. *(The reason tiles follow the status actions in
+  Housekeeping Settings → Check-out — add "Stay Over – Towels/Trash" and
+  "Stay Over – Full Service" there to count them separately.)*
   **Day report & other dates** opens the full report for any date — every room
   with when it was assigned, cleaned and inspected, and by whom — and **Excel**
   downloads it.

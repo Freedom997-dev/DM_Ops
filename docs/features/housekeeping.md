@@ -117,7 +117,8 @@ optional short name (Settings → Check-out → ✏️), so housekeepers can tel
 Checkout from Stayover at a glance. On every room card the big icon square, a bold
 badge and a thick left edge use the reason's colour; the top bar still shows the
 status. The check-out panel's buttons use the same look. Unset = automatic:
-label containing "stay" → purple bed, "check"/"departure" → blue door, "deep" →
+label containing "towel"/"trash" → pink brush (light stay-over service), "stay"
+→ purple bed, "check"/"departure" → blue door, "deep" →
 teal sparkles, otherwise teal → red → green → grey in turn (orange is never picked
 automatically — it reads like the orange *Ready to Clean* status). Tasks are
 matched to their action by label (case/underscore-insensitive), archived actions
@@ -189,26 +190,37 @@ sees "This room just changed — refresh and try again." (F9).
 
 One loader, `getHkDayReport(day)` (`src/lib/hk-day-report.ts`), feeds three views:
 
-- **Today's summary** — collapsible card above the board (Admin and above). Rows
-  = housekeepers (A–Z) + Unassigned + Total; columns = one per check-out reason
-  used that day (status actions in settings order, then older/renamed reasons,
-  then "Other" for none), **Carried over**, **Total**, **Cleaned**, **Pending**.
-  Refreshes with the board's 12 s polling. Every number links to the day report
-  filtered to those rooms.
+- **Today's summary** — collapsible card above the board (Admin and above).
+  - **Headline tiles** (`HkDayTiles`): one per check-out reason (active status
+    actions in settings order, plus any other reason used that day — e.g.
+    *Check Out Clean*, *Stay Over – Towels/Trash*, *Stay Over – Full Service*) in
+    the reason's colour/icon, then **Rooms cleaned** and **Cleaned, not inspected**.
+  - **Table**: rows = housekeepers (A–Z) + Unassigned + Total; columns = one per
+    reason used that day (status actions in settings order, then older/renamed
+    reasons, then "Other" for none), **Carried over**, **Total**, **Cleaned**,
+    **Not inspected**, **Approved**, **Pending**.
+  Refreshes with the board's 12 s polling. Every tile and number links to the
+  day report filtered to those rooms.
 - **Day report** — `/services/housekeeping/report?date=YYYY-MM-DD` (default and
-  maximum: today; ◀ / date picker). Same summary, then one row per room: reason,
-  housekeeper, checked out / assigned / started / submitted / inspected times
-  (motel time; date shown when not the report day), inspected by, result (Cleaned,
-  or Not cleaned / live status for today; "Sent back" flag). Filters from the
-  summary links: `hk` (user id or `none`), `reason`, `carried=1`,
-  `state=cleaned|pending`.
-- **Excel** — `GET /api/exports/housekeeping-day?date=` → Summary + Rooms sheets.
+  maximum: today; ◀ / date picker). Same tiles and table, then one row per room:
+  reason, housekeeper, checked out / assigned / started / submitted / inspected
+  times (motel time; date shown when not the report day), inspected by, result
+  (Approved, Cleaned not inspected, or Not cleaned / live status for today; "Sent
+  back" flag). Filters from the links: `hk` (user id or `none`), `reason`,
+  `carried=1`, `state=submitted|uninspected|approved|pending`.
+- **Excel** — `GET /api/exports/housekeeping-day?date=` → Summary (headline
+  numbers + per-housekeeper table) + Rooms sheets.
 
 Rules (room-cleaning tasks only; daily tasks aren't counted):
 - A day = the motel calendar day (America/New_York, `motelDayRange`).
 - The day's rooms = checked out that day **+ carried over** (checked out earlier
-  and not cleaned when the day began).
-- **Cleaned** = approved (Ready to Rent, `closedAt`) before the day ended;
+  and not approved when the day began).
+- **Cleaned** (*Rooms cleaned*) = the housekeeper submitted it for inspection
+  during the day. Only the latest submission is stored, so a room sent back and
+  re-submitted the next day counts on the later day.
+- **Not inspected** = submitted (by the day's end) but neither approved nor sent
+  back by the day's end — for today, rooms waiting right now.
+- **Approved** = approved (Ready to Rent, `closedAt`) before the day ended;
   everything else is **Pending**. "Inspected by" is the last reviewer.
 - Housekeeper = the **current** assignee (reassignments aren't kept as history).
 - Deleted tasks disappear from past reports.
@@ -294,6 +306,7 @@ zones, long-term photo archive, CSV export, resumable (TUS) uploads for very lar
 - **2026-10-09** · Notifications for assignment / inspection / send-back / approval; `?task=` deep link; Comments in the task drawer.
 - **2026-10-09** · Photo/video requirement is an admin setting (rooms / daily tasks); "No photos" label for inspectors.
 - **2026-10-31** · Board tabs **My tasks / All**; housekeepers open on My tasks; summary counts follow the tab.
+- **2026-11-18** · Day summary **headline tiles** (rooms per reason, Rooms cleaned, Cleaned not inspected) on the board and day report; table columns now Cleaned / Not inspected / Approved / Pending (the old "Cleaned" column meant approved).
 - **2026-11-18** · **Reason colours & icons** on room cards (Checkout blue door, Stayover purple bed…), editable per status action with a short name; new nullable columns `shortLabel`, `color`, `icon` on `HousekeepingStatusAction`.
 - **2026-11-12** · Media picker: **Library** option removed — photos/videos only from the camera.
 - **2026-11-12** · **Today's summary** on the board and an on-demand **day report** (any date, Excel) — per housekeeper by reason, carried over, cleaned, pending; new permission `housekeeping:reports:view` (Admin).

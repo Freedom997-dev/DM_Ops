@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { ArrowLeft, CalendarDays, Settings, Sparkles } from "lucide-react";
 import { motelTodayUTC, formatBusinessDate } from "@/lib/business-date";
 import { getHkDayReport } from "@/lib/hk-day-report";
-import { HkDaySummary } from "@/components/housekeeping/HkDaySummary";
+import { HkDaySummary, HkDayTiles } from "@/components/housekeeping/HkDaySummary";
 import { prisma } from "@/lib/db";
 import { requirePermission, can, isManager } from "@/lib/session";
 import { getSignedUrl } from "@/lib/storage";
@@ -195,7 +195,10 @@ export default async function HousekeepingPage({
               Day report &amp; other dates →
             </Link>
           </summary>
-          <HkDaySummary report={daySummary} compact />
+          <HkDayTiles report={daySummary} />
+          <div className="border-t border-slate-100">
+            <HkDaySummary report={daySummary} compact />
+          </div>
         </details>
       )}
 
